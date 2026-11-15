@@ -1,0 +1,35 @@
+schema_version: 1
+id: evil-entry
+category: doc
+title: '"><script>alert("title")</script> zzxssprobe'
+alt_titles: ['<svg onload=alert("alt")>']
+authors:
+- name: <b onmouseover=alert("author")>Bold</b>
+  reddit: 'x" onmouseover="alert(1)'
+  source: manual
+series: [evil-series, not-in-registry]
+characters: [evil-char]
+variant: <i>variant</i>
+tags: [feats]
+language: en
+completion: unknown
+parts:
+- title: <u>part</u>
+  source:
+    type: google-doc
+    url: javascript:alert('source')
+  capture:
+    status: complete
+    words: 3
+    files:
+    - {format: pdf, name: '"><x>.pdf', bytes: 10, sha256: 0000000000000000000000000000000000000000000000000000000000000000, url: 'javascript:alert(1)'}
+    text: {file: text.txt, method: manual}
+found_in:
+- library: old
+  section: <marquee>section</marquee>
+  link_text: <a href=javascript:alert(1)>link</a>
+links:
+- {type: other, url: 'https://example.com/"onmouseover="alert(1)', note: <em>note</em>}
+added: '2026-11-15'
+review: {status: auto, check: ['<h1>x</h1>']}
+notes: </p><script>alert('notes')</script>

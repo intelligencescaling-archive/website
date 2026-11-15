@@ -1,0 +1,82 @@
+---
+import '../styles/global.css';
+import { ARCHIVE_REPO_URL, SUBREDDIT_URL } from '../lib/config.mjs';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Which nav link is active. */
+  section?: 'home' | 'browse' | 'search' | 'series' | 'characters' | 'authors' | 'about';
+}
+const { title, description, section } = Astro.props;
+const siteName = 'Intelligence Scaling Archive';
+const fullTitle = title ? `${title} · ${siteName}` : siteName;
+const desc =
+  description ||
+  'A community archive of r/IntelligenceScaling (Smart Character Debates) docs, stories and tier lists, saved before the links die.';
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const nav = [
+  ['browse', '/browse/', 'Browse'],
+  ['search', '/search/', 'Search'],
+  ['series', '/series/', 'Series'],
+  ['characters', '/characters/', 'Characters'],
+  ['authors', '/authors/', 'Authors'],
+] as const;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={canonical.href} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={title || siteName} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:type" content="website" />
+    <meta name="color-scheme" content="light dark" />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap header-row">
+        <a class="brand" href="/" aria-current={section === 'home' ? 'page' : undefined}>
+          <span class="brand-mark" aria-hidden="true">IS</span>
+          <span class="brand-text">Intelligence Scaling <em>Archive</em></span>
+        </a>
+        <nav aria-label="Main">
+          <ul>
+            {nav.map(([key, href, label]) => (
+              <li><a href={href} aria-current={section === key ? 'page' : undefined}>{label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main" class="wrap">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-row">
+        <p>
+          A community archive for <a href={SUBREDDIT_URL} rel="noopener">r/IntelligenceScaling</a>.
+          Archived content © its authors, removed on request.
+        </p>
+        <ul class="footer-links">
+          <li><a href="/about/">About</a></li>
+          <li><a href="/acknowledgments/">Acknowledgments</a></li>
+          <li><a href="/removal/">Request removal</a></li>
+          <li><a href={ARCHIVE_REPO_URL} rel="noopener">Archive on GitHub</a></li>
+        </ul>
+      </div>
+    </footer>
+  </body>
+</html>

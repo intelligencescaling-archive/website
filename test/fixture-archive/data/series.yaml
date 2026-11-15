@@ -1,0 +1,4 @@
+# Test fixture: hostile metadata to check that the site escapes everything.
+- id: evil-series
+  name: <img src=x onerror=alert('series')>
+  aliases: ['"><script>alert("alias")</script>']

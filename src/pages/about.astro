@@ -1,0 +1,45 @@
+---
+import Base from '../layouts/Base.astro';
+import { ARCHIVE_REPO_URL, WEBSITE_REPO_URL, SUBREDDIT_URL } from '../lib/config.mjs';
+---
+<Base title="About" section="about" description="What the Intelligence Scaling Archive is and how it works.">
+  <div class="prose">
+    <h1>About the archive</h1>
+    <p class="lede">
+      The <a href={SUBREDDIT_URL} rel="noopener">r/IntelligenceScaling</a> (Smart Character Debates) community writes a
+      lot of high-effort work: character analyses hundreds of pages long, feat lists, debunks, original stories. Most of
+      it lives in Google Docs that can vanish at any time.
+    </p>
+
+    <h2>What's here</h2>
+    <ul>
+      <li><strong>Docs</strong>: analyses of characters, feats, series and matchups.</li>
+      <li><strong>Stories</strong>: fan fiction and original stories.</li>
+      <li><strong>Misc</strong> (coming later): tier lists, community boards and notable posts.</li>
+    </ul>
+    <p>
+      Each entry keeps its title, author (when known), series, characters, tags and its original links. A PDF and DOCX
+      copy of each doc is saved, and a plain-text copy makes the full text searchable.
+    </p>
+
+    <h2>How it's built</h2>
+    <p>
+      Everything is open. The <a href={ARCHIVE_REPO_URL} rel="noopener">archive repository</a> holds the metadata and
+      plain text of every entry, and the <a href={WEBSITE_REPO_URL} rel="noopener">website repository</a> builds this
+      site from it. The site is plain static files: no accounts, no tracking, no ads.
+    </p>
+
+    <h2>Adding something</h2>
+    <p>
+      Know a doc or story that should be here? A submission form is coming. Until then, open an issue on the
+      <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive repository</a> with the link.
+    </p>
+
+    <h2>Credit and removal</h2>
+    <p>
+      Everything archived here is © its author. Authors can <a href="/removal/">ask for removal or a credit change</a>
+      at any time. The people who built the community libraries this started from are thanked on the
+      <a href="/acknowledgments/">acknowledgments</a> page.
+    </p>
+  </div>
+</Base>

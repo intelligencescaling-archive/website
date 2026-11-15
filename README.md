@@ -4,10 +4,55 @@ The website for the **[Intelligence Scaling Archive](https://github.com/intellig
 It lets you browse and search the r/IntelligenceScaling community's analysis docs, original stories,
 and tier lists.
 
-> 🚧 **Work in progress.** Planned stack: [Astro](https://astro.build) static site,
-> [Pagefind](https://pagefind.app) search, hosted on Cloudflare Pages.
+> 🚧 **Work in progress.** Not launched yet.
 
-The site is built from the metadata in the archive repository. There is no server and no database.
+A static site: [Astro](https://astro.build) builds plain HTML from the archive's `meta.yaml` files, and
+[Pagefind](https://pagefind.app) builds a full-text search index at the same time. There is no server and
+no database. Hosting: Cloudflare Pages.
+
+## Build it locally
+
+Needs Node.js 22.23+ and a checkout of the archive repo next to this one (`../archive`).
+
+```sh
+npm ci
+npm run build      # site + search index into dist/ (about 30 seconds)
+npm run preview    # serves dist/ at http://localhost:4321
+```
+
+`npm run dev` works for editing pages, but search only works after a build.
+
+## Settings (environment variables)
+
+| Variable | Default | What it does |
+|---|---|---|
+| `ARCHIVE_DIR` | `../archive` | Path to a checkout of the archive repo. |
+| `FILES_URL_TEMPLATE` | empty | Where PDF/DOCX downloads live, e.g. `https://files.intelscaling.com/{sha256}.{format}`. Placeholders: `{sha256}`, `{format}`, `{id}`, `{name}`. Empty = download buttons show "coming soon". A `url` on a file in `meta.yaml` always wins. |
+| `ASTRO_TELEMETRY_DISABLED` | | Set to `1` to turn off Astro's anonymous usage data. |
+
+## Pages
+
+| Path | What |
+|---|---|
+| `/` | Home: search box, stats, top series and characters, stories |
+| `/browse/` | Every entry, filterable by category, series, character, author, tag, language (state in the URL) |
+| `/search/` | Pagefind full-text search over metadata + the plain text of every doc |
+| `/items/<id>/` | One entry: titles, authors, series, characters, tags, parts with capture status, downloads, library info |
+| `/series/`, `/characters/`, `/authors/`, `/tags/` | Index pages and one page per series/character/author/tag |
+| `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |
+
+## Security
+
+Archive metadata comes from public submissions, so it's treated as untrusted:
+
+- Pages only render metadata through Astro expressions, which escape HTML. Never use `set:html` with archive data.
+- Every link from metadata goes through `safeUrl()` (only `http`/`https`).
+- Pagefind's default UI inserts **filter labels** as raw HTML, so filter values are HTML-escaped when the index is built
+  (`src/integrations/search-index.mjs`).
+- A strict Content-Security-Policy (no inline scripts or styles) is set both in a `<meta>` tag and in `public/_headers`.
+- `npm run test:escaping` builds the site from `test/fixture-archive/` (one entry full of hostile metadata) and fails
+  if any of it shows up as live HTML.
+- Dependencies are few (`astro`, `pagefind`, `yaml`), pinned to exact versions, and installed with scripts off (`.npmrc`).
 
 ## License
 

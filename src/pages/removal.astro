@@ -1,0 +1,52 @@
+---
+import Base from '../layouts/Base.astro';
+import { ARCHIVE_REPO_URL, CONTACT_EMAIL } from '../lib/config.mjs';
+const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Removal request')}`;
+---
+<Base title="Request removal" section="about" description="Ask for your work to be removed from the archive or credited differently.">
+  <div class="prose">
+    <h1>Request removal</h1>
+    <p class="lede">
+      If you made something that's archived here and want it taken down, or want the credit changed, we'll do it.
+      No questions, no arguing.
+    </p>
+
+    <p class="notice" id="item-note" hidden>About: <a id="item-link" href="/"></a></p>
+
+    <h2>How</h2>
+    <ul>
+      <li>
+        Email <a id="mail" href={mailto}>{CONTACT_EMAIL}</a> with the link to the item on this site (or its title), and
+        say what you'd like: removal, a different name, or adding your name.
+      </li>
+      <li>Or open an issue on the <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive's GitHub</a>, if you'd rather do it in public.</li>
+    </ul>
+
+    <h2>What happens</h2>
+    <ul>
+      <li>We may ask you to show it's yours, for example by editing the original doc or sending a Reddit message from the account that posted it. This stops other people from removing your work.</li>
+      <li>Removed items are taken off the website and out of the downloads. They stay out of future copies too.</li>
+      <li>We don't need, and won't publish, your real name or any contact details.</li>
+    </ul>
+
+    <h2>Why things are archived without asking first</h2>
+    <p>
+      Most of these docs were shared publicly in the community, and many of their authors can't be reached anymore
+      (deleted accounts, unsigned docs). Saving them first and removing on request is the only way to keep them from
+      disappearing. Everything stays © its author.
+    </p>
+  </div>
+</Base>
+
+<script>
+  const id = new URLSearchParams(location.search).get('item');
+  if (id && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) && id.length <= 80) {
+    const link = document.getElementById('item-link') as HTMLAnchorElement;
+    link.href = `/items/${id}/`;
+    link.textContent = `/items/${id}/`;
+    document.getElementById('item-note')!.hidden = false;
+    const mail = document.getElementById('mail') as HTMLAnchorElement;
+    const body = `Item: https://intelscaling.com/items/${id}/\n\nWhat I'd like (remove / change credit):\n`;
+    mail.href = `${mail.href.split('?')[0]}?subject=${encodeURIComponent(`Removal request: ${id}`)}&body=${encodeURIComponent(body)}`;
+  }
+</script>

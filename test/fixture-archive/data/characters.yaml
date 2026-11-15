@@ -1,0 +1,3 @@
+- id: evil-char
+  name: </script><script>alert('char')</script>
+  series: evil-series

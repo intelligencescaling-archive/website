@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import { loadArchive } from '../lib/archive.mjs';
+const { entries } = loadArchive();
+---
+<Base title="Search" section="search" description="Full-text search across every archived doc and story: titles, authors, characters and the text itself.">
+  <link slot="head" rel="stylesheet" href="/pagefind/pagefind-ui.css" />
+  <h1>Search</h1>
+  <p class="lede">
+    Searches titles, authors, series, characters and the full text of {entries.length.toLocaleString('en-US')} entries.
+    Use the filters to narrow it down.
+  </p>
+  <div class="search-page">
+    <div id="search"></div>
+    <noscript><p class="notice">Search needs JavaScript. You can still <a href="/browse/">browse</a> by series, character or author.</p></noscript>
+    <p class="small muted search-hint" id="search-missing" hidden>
+      The search index isn't built in development mode. Run <code>npm run build</code> and <code>npm run preview</code>.
+    </p>
+  </div>
+  <script is:inline src="/pagefind/pagefind-ui.js"></script>
+</Base>
+
+<script>
+  import { initSearch } from '../scripts/search.js';
+  initSearch();
+</script>

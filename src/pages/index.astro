@@ -1,0 +1,76 @@
+---
+import Base from '../layouts/Base.astro';
+import EntryList from '../components/EntryList.astro';
+import { loadArchive, formatNumber } from '../lib/archive.mjs';
+import { SUBREDDIT_URL } from '../lib/config.mjs';
+
+const { entries, series, characters, authors } = loadArchive();
+const words = entries.reduce((n, e) => n + e.words, 0);
+const topSeries = [...series].sort((a, b) => b.entries.length - a.entries.length).slice(0, 24);
+const topChars = [...characters].sort((a, b) => b.entries.length - a.entries.length).slice(0, 18);
+const stories = entries.filter((e) => e.category === 'story');
+const unreviewed = entries.filter((e) => e.review.status === 'auto').length;
+---
+<Base section="home">
+  <section class="hero">
+    <p class="eyebrow">Smart Character Debates · community archive</p>
+    <h1>The docs, stories and tier lists of r/IntelligenceScaling, saved before the links die.</h1>
+    <p class="lede">
+      Google Docs get deleted, accounts disappear, and Reddit search forgets. This archive keeps a copy of the
+      community's work with credit to its authors, and makes it searchable.
+    </p>
+    <form class="search-form" action="/search/" method="get" role="search">
+      <label for="home-q" class="visually-hidden">Search the archive</label>
+      <input type="search" id="home-q" name="q" placeholder="Search a character, a doc, a word inside a doc…" />
+      <button type="submit">Search</button>
+    </form>
+    <p class="small muted">Or <a href="/browse/">browse and filter</a> everything.</p>
+    <ul class="stats">
+      <li><strong>{formatNumber(entries.length)}</strong><span>entries</span></li>
+      <li><strong>{formatNumber(series.length)}</strong><span>series</span></li>
+      <li><strong>{formatNumber(characters.length)}</strong><span>characters</span></li>
+      <li><strong>{formatNumber(authors.length)}</strong><span>known authors</span></li>
+      <li><strong>{(words / 1e6).toFixed(1)}M</strong><span>words of analysis</span></li>
+    </ul>
+  </section>
+
+  {unreviewed > 0 && (
+    <div class="notice small">
+      <p>
+        <strong>Work in progress.</strong> {formatNumber(unreviewed)} entries were filled in automatically from the
+        community libraries, so some authors, series or tags may be wrong or missing. Each item page has a link to suggest a fix.
+      </p>
+    </div>
+  )}
+
+  <div class="cols">
+    <div>
+      <h2>Series</h2>
+      <ul class="chips">
+        {topSeries.map((s) => <li><a class="chip" href={`/series/${s.id}/`}>{s.name} <span class="count">{s.entries.length}</span></a></li>)}
+      </ul>
+      <p class="small"><a href="/series/">All {series.length} series →</a></p>
+
+      <h2>Characters</h2>
+      <ul class="chips">
+        {topChars.map((c) => <li><a class="chip" href={`/characters/${c.id}/`}>{c.name} <span class="count">{c.entries.length}</span></a></li>)}
+      </ul>
+      <p class="small"><a href="/characters/">All {characters.length} characters →</a></p>
+    </div>
+    <div>
+      {stories.length > 0 && (
+        <>
+          <h2>Stories</h2>
+          <EntryList entries={stories} />
+          <p class="small"><a href="/browse/?category=story">All stories →</a></p>
+        </>
+      )}
+      <h2>About</h2>
+      <p>
+        A project for the <a href={SUBREDDIT_URL} rel="noopener">r/IntelligenceScaling</a> community. It builds on the
+        community libraries that kept track of these docs first: see the <a href="/acknowledgments/">acknowledgments</a>.
+      </p>
+      <p>Made something that's archived here? You can <a href="/removal/">ask for it to be removed</a> or credited differently.</p>
+    </div>
+  </div>
+</Base>

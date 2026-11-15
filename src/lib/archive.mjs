@@ -1,0 +1,349 @@
+// Reads the archive repo (meta.yaml files + registries) at build time and turns it into plain
+// objects for the pages and the search index. Read-only: never writes to the archive.
+//
+// Everything read here is untrusted text (anyone can submit an entry). Pages must render it with
+// normal Astro expressions (which escape HTML) and never with set:html. URLs go through safeUrl().
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { parse as parseYaml } from 'yaml';
+import { ARCHIVE_DIR, FILES_URL_TEMPLATE } from './config.mjs';
+
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SHA256 = /^[0-9a-f]{64}$/;
+const REDDIT_NAME = /^[A-Za-z0-9_-]{3,20}$/;
+
+export const LIBRARIES = {
+  old: {
+    name: 'The Ultimate Library of Docs',
+    short: 'Old library',
+    by: ['BudgetPosition6080'],
+    url: 'https://docs.google.com/document/d/1C1_fA6s6AReEVY_vBcit6HD06TA45lDDfu-BuaxMugA/edit',
+  },
+  remastered: {
+    name: 'The Ultimate SCD Library – Remastered',
+    short: 'Remastered library',
+    by: ['TheMcBaconX', 'BudgetPosition6080'],
+    url: 'https://docs.google.com/document/d/1Eo1uBktSrI7FBLsxpQGIMjyRr855jjJpIsKmzuiGFIE/edit',
+  },
+  stories: {
+    name: 'Library of original stories + fanfics',
+    short: 'Stories library',
+    by: ['ConversationSea1684'],
+    url: 'https://docs.google.com/document/d/1aVjRKfk2f5t7N0WNj4-jJA54enu4nOzyzOtxVgYQXwY/edit',
+  },
+};
+
+export const CATEGORY_NAMES = { doc: 'Doc', story: 'Story', misc: 'Misc' };
+export const CATEGORY_PLURAL = { doc: 'Docs', story: 'Stories', misc: 'Misc' };
+
+export const STATUS = {
+  complete: { label: 'Saved', tone: 'ok' },
+  partial: { label: 'Partly saved', tone: 'warn' },
+  'export-blocked': { label: 'Not saved yet: owner blocked downloads', tone: 'warn' },
+  dead: { label: 'Original deleted', tone: 'bad' },
+  private: { label: 'Original made private', tone: 'bad' },
+  'not-captured': { label: 'Not saved yet', tone: 'warn' },
+};
+
+const SOURCE_TYPES = {
+  'google-doc': 'Google Doc',
+  'google-doc-published': 'Google Doc (published page)',
+  'google-drive-file': 'Google Drive file',
+  'google-slides': 'Google Slides',
+  'reddit-post': 'Reddit post',
+  'web-page': 'Web page',
+  other: 'Link',
+};
+
+const LINK_TYPES = { 'reddit-post': 'Reddit post', wayback: 'Wayback Machine snapshot', discussion: 'Discussion', other: 'Link' };
+const FORMAT_NAMES = { pdf: 'PDF', docx: 'DOCX', html: 'HTML', pptx: 'PPTX', epub: 'EPUB', png: 'PNG', jpg: 'JPG', txt: 'TXT' };
+
+const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
+export function languageName(code) {
+  if (!code) return 'Unknown';
+  try {
+    return languageNames.of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+/** Returns the URL if it's a plain http(s) URL, otherwise null (blocks javascript:, data:, etc.). */
+export function safeUrl(value) {
+  if (typeof value !== 'string' || !/^https?:\/\//i.test(value)) return null;
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+export function slugify(text) {
+  const slug = String(text)
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+  return slug || 'a-' + createHash('sha256').update(String(text)).digest('hex').slice(0, 8);
+}
+
+export function formatBytes(n) {
+  if (!Number.isFinite(n)) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+export function formatNumber(n) {
+  return Number.isFinite(n) ? n.toLocaleString('en-US') : '';
+}
+
+const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+const arr = (v) => (Array.isArray(v) ? v : []);
+const byName = (a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+
+function readYaml(file) {
+  return parseYaml(fs.readFileSync(file, 'utf8'), { maxAliasCount: 50 });
+}
+
+function fileHref(entryId, file) {
+  const own = safeUrl(file.url);
+  if (own) return own;
+  if (!FILES_URL_TEMPLATE || !SHA256.test(file.sha256)) return null;
+  const url = FILES_URL_TEMPLATE.replace(/\{(sha256|format|id|name)\}/g, (_, key) =>
+    encodeURIComponent(key === 'sha256' ? file.sha256 : key === 'format' ? file.format : key === 'id' ? entryId : file.name),
+  );
+  return safeUrl(url);
+}
+
+function findMetaFiles(root) {
+  const out = [];
+  const walk = (dir, depth) => {
+    if (depth > 3 || !fs.existsSync(dir)) return;
+    for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!d.isDirectory() || d.name.startsWith('.')) continue;
+      const sub = path.join(dir, d.name);
+      const meta = path.join(sub, 'meta.yaml');
+      if (fs.existsSync(meta)) out.push(meta);
+      else walk(sub, depth + 1);
+    }
+  };
+  for (const top of ['docs', 'stories', 'misc']) walk(path.join(root, top), 0);
+  return out;
+}
+
+function normalizeEntry(raw, metaFile, reg) {
+  const where = path.relative(ARCHIVE_DIR, metaFile).replaceAll('\\', '/');
+  if (!raw || typeof raw !== 'object') throw new Error(`${where}: not a YAML mapping`);
+  const id = str(raw.id);
+  if (!SLUG.test(id)) throw new Error(`${where}: bad id "${id}"`);
+  if (path.basename(path.dirname(metaFile)) !== id) throw new Error(`${where}: id does not match folder name`);
+  if (!str(raw.title).trim()) throw new Error(`${where}: missing title`);
+  if (!arr(raw.parts).length) throw new Error(`${where}: no parts`);
+  const category = CATEGORY_NAMES[raw.category] ? raw.category : 'doc';
+
+  const authors = arr(raw.authors)
+    .filter((a) => a && str(a.name).trim())
+    .map((a) => {
+      const reddit = REDDIT_NAME.test(str(a.reddit)) ? a.reddit : null;
+      return { name: str(a.name).trim(), reddit, source: str(a.source), key: slugify(reddit || a.name) };
+    });
+
+  const series = arr(raw.series).map((sid) => {
+    const s = reg.series.get(sid);
+    if (!s) reg.warnings.push(`${where}: unknown series "${sid}"`);
+    return { id: str(sid), name: s ? s.name : str(sid), known: !!s };
+  });
+  const characters = arr(raw.characters).map((cid) => {
+    const c = reg.characters.get(cid);
+    if (!c) reg.warnings.push(`${where}: unknown character "${cid}"`);
+    return { id: str(cid), name: c ? c.name : str(cid), known: !!c };
+  });
+
+  const dir = path.dirname(metaFile);
+  const parts = arr(raw.parts).map((p, i) => {
+    const source = p?.source || {};
+    const capture = p?.capture || {};
+    const status = STATUS[capture.status] ? capture.status : 'not-captured';
+    const textFile = /^text(?:-\d+)?\.txt$/.test(str(capture.text?.file)) ? capture.text.file : null;
+    const files = arr(capture.files)
+      .filter((f) => f && FORMAT_NAMES[f.format])
+      .map((f) => ({
+        format: f.format,
+        formatName: FORMAT_NAMES[f.format],
+        name: str(f.name),
+        bytes: Number(f.bytes) || 0,
+        sha256: SHA256.test(str(f.sha256)) ? f.sha256 : '',
+        href: fileHref(id, f),
+      }));
+    return {
+      n: i + 1,
+      title: str(p?.title),
+      sourceType: str(source.type),
+      sourceLabel: SOURCE_TYPES[source.type] || 'Link',
+      url: safeUrl(source.url),
+      status,
+      statusLabel: STATUS[status].label,
+      tone: STATUS[status].tone,
+      date: str(capture.date),
+      pages: Number.isInteger(capture.pages) ? capture.pages : null,
+      words: Number.isInteger(capture.words) ? capture.words : null,
+      files,
+      textPath: textFile && fs.existsSync(path.join(dir, textFile)) ? path.join(dir, textFile) : null,
+      textFile,
+      missing: Object.entries(capture.missing && typeof capture.missing === 'object' ? capture.missing : {}).map(
+        ([k, v]) => [FORMAT_NAMES[k] || str(k), str(v)],
+      ),
+    };
+  });
+
+  const links = arr(raw.links)
+    .map((l) => ({ type: str(l?.type), label: LINK_TYPES[l?.type] || 'Link', url: safeUrl(l?.url), note: str(l?.note) }))
+    .filter((l) => l.url);
+
+  const foundIn = arr(raw.found_in)
+    .filter((f) => f && LIBRARIES[f.library])
+    .map((f) => ({
+      library: f.library,
+      libraryName: LIBRARIES[f.library].name,
+      libraryUrl: LIBRARIES[f.library].url,
+      section: str(f.section).replace(/:\s*$/, ''),
+      character: str(f.character),
+      linkText: str(f.link_text),
+      note: str(f.note),
+    }));
+
+  const sum = (key) => parts.reduce((n, p) => n + (p[key] || 0), 0);
+  const redditPost = links.find((l) => l.type === 'reddit-post');
+
+  return {
+    id,
+    category,
+    categoryName: CATEGORY_NAMES[category],
+    title: str(raw.title).trim(),
+    altTitles: arr(raw.alt_titles).map(str).filter((t) => t && t !== raw.title),
+    authors,
+    series,
+    characters,
+    variant: str(raw.variant),
+    tags: arr(raw.tags).map(str).filter((t) => SLUG.test(t)),
+    language: /^[a-z]{2}$/.test(str(raw.language)) ? raw.language : null,
+    languageName: languageName(raw.language),
+    completion: ['finished', 'in-progress'].includes(raw.completion) ? raw.completion : 'unknown',
+    parts,
+    words: sum('words'),
+    pages: sum('pages'),
+    status: parts.every((p) => p.status === 'complete') ? 'complete' : parts[0].status,
+    foundIn,
+    links,
+    originalUrl: redditPost?.url || parts.find((p) => p.url)?.url || null,
+    added: str(raw.added),
+    review: { status: raw.review?.status === 'reviewed' ? 'reviewed' : 'auto', check: arr(raw.review?.check).map(str) },
+    notes: str(raw.notes),
+    repoPath: path.relative(ARCHIVE_DIR, dir).replaceAll('\\', '/'),
+  };
+}
+
+let cache = null;
+
+/** Loads everything once per build. */
+export function loadArchive() {
+  if (cache) return cache;
+  if (!fs.existsSync(path.join(ARCHIVE_DIR, 'data', 'series.yaml'))) {
+    throw new Error(`Archive not found at ${ARCHIVE_DIR}. Set ARCHIVE_DIR to a checkout of the archive repo.`);
+  }
+  const reg = { series: new Map(), characters: new Map(), warnings: [] };
+  for (const s of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'series.yaml')))) {
+    if (s && SLUG.test(str(s.id))) reg.series.set(s.id, { id: s.id, name: str(s.name) || s.id, aliases: arr(s.aliases).map(str) });
+  }
+  for (const c of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'characters.yaml')))) {
+    if (c && SLUG.test(str(c.id)))
+      reg.characters.set(c.id, { id: c.id, name: str(c.name) || c.id, seriesId: c.series ? str(c.series) : null, aliases: arr(c.aliases).map(str) });
+  }
+
+  const entries = [];
+  const seen = new Map();
+  for (const file of findMetaFiles(ARCHIVE_DIR)) {
+    const e = normalizeEntry(readYaml(file), file, reg);
+    if (seen.has(e.id)) throw new Error(`Duplicate id "${e.id}" in ${e.repoPath} and ${seen.get(e.id)}`);
+    seen.set(e.id, e.repoPath);
+    entries.push(e);
+  }
+  entries.sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base', numeric: true }));
+  const byId = new Map(entries.map((e) => [e.id, e]));
+
+  const group = (keyFn, makeFn) => {
+    const m = new Map();
+    for (const e of entries) {
+      for (const [key, seed] of keyFn(e)) {
+        if (!m.has(key)) m.set(key, { ...makeFn(key, seed), entries: [] });
+        const g = m.get(key);
+        if (g.entries.at(-1) !== e) g.entries.push(e);
+      }
+    }
+    return [...m.values()].sort(byName);
+  };
+
+  const series = group(
+    (e) => e.series.map((s) => [s.id, s]),
+    (id, s) => ({ id, name: s.name, aliases: reg.series.get(id)?.aliases || [] }),
+  );
+  const characters = group(
+    (e) => e.characters.map((c) => [c.id, c]),
+    (id, c) => {
+      const r = reg.characters.get(id);
+      const sid = r?.seriesId || null;
+      return { id, name: c.name, aliases: r?.aliases || [], seriesId: sid, seriesName: sid ? reg.series.get(sid)?.name || sid : null };
+    },
+  );
+  const authors = group(
+    (e) => e.authors.map((a) => [a.key, a]),
+    (key, a) => ({ key, name: a.name, reddit: a.reddit }),
+  );
+  for (const a of authors) a.reddit ||= a.entries.flatMap((e) => e.authors).find((x) => x.key === a.key && x.reddit)?.reddit || null;
+  const tags = group(
+    (e) => e.tags.map((t) => [t, t]),
+    (id) => ({ id, name: id }),
+  );
+  const languages = group(
+    (e) => [[e.language || 'unknown', e.language]],
+    (code, lang) => ({ id: code, name: languageName(lang) }),
+  );
+
+  cache = { entries, byId, series, characters, authors, tags, languages, warnings: reg.warnings };
+  return cache;
+}
+
+/** Plain text of all parts, joined. Read on demand (46 MB in total, so it isn't kept in memory). */
+export function entryText(entry) {
+  return entry.parts
+    .filter((p) => p.textPath)
+    .map((p) => fs.readFileSync(p.textPath, 'utf8'))
+    .join('\n\n');
+}
+
+/** First ~N words of the text, cut on a word boundary. */
+export function textPreview(entry, maxChars = 1200) {
+  const p = entry.parts.find((x) => x.textPath);
+  if (!p) return '';
+  const fd = fs.openSync(p.textPath, 'r');
+  try {
+    const buf = Buffer.alloc(maxChars * 4);
+    const n = fs.readSync(fd, buf, 0, buf.length, 0);
+    let text = buf.subarray(0, n).toString('utf8').replace(/^﻿/, '').replace(/�+$/, '');
+    text = text.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (text.length > maxChars) text = text.slice(0, maxChars).replace(/\s+\S*$/, '') + ' …';
+    return text;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+export function authorLabel(entry) {
+  return entry.authors.length ? entry.authors.map((a) => a.name).join(', ') : 'Unknown author';
+}

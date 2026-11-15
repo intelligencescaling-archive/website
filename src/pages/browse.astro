@@ -1,0 +1,76 @@
+---
+import Base from '../layouts/Base.astro';
+import EntryList from '../components/EntryList.astro';
+import { loadArchive, CATEGORY_PLURAL } from '../lib/archive.mjs';
+
+const { entries, series, characters, authors, tags, languages } = loadArchive();
+const cats = Object.keys(CATEGORY_PLURAL).filter((c) => entries.some((e) => e.category === c));
+const facets = [
+  { key: 'cat', param: 'category', label: 'Category', options: cats.map((c) => ({ v: c, n: CATEGORY_PLURAL[c as keyof typeof CATEGORY_PLURAL] })) },
+  {
+    key: 'series', param: 'series', label: 'Series',
+    options: [...series.map((s) => ({ v: s.id, n: s.name })), { v: '_none', n: '(No series)' }],
+  },
+  { key: 'chars', param: 'character', label: 'Character', options: characters.map((c) => ({ v: c.id, n: c.name })) },
+  {
+    key: 'authors', param: 'author', label: 'Author',
+    options: [{ v: '_unknown', n: 'Unknown author' }, ...authors.map((a) => ({ v: a.key, n: a.name }))],
+  },
+  { key: 'tags', param: 'tag', label: 'Tag', options: tags.map((t) => ({ v: t.id, n: t.name })) },
+  { key: 'lang', param: 'language', label: 'Language', options: languages.map((l) => ({ v: l.id, n: l.name })) },
+];
+---
+<Base title="Browse" section="browse" description="Browse and filter every archived doc and story by series, character, author, tag and language.">
+  <h1>Browse the archive</h1>
+  <p class="lede">
+    Filter {entries.length.toLocaleString('en-US')} entries by series, character, author and more.
+    To search inside the documents themselves, use <a href="/search/">full-text search</a>.
+  </p>
+
+  <div class="browse">
+    <form class="filters" id="filters" role="search" aria-label="Filter entries" hidden>
+      <div class="filters-head">
+        <h2>Filters</h2>
+        <button type="reset" class="linklike" id="reset">Clear all</button>
+      </div>
+      <div>
+        <label for="f-q">Title or author contains</label>
+        <input type="search" id="f-q" name="q" autocomplete="off" />
+      </div>
+      {facets.map((f) => (
+        <div>
+          <label for={`f-${f.key}`}>{f.label}</label>
+          <select id={`f-${f.key}`} name={f.param} data-facet={f.key}>
+            <option value="" data-label="Any">Any</option>
+            {f.options.map((o) => <option value={o.v} data-label={o.n}>{o.n}</option>)}
+          </select>
+        </div>
+      ))}
+    </form>
+
+    <div>
+      <div class="results-bar">
+        <p class="results-count tight" id="count" aria-live="polite">{entries.length.toLocaleString('en-US')} entries</p>
+        <div id="sort-wrap" hidden>
+          <label for="sort" class="visually-hidden">Sort by</label>
+          <select id="sort" name="sort" form="filters">
+            <option value="title">Title A–Z</option>
+            <option value="long">Longest first</option>
+            <option value="short">Shortest first</option>
+          </select>
+        </div>
+      </div>
+      <noscript>
+        <p class="notice small">Filters need JavaScript. You can still browse by <a href="/series/">series</a>,
+          <a href="/characters/">character</a> or <a href="/authors/">author</a>.</p>
+      </noscript>
+      <EntryList entries={entries} filterable id="list" />
+      <p class="empty" id="empty" hidden>No entries match these filters.</p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { initBrowse } from '../scripts/browse.js';
+  initBrowse();
+</script>

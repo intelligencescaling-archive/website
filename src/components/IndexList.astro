@@ -1,0 +1,52 @@
+---
+// A long alphabetical list (series, characters, authors) with a type-to-filter box.
+interface Item {
+  href: string;
+  name: string;
+  count: number;
+  sub?: string | null;
+  /** Extra words the filter box should match (aliases, usernames). */
+  match?: string[];
+}
+interface Props {
+  items: Item[];
+  noun: string;
+}
+const { items, noun } = Astro.props;
+---
+<div class="index-filter" data-index-filter hidden>
+  <label for="index-q">Filter {noun}</label>
+  <input type="search" id="index-q" autocomplete="off" />
+</div>
+<ul class="index-list" data-index-list>
+  {items.map((it) => (
+    <li data-name={[it.name, it.sub || '', ...(it.match || [])].join(' | ').toLowerCase()}>
+      <span>
+        <a href={it.href}>{it.name}</a>
+        {it.sub && <span class="sub">{it.sub}</span>}
+      </span>
+      <span class="count">{it.count}</span>
+    </li>
+  ))}
+</ul>
+<p class="empty" data-index-empty hidden>Nothing matches.</p>
+
+<script>
+  const box = document.querySelector<HTMLElement>('[data-index-filter]');
+  const input = document.getElementById('index-q') as HTMLInputElement | null;
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-index-list] > li')];
+  const empty = document.querySelector<HTMLElement>('[data-index-empty]');
+  if (box && input && empty) {
+    box.hidden = false;
+    input.addEventListener('input', () => {
+      const terms = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      let shown = 0;
+      for (const r of rows) {
+        const name = r.dataset.name || '';
+        r.hidden = !terms.every((t) => name.includes(t));
+        if (!r.hidden) shown++;
+      }
+      empty.hidden = shown > 0;
+    });
+  }
+</script>

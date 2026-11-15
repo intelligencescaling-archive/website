@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadArchive } from '../../lib/archive.mjs';
+const { tags } = loadArchive();
+const sorted = [...tags].sort((a, b) => b.entries.length - a.entries.length);
+---
+<Base title="Tags" description="Archive entries grouped by tag: feats, analysis, strategy, debunks and more.">
+  <h1>Tags</h1>
+  <p class="lede">What kind of content an entry is. Tags are filled in from the community libraries and still being reviewed.</p>
+  <ul class="chips">
+    {sorted.map((t) => <li><a class="chip" href={`/tags/${t.id}/`}>{t.name} <span class="count">{t.entries.length}</span></a></li>)}
+  </ul>
+</Base>

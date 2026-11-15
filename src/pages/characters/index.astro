@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import IndexList from '../../components/IndexList.astro';
+import { loadArchive } from '../../lib/archive.mjs';
+const { characters } = loadArchive();
+---
+<Base title="Characters" section="characters" description="Every character with archived docs.">
+  <h1>Characters</h1>
+  <p class="lede">{characters.length} characters.</p>
+  <IndexList
+    noun="characters"
+    items={characters.map((c) => ({ href: `/characters/${c.id}/`, name: c.name, count: c.entries.length, sub: c.seriesName, match: c.aliases }))}
+  />
+</Base>

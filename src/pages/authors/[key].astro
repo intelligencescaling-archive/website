@@ -1,0 +1,23 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntryList from '../../components/EntryList.astro';
+import { loadArchive } from '../../lib/archive.mjs';
+
+export function getStaticPaths() {
+  return loadArchive().authors.map((a) => ({ params: { key: a.key }, props: { a } }));
+}
+const { a } = Astro.props as { a: any };
+const names = [...new Set(a.entries.flatMap((e: any) => e.authors).filter((x: any) => x.key === a.key).map((x: any) => x.name))].filter(
+  (n) => n !== a.name,
+);
+---
+<Base title={a.name} section="authors" description={`${a.entries.length} archived works by ${a.name}.`}>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/authors/">Authors</a></nav>
+  <h1>{a.name}</h1>
+  {names.length > 0 && <p class="alt-titles">Also credited as: {names.join(' · ')}</p>}
+  <p class="lede">
+    {a.entries.length} {a.entries.length === 1 ? 'entry' : 'entries'}.
+    {a.reddit && <> Reddit: <a href={`https://www.reddit.com/user/${a.reddit}/`} rel="noopener nofollow">u/{a.reddit}</a>.</>}
+  </p>
+  <EntryList entries={a.entries} />
+</Base>

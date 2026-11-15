@@ -1,0 +1,198 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadArchive, textPreview, formatBytes, formatNumber, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
+import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
+
+export function getStaticPaths() {
+  return loadArchive().entries.map((entry) => ({ params: { id: entry.id }, props: { entry } }));
+}
+
+const { entry: e } = Astro.props as { entry: any };
+const preview = textPreview(e, 1500);
+const multi = e.parts.length > 1;
+const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
+const correctionUrl = `${ARCHIVE_REPO_URL}/issues/new?title=${encodeURIComponent(`Correction: ${e.id}`)}&body=${encodeURIComponent(
+  `Entry: ${e.repoPath}/meta.yaml\n\nWhat should change?\n`,
+)}`;
+const checkNames: Record<string, string> = { authors: 'author', series: 'series', characters: 'characters', tags: 'tags', title: 'title', language: 'language' };
+const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about ${e.series.map((s: any) => s.name).join(', ')}` : ''}. Archived from r/IntelligenceScaling.`;
+---
+<Base title={e.title} description={desc}>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/browse/">Browse</a>
+    {e.series[0] && <> / <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a></>}
+  </nav>
+
+  <header class="item-head">
+    <p class="eyebrow">{e.categoryName}{e.variant && ` · ${e.variant}`}</p>
+    <h1>{e.title}</h1>
+    {e.altTitles.length > 0 && (
+      <p class="alt-titles">Also listed as: {e.altTitles.map((t: string, i: number) => <>{i > 0 && ' · '}<q>{t}</q></>)}</p>
+    )}
+    <p class="byline">
+      {e.authors.length ? (
+        <>by {e.authors.map((a: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${a.key}/`}>{a.name}</a></>)}</>
+      ) : (
+        <>
+          <span class="muted">Unknown author.</span>
+          {e.originalUrl && <> See the <a href={e.originalUrl} rel="noopener nofollow ugc">{e.links.some((l: any) => l.type === 'reddit-post') ? 'original post' : 'original'}</a>.</>}
+          {' '}<a href={correctionUrl} rel="noopener">Know who made it?</a>
+        </>
+      )}
+    </p>
+  </header>
+
+  {e.review.status === 'auto' && (
+    <div class="notice small">
+      <p>
+        This entry was filled in automatically
+        {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
+        {' '}<a href={correctionUrl} rel="noopener">Suggest a correction</a>.
+      </p>
+    </div>
+  )}
+
+  <div class="item-grid">
+    <div>
+      <h2>{multi ? `Parts (${e.parts.length})` : 'File'}</h2>
+      {e.parts.map((p: any) => (
+        <section class="part" aria-label={multi ? `Part ${p.n}` : 'File'}>
+          <h3>
+            {multi ? <span>{p.title || `Part ${p.n}`}</span> : <span>{p.sourceLabel}</span>}
+            <span class={`badge ${p.tone}`}>{p.statusLabel}</span>
+          </h3>
+          <div class="part-meta">
+            {p.pages && <span>{formatNumber(p.pages)} pages</span>}
+            {p.words !== null && <span>{formatNumber(p.words)} words</span>}
+            {p.date && <span>Saved {p.date}</span>}
+            {multi && <span>{p.sourceLabel}</span>}
+          </div>
+          {p.files.length > 0 && (
+            <div class="downloads">
+              {p.files.map((f: any) =>
+                f.href ? (
+                  <a class="button" href={f.href} rel="noopener" download>
+                    Download {f.formatName} <span class="size">{formatBytes(f.bytes)}</span>
+                  </a>
+                ) : (
+                  <span class="button" aria-disabled="true" title="Downloads are not available yet">
+                    {f.formatName} <span class="size">{formatBytes(f.bytes)}</span>
+                  </span>
+                ),
+              )}
+            </div>
+          )}
+          {p.files.length > 0 && p.files.some((f: any) => !f.href) && (
+            <p class="small muted">Downloads are coming soon. The files are saved, but not online yet.</p>
+          )}
+          {p.missing.length > 0 && (
+            <p class="small muted">Not saved: {p.missing.map(([k, v]: [string, string]) => `${k} (${v})`).join(', ')}</p>
+          )}
+          {p.url && (
+            <p class="small tight">
+              <a href={p.url} rel="noopener nofollow ugc">Open the original {p.sourceLabel}</a>
+              {p.status === 'dead' || p.status === 'private' ? <span class="muted"> (may no longer work)</span> : null}
+            </p>
+          )}
+        </section>
+      ))}
+
+      {preview && (
+        <details class="preview">
+          <summary>Text preview</summary>
+          <div class="preview-text">{preview}</div>
+          <p class="small muted">The first lines of the plain-text copy. Formatting and images are only in the PDF/DOCX.</p>
+        </details>
+      )}
+
+      {e.foundIn.length > 0 && (
+        <>
+          <h2>Listed in</h2>
+          <ul class="found-in">
+            {e.foundIn.map((f: any) => (
+              <li>
+                <a href={f.libraryUrl} rel="noopener">{f.libraryName}</a>
+                <span class="muted small"> by {LIBRARIES[f.library].by.map((u: string) => `u/${u}`).join(' & ')}</span>
+                <div class="small">
+                  {f.section && <>Section: {f.section}</>}
+                  {f.character && <> · Character: {f.character}</>}
+                  {f.linkText && f.linkText !== e.title && <> · Listed as <q>{f.linkText}</q></>}
+                  {f.note && <> · {f.note}</>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {e.links.length > 0 && (
+        <>
+          <h2>Links</h2>
+          <ul>
+            {e.links.map((l: any) => (
+              <li><a href={l.url} rel="noopener nofollow ugc">{l.label}</a>{l.note && <span class="muted"> · {l.note}</span>}</li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {e.notes && (
+        <>
+          <h2>Notes</h2>
+          <p class="prose">{e.notes}</p>
+        </>
+      )}
+    </div>
+
+    <aside>
+      <h2 class="visually-hidden">Details</h2>
+      <dl class="facts">
+        <dt>Author</dt>
+        <dd>
+          {e.authors.length ? (
+            <ul>
+              {e.authors.map((a: any) => (
+                <li>
+                  <a href={`/authors/${a.key}/`}>{a.name}</a>
+                  {a.reddit && <> <a class="small" href={`https://www.reddit.com/user/${a.reddit}/`} rel="noopener nofollow">u/{a.reddit}</a></>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span class="muted">Unknown</span>
+          )}
+        </dd>
+        {e.series.length > 0 && (
+          <>
+            <dt>Series</dt>
+            <dd><ul>{e.series.map((s: any) => <li><a href={`/series/${s.id}/`}>{s.name}</a></li>)}</ul></dd>
+          </>
+        )}
+        {e.characters.length > 0 && (
+          <>
+            <dt>{e.characters.length > 1 ? 'Characters' : 'Character'}</dt>
+            <dd><ul>{e.characters.map((c: any) => <li><a href={`/characters/${c.id}/`}>{c.name}</a></li>)}</ul></dd>
+          </>
+        )}
+        {e.variant && (<><dt>Version</dt><dd>{e.variant}</dd></>)}
+        {e.tags.length > 0 && (
+          <>
+            <dt>Tags</dt>
+            <dd><ul class="chips">{e.tags.map((t: string) => <li><a class="chip" href={`/tags/${t}/`}>{t}</a></li>)}</ul></dd>
+          </>
+        )}
+        <dt>Language</dt>
+        <dd>{e.languageName}</dd>
+        {completion && (<><dt>Status</dt><dd>{completion}</dd></>)}
+        {e.words > 0 && (<><dt>Length</dt><dd>{formatNumber(e.words)} words{e.pages > 0 && `, ${formatNumber(e.pages)} pages`}</dd></>)}
+        <dt>Added</dt>
+        <dd>{e.added || 'Unknown'}</dd>
+        <dt>Source</dt>
+        <dd><a href={`${ARCHIVE_REPO_URL}/tree/main/${e.repoPath}`} rel="noopener">Metadata on GitHub</a></dd>
+      </dl>
+      <p class="small muted mt">
+        Are you the author? You can <a href={`/removal/?item=${e.id}`}>ask for this to be removed</a> or credited differently.
+      </p>
+    </aside>
+  </div>
+</Base>

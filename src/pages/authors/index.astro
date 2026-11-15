@@ -1,0 +1,18 @@
+---
+import Base from '../../layouts/Base.astro';
+import IndexList from '../../components/IndexList.astro';
+import { loadArchive } from '../../lib/archive.mjs';
+const { authors, entries } = loadArchive();
+const unknown = entries.filter((e) => e.authors.length === 0).length;
+---
+<Base title="Authors" section="authors" description="Everyone whose work is preserved in the archive.">
+  <h1>Authors</h1>
+  <p class="lede">
+    {authors.length} known authors. {unknown} entries don't have a known author yet:
+    <a href="/browse/?author=_unknown">see those</a>, and tell us if you know who made one.
+  </p>
+  <IndexList
+    noun="authors"
+    items={authors.map((a) => ({ href: `/authors/${a.key}/`, name: a.name, count: a.entries.length, sub: a.reddit ? `u/${a.reddit}` : null }))}
+  />
+</Base>

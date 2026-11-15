@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntryList from '../../components/EntryList.astro';
+import { loadArchive } from '../../lib/archive.mjs';
+
+export function getStaticPaths() {
+  const { series, characters } = loadArchive();
+  return series.map((s) => ({
+    params: { id: s.id },
+    props: { s, chars: characters.filter((c) => s.entries.some((e: any) => e.characters.some((x: any) => x.id === c.id))) },
+  }));
+}
+const { s, chars } = Astro.props as { s: any; chars: any[] };
+const countIn = (c: any) => c.entries.filter((e: any) => e.series.some((x: any) => x.id === s.id)).length;
+const aliases = s.aliases.map((a: string) => a.replace(/:\s*$/, '')).filter((a: string) => a.toLowerCase() !== s.name.toLowerCase());
+---
+<Base title={s.name} section="series" description={`${s.entries.length} archived docs and stories about ${s.name}.`}>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/series/">Series</a></nav>
+  <h1>{s.name}</h1>
+  {aliases.length > 0 && <p class="alt-titles">Also known as: {aliases.join(' · ')}</p>}
+  <p class="lede">{s.entries.length} {s.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/browse/?series=${s.id}`}>Filter these further</a>.</p>
+  {chars.length > 0 && (
+    <>
+      <h2>Characters</h2>
+      <ul class="chips">
+        {chars.map((c) => <li><a class="chip" href={`/characters/${c.id}/`}>{c.name} <span class="count">{countIn(c)}</span></a></li>)}
+      </ul>
+    </>
+  )}
+  <h2>Entries</h2>
+  <EntryList entries={s.entries} />
+</Base>

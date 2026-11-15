@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import EntryList from '../../components/EntryList.astro';
+import { loadArchive } from '../../lib/archive.mjs';
+
+export function getStaticPaths() {
+  return loadArchive().characters.map((c) => ({ params: { id: c.id }, props: { c } }));
+}
+const { c } = Astro.props as { c: any };
+---
+<Base title={c.name} section="characters" description={`${c.entries.length} archived docs about ${c.name}${c.seriesName ? ` (${c.seriesName})` : ''}.`}>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/characters/">Characters</a>
+    {c.seriesId && <> / <a href={`/series/${c.seriesId}/`}>{c.seriesName}</a></>}
+  </nav>
+  <h1>{c.name}</h1>
+  {c.aliases.length > 0 && <p class="alt-titles">Also known as: {c.aliases.join(' · ')}</p>}
+  <p class="lede">{c.entries.length} {c.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/browse/?character=${c.id}`}>Filter these further</a>.</p>
+  <EntryList entries={c.entries} />
+</Base>
