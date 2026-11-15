@@ -42,8 +42,8 @@ Cloudflare builds the site itself from this repo and downloads the archive repo 
 | Node version | from `.node-version` |
 | Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH` |
 
-To rebuild when the archive changes, create a **deploy hook** in Cloudflare Pages and have the archive repo's CI
-call it after a push to `main` (the hook URL is a secret in the archive repo).
+The site rebuilds once a day (`.github/workflows/rebuild.yml`) through a Cloudflare Pages **deploy hook**, stored
+as the `CF_DEPLOY_HOOK` secret in this repo. It can also be started by hand from the Actions tab.
 
 Downloads (Step C): R2 objects are named `<sha256>.<format>` and uploaded with a `Content-Disposition` header
 that gives the readable file name, which matches the default `FILES_URL_TEMPLATE`.

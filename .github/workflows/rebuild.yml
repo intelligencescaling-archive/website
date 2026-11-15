@@ -1,0 +1,23 @@
+# Rebuilds the live site once a day, so new or changed archive entries show up without anyone
+# touching this repo. Calls the Cloudflare Pages deploy hook (stored as the CF_DEPLOY_HOOK secret).
+# Can also be started by hand from the Actions tab.
+name: Daily rebuild
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Cloudflare Pages build
+        env:
+          HOOK: ${{ secrets.CF_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "CF_DEPLOY_HOOK secret is not set yet, skipping."; exit 0; fi
+          curl -fsS -X POST "$HOOK" > /dev/null && echo "Rebuild triggered."
