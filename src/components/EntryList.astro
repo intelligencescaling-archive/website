@@ -1,5 +1,5 @@
 ---
-import { formatNumber, STATUS } from '../lib/archive.mjs';
+import { formatNumber } from '../lib/archive.mjs';
 
 interface Props {
   entries: any[];
@@ -28,7 +28,7 @@ const lc = (s: string) => s.toLowerCase();
       <div class="entry-title">
         <a href={`/items/${e.id}/`}>{e.title}</a>
         {e.category !== 'doc' && <> <span class="badge">{e.categoryName}</span></>}
-        {e.status !== 'complete' && <> <span class={`badge ${STATUS[e.status].tone}`}>{STATUS[e.status].label}</span></>}
+        {e.status !== 'complete' && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
       </div>
       <div class="entry-meta">
         {e.authors.length ? (

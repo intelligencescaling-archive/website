@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse as parseYaml } from 'yaml';
-import { ARCHIVE_DIR, FILES_URL_TEMPLATE } from './config.mjs';
+import { ARCHIVE_DIR, ARCHIVE_RAW_URL, FILES_URL_TEMPLATE } from './config.mjs';
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -45,6 +45,13 @@ export const STATUS = {
   private: { label: 'Original made private', tone: 'bad' },
   'not-captured': { label: 'Not saved yet', tone: 'warn' },
 };
+const STATUS_TEXT_ONLY = { label: 'Text recovered', tone: 'warn' };
+const STATUS_LINK_ONLY = { label: 'Linked, not copied', tone: 'warn' };
+
+/** Repo-relative file path, URL-encoded per segment (for raw.githubusercontent.com links). */
+function encodeRepoPath(p) {
+  return p.replaceAll('\\', '/').split('/').map(encodeURIComponent).join('/');
+}
 
 const SOURCE_TYPES = {
   'google-doc': 'Google Doc',
@@ -211,6 +218,13 @@ function normalizeEntry(raw, metaFile, reg) {
         sha256: SHA256.test(str(f.sha256)) ? f.sha256 : '',
         href: fileHref(id, f),
       }));
+    const hasText = Boolean(textFile && fs.existsSync(path.join(dir, textFile)));
+    // Only the plain text survives (a deleted doc recovered from a Wayback snapshot, or a doc whose owner blocked
+    // downloads): offer the text itself as the download.
+    const textOnly = hasText && !files.some((f) => ['pdf', 'docx', 'pptx', 'epub', 'html'].includes(f.format));
+    const recovered = status === 'partial' && textOnly && files.length === 0;
+    const linkOnly = status === 'not-captured' && arr(raw.links).some((l) => l?.type === 'wayback');
+    const label = recovered ? STATUS_TEXT_ONLY : linkOnly ? STATUS_LINK_ONLY : STATUS[status];
     return {
       n: i + 1,
       title: str(p?.title),
@@ -218,13 +232,17 @@ function normalizeEntry(raw, metaFile, reg) {
       sourceLabel: SOURCE_TYPES[source.type] || 'Link',
       url: safeUrl(source.url),
       status,
-      statusLabel: STATUS[status].label,
-      tone: STATUS[status].tone,
+      statusLabel: label.label,
+      tone: label.tone,
+      recovered,
+      linkOnly,
+      images: files.filter((f) => (f.format === 'png' || f.format === 'jpg') && f.href),
+      textHref: textOnly ? `${ARCHIVE_RAW_URL}/${encodeRepoPath(path.relative(ARCHIVE_DIR, path.join(dir, textFile)))}` : null,
       date: str(capture.date),
       pages: Number.isInteger(capture.pages) ? capture.pages : null,
       words: Number.isInteger(capture.words) ? capture.words : null,
       files,
-      textPath: textFile && fs.existsSync(path.join(dir, textFile)) ? path.join(dir, textFile) : null,
+      textPath: hasText ? path.join(dir, textFile) : null,
       textFile,
       missing: Object.entries(capture.missing && typeof capture.missing === 'object' ? capture.missing : {}).map(
         ([k, v]) => [FORMAT_NAMES[k] || str(k), missingReason(v)],
@@ -269,6 +287,9 @@ function normalizeEntry(raw, metaFile, reg) {
     words: sum('words'),
     pages: sum('pages'),
     status: parts.every((p) => p.status === 'complete') ? 'complete' : parts[0].status,
+    statusLabel: parts.every((p) => p.status === 'complete') ? STATUS.complete.label : parts[0].statusLabel,
+    tone: parts.every((p) => p.status === 'complete') ? STATUS.complete.tone : parts[0].tone,
+    hasRedditSource: parts.some((p) => p.sourceType === 'reddit-post'),
     foundIn,
     links,
     originalUrl: redditPost?.url || parts.find((p) => p.url)?.url || null,

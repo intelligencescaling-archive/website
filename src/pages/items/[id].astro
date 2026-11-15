@@ -56,7 +56,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
       ) : (
         <>
           <span class="muted">Unknown author.</span>
-          {e.originalUrl && <> See the <a href={e.originalUrl} rel="noopener nofollow ugc">{e.links.some((l: any) => l.type === 'reddit-post') ? 'original post' : 'original'}</a>.</>}
+          {e.originalUrl && <> See the <a href={e.originalUrl} rel="noopener nofollow ugc">{e.hasRedditSource || e.links.some((l: any) => l.type === 'reddit-post') ? 'original post' : 'original'}</a>.</>}
           {' '}<a href={correctionUrl} rel="noopener">Know who made it?</a>
         </>
       )}
@@ -85,12 +85,24 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
           <div class="part-meta">
             {p.pages && <span>{formatNumber(p.pages)} pages</span>}
             {p.words !== null && <span>{formatNumber(p.words)} words</span>}
-            {p.date && <span>{p.status === 'complete' ? 'Saved' : p.status === 'partial' ? 'Partly saved' : 'Tried'} {p.date}</span>}
+            {p.date && <span>{p.recovered ? 'Snapshot from' : p.status === 'complete' ? 'Saved' : p.status === 'partial' ? 'Partly saved' : 'Tried'} {p.date}</span>}
             {multi && <span>{p.sourceLabel}</span>}
           </div>
-          {p.files.length > 0 && (
+          {p.images.length > 0 && (
+            <div class="post-images">
+              {p.images.map((f: any, k: number) => (
+                <a href={f.href} rel="noopener">
+                  <img src={f.href} loading="lazy" decoding="async" alt={`Image ${k + 1} of ${p.images.length} from ${multi ? (p.title || `part ${p.n}`) : 'the post'}`} />
+                </a>
+              ))}
+            </div>
+          )}
+          {(p.textHref || p.files.some((f: any) => !p.images.includes(f))) && (
             <div class="downloads">
-              {p.files.map((f: any) =>
+              {p.textHref && (
+                <a class="button" href={p.textHref} rel="noopener">Download text <span class="size">TXT</span></a>
+              )}
+              {p.files.filter((f: any) => !p.images.includes(f)).map((f: any) =>
                 f.href ? (
                   <a class={`button${f.format === 'pdf' ? '' : ' secondary'}`} href={f.href} rel="noopener">
                     {f.format === 'pdf' ? 'Open PDF' : `Download ${f.formatName}`} <span class="size">{formatBytes(f.bytes)}</span>
@@ -131,7 +143,11 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
         <details class="preview">
           <summary>Text preview</summary>
           <div class="preview-text">{preview}</div>
-          <p class="small muted">The first lines of the plain-text copy. Formatting and images are only in the PDF/DOCX.</p>
+          <p class="small muted">
+            {e.parts.some((p: any) => p.files.some((f: any) => f.format === 'pdf' || f.format === 'docx'))
+              ? 'The first lines of the plain-text copy. Formatting and images are only in the PDF/DOCX.'
+              : 'The first lines of the saved text.'}
+          </p>
         </details>
       )}
 

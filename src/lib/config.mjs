@@ -19,6 +19,8 @@ export const FILES_URL_TEMPLATE = (process.env.FILES_URL_TEMPLATE ?? 'https://fi
 /** Public repos, used for "suggest a correction" and "source" links. */
 export const ARCHIVE_REPO_URL = 'https://github.com/intelligencescaling-archive/archive';
 export const WEBSITE_REPO_URL = 'https://github.com/intelligencescaling-archive/website';
+/** Plain files of the archive repo's main branch (text-only entries link their text.txt here). */
+export const ARCHIVE_RAW_URL = 'https://raw.githubusercontent.com/intelligencescaling-archive/archive/main';
 export const CONTACT_EMAIL = 'intelligencescaling.archive@gmail.com';
 export const SUBREDDIT_URL = 'https://www.reddit.com/r/IntelligenceScaling/';
 
