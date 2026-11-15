@@ -58,6 +58,9 @@
   --bad-soft: #fbe2df;
   --focus: #111111;
   --shadow: 0 -10px 30px rgb(0 0 0 / 0.14);
+  --hover-ink: var(--ink);          /* link text on hover */
+  --sweep: 100% 0.42em;             /* size of the marker stroke behind a hovered link */
+  --current: inset 0 -0.45em 0 var(--mark); /* marker under the current page in the nav */
   --display: 'Archivo', 'Arial Narrow', system-ui, sans-serif;
   --sans: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --radius: 3px;
@@ -65,8 +68,10 @@
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: light;
 }
+/* Dark colors: used when the device is in dark mode, unless the visitor picked light with the
+   toggle (data-theme on <html>, set by public/theme.js), and always when they picked dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --page: #121212;
     --surface: #1c1c1b;
     --ink: #f2f2ee;
@@ -88,8 +93,38 @@
     --bad-soft: #3d1f1d;
     --focus: #ffe14d;
     --shadow: 0 -10px 30px rgb(0 0 0 / 0.5);
+    --hover-ink: var(--mark);
+    --sweep: 0 0;
+    --current: inset 0 -2px 0 var(--mark);
     color-scheme: dark;
   }
+}
+:root[data-theme='dark'] {
+  --page: #121212;
+  --surface: #1c1c1b;
+  --ink: #f2f2ee;
+  --ink-2: #b9b9b2;
+  --ink-3: #8f8f88;
+  --rule: #2c2c2a;
+  --rule-2: #45453f;
+  --mark: #ffe14d;
+  --mark-soft: #3d3514;
+  --mark-ink: #111111;
+  --btn: #ffe14d;
+  --btn-ink: #111111;
+  --btn-hover: #fff0a0;
+  --ok: #8fcf98;
+  --ok-soft: #1d3020;
+  --warn: #f0c96a;
+  --warn-soft: #3a2f14;
+  --bad: #ff8a80;
+  --bad-soft: #3d1f1d;
+  --focus: #ffe14d;
+  --shadow: 0 -10px 30px rgb(0 0 0 / 0.5);
+  --hover-ink: var(--mark);
+  --sweep: 0 0;
+  --current: inset 0 -2px 0 var(--mark);
+  color-scheme: dark;
 }
 
 /* ---------- Base ---------- */
@@ -137,8 +172,7 @@ a {
   background-position: 0 88%;
   background-size: 0% 0.42em;
 }
-a:hover { text-decoration-color: currentColor; background-size: 100% 0.42em; }
-@media (prefers-color-scheme: dark) { a:hover { color: var(--mark); background-size: 0% 0; } }
+a:hover { text-decoration-color: currentColor; background-size: var(--sweep); color: var(--hover-ink); }
 @media (prefers-reduced-motion: no-preference) { a { transition: background-size 0.22s var(--ease), color 0.15s; } }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 1px; }
 
@@ -162,7 +196,7 @@ a:hover { text-decoration-color: currentColor; background-size: 100% 0.42em; }
   font: 800 1.15rem/1 var(--display); font-stretch: 87%; letter-spacing: -0.01em;
 }
 .brand .mark { margin-left: 0.25em; }
-.brand:hover { color: var(--ink); }
+.brand:hover { color: var(--ink); background: none; }
 .site-header nav { margin-inline: -0.5rem; max-width: calc(100% + 1rem); overflow-x: auto; scrollbar-width: none; }
 .site-header nav::-webkit-scrollbar { display: none; }
 .site-header nav ul { list-style: none; display: flex; gap: 0.1rem; margin: 0; padding: 0; }
@@ -170,19 +204,36 @@ a:hover { text-decoration-color: currentColor; background-size: 100% 0.42em; }
   display: inline-flex; align-items: center; min-height: 44px; padding-inline: 0.5rem; white-space: nowrap;
   color: var(--ink-2); text-decoration: none; font-size: 0.95rem; font-weight: 500; background: none;
 }
-.site-header nav a:hover { color: var(--ink); }
 .site-header nav a[aria-current='page'] { color: var(--ink); font-weight: 700; }
-.site-header nav a[aria-current='page'] span { box-shadow: inset 0 -0.45em 0 var(--mark); }
-@media (prefers-color-scheme: dark) {
-  .site-header nav a[aria-current='page'] span { box-shadow: inset 0 -2px 0 var(--mark); }
-  .site-header nav a:hover { color: var(--mark); }
-}
+.site-header nav a[aria-current='page'] span { box-shadow: var(--current); }
+.site-header nav a:hover { color: var(--hover-ink); }
 
 .site-footer { border-top: 1px solid var(--rule); font-size: 0.9rem; color: var(--ink-2); }
 .footer-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 2rem; padding-block: 1.5rem; }
 .footer-row p { margin: 0; max-width: 34rem; }
 .footer-links { list-style: none; display: flex; flex-wrap: wrap; gap: 0 1.1rem; margin: 0; padding: 0; }
 .footer-links a { display: inline-flex; align-items: center; min-height: 40px; }
+
+/* Light/dark toggle. Phones: name + toggle on the first line, nav below. Wider: name, nav, toggle. */
+.brand { margin-right: auto; }
+.theme-toggle {
+  order: 2; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--ink-2);
+}
+.theme-toggle:hover { background: var(--surface); color: var(--ink); border: 0; }
+.theme-toggle svg { display: block; }
+.theme-toggle .sun { display: none; }
+:root[data-theme='dark'] .theme-toggle .sun { display: block; }
+:root[data-theme='dark'] .theme-toggle .moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-toggle .sun { display: block; }
+  :root:not([data-theme='light']) .theme-toggle .moon { display: none; }
+}
+.site-header nav { order: 3; flex-basis: 100%; }
+@media (min-width: 768px) {
+  .site-header nav { order: 2; flex-basis: auto; }
+  .theme-toggle { order: 3; margin-left: -0.75rem; }
+}
 
 /* ---------- Small pieces ---------- */
 .crumbs { font-size: 0.9rem; color: var(--ink-3); margin-bottom: 0.5rem; }
@@ -282,8 +333,7 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
 .entry-title a { text-decoration: none; }
 .entry-title a::after { content: ''; position: absolute; inset: 0; }
 .entry:hover { background: var(--surface); }
-.entry:hover .entry-title a { background-size: 100% 0.42em; }
-@media (prefers-color-scheme: dark) { .entry:hover .entry-title a { background-size: 0 0; color: var(--mark); } }
+.entry:hover .entry-title a { background-size: var(--sweep); color: var(--hover-ink); }
 .entry-meta { font-size: 0.875rem; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 0.1rem 0.9rem; }
 .entry-meta .by { color: var(--ink); font-weight: 600; }
 .entry-meta .unknown { color: var(--ink-3); }
@@ -386,8 +436,7 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
 .result h3 a { text-decoration: none; }
 .result h3 a::after { content: ''; position: absolute; inset: 0; }
 .result:hover { background: var(--surface); }
-.result:hover h3 a { background-size: 100% 0.42em; }
-@media (prefers-color-scheme: dark) { .result:hover h3 a { background-size: 0 0; color: var(--mark); } }
+.result:hover h3 a { background-size: var(--sweep); color: var(--hover-ink); }
 .result .meta { font-size: 0.875rem; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 0.1rem 0.9rem; }
 .result .meta .by { color: var(--ink); font-weight: 600; }
 .result .excerpt { margin: 0.1rem 0 0; font-size: 0.92rem; color: var(--ink-2); line-height: 1.5; }
@@ -414,6 +463,8 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
   .search-form .button, .search-form button { flex: 1 1 auto; }
 }
 @media (max-width: 359.98px) {
+  .header-row { column-gap: 0.5rem; }
+  .brand { font-size: 1rem; }
   .site-header nav { min-width: 0; }
   .site-header nav a { padding-inline: 0.3rem; font-size: 0.86rem; }
 }
@@ -421,5 +472,5 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
 .index-list li { position: relative; }
 .index-list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .index-list a::after { content: ''; position: absolute; inset: 0; }
-.index-list li:hover a { background-size: 100% 0.42em; }
+.index-list li:hover a { background-size: var(--sweep); color: var(--hover-ink); }
 .roster a { display: inline-block; padding-block: 0.15rem; }

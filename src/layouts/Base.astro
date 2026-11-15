@@ -35,6 +35,7 @@ const nav = [
       content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <script is:inline src="/theme.js"></script>
     <title>{fullTitle}</title>
     <meta name="description" content={desc} />
     <link rel="canonical" href={canonical.href} />
@@ -63,6 +64,10 @@ const nav = [
         <a class="brand" href="/" aria-current={section === 'home' ? 'page' : undefined}>
           Intelligence Scaling <span class="mark">Archive</span>
         </a>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch between light and dark mode" hidden>
+          <svg class="moon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z" fill="currentColor" /></svg>
+          <svg class="sun" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor" /><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" /></g></svg>
+        </button>
         <nav aria-label="Main">
           <ul>
             {nav.map(([key, href, label]) => (
