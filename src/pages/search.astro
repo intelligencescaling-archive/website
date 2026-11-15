@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { loadArchive } from '../lib/archive.mjs';
 const { entries, characters } = loadArchive();
-const groups = ['Series', 'Character', 'Author', 'Tag', 'Category', 'Language'];
+const groups = ['Series', 'Topic', 'Character', 'Author', 'Tag', 'Category', 'Language'];
 const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length).slice(0, 8);
 ---
 <Base title="Search" section="search" description="Full-text search across every archived doc and story: titles, authors, characters and the text itself.">

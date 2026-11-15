@@ -17,6 +17,7 @@ const lc = (s: string) => s.toLowerCase();
       class="entry"
       data-cat={filterable ? e.category : undefined}
       data-series={filterable ? (e.series.length ? e.series.map((s: any) => s.id).join(' ') : '_none') : undefined}
+      data-topics={filterable ? e.topics.map((t: any) => t.id).join(' ') : undefined}
       data-chars={filterable ? e.characters.map((c: any) => c.id).join(' ') : undefined}
       data-authors={filterable ? (e.authors.length ? e.authors.map((a: any) => a.key).join(' ') : '_unknown') : undefined}
       data-tags={filterable ? e.tags.join(' ') : undefined}

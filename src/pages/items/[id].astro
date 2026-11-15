@@ -5,14 +5,16 @@ import { loadArchive, textPreview, formatBytes, formatNumber, authorLabel, LIBRA
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
-  const { entries, characters, series } = loadArchive();
+  const { entries, characters, series, topics } = loadArchive();
   const byChar = new Map(characters.map((c) => [c.id, c.entries]));
   const bySeries = new Map(series.map((s) => [s.id, s.entries]));
-  // Related: entries sharing the most characters, then the same series; longer docs first. Max 5.
+  const byTopic = new Map(topics.filter((t) => !t.help).map((t) => [t.id, t.entries]));
+  // Related: entries sharing the most characters, then the same series or topic; longer docs first. Max 5.
   const related = (e: any) => {
     const score = new Map<any, number>();
     for (const c of e.characters) for (const x of byChar.get(c.id) || []) score.set(x, (score.get(x) || 0) + 10);
     for (const s of e.series) for (const x of bySeries.get(s.id) || []) score.set(x, (score.get(x) || 0) + 1);
+    for (const t of e.topics) for (const x of byTopic.get(t.id) || []) score.set(x, (score.get(x) || 0) + 1);
     score.delete(e);
     return [...score.entries()].sort((a, b) => b[1] - a[1] || b[0].words - a[0].words).slice(0, 5).map(([x]) => x);
   };
@@ -23,12 +25,22 @@ const { entry: e, related } = Astro.props as { entry: any; related: any[] };
 const readMinutes = Math.round(e.words / 230);
 const readTime =
   readMinutes < 1 ? null : readMinutes < 60 ? `about ${readMinutes} min to read` : `about ${Math.round(readMinutes / 6) / 10} hours to read`;
-const relatedTitle = e.characters[0] ? `More about ${e.characters[0].name}` : e.series[0] ? `More from ${e.series[0].name}` : 'More like this';
+const topic = e.topics[0] || null;
+const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
+const relatedTitle = e.characters[0]
+  ? `More about ${e.characters[0].name}`
+  : e.series[0]
+    ? `More from ${e.series[0].name}`
+    : topic && !sortTopic
+      ? `More in ${topic.name}`
+      : 'More like this';
 const relatedMore = e.characters[0]
   ? { href: `/characters/${e.characters[0].id}/`, label: `All docs about ${e.characters[0].name}` }
   : e.series[0]
     ? { href: `/series/${e.series[0].id}/`, label: `All ${e.series[0].name} docs` }
-    : null;
+    : topic && !sortTopic
+      ? { href: `/topics/${topic.id}/`, label: `All of ${topic.name}` }
+      : null;
 const preview = textPreview(e, 1500);
 const multi = e.parts.length > 1;
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
@@ -42,6 +54,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
   <nav class="crumbs" aria-label="Breadcrumb">
     <a href="/browse/">Browse</a>
     {e.series[0] && <> / <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a></>}
+    {!e.series[0] && topic && <> / <a href={`/topics/${topic.id}/`}>{topic.name}</a></>}
   </nav>
 
   <header class="item-head">
@@ -63,13 +76,22 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
     </p>
   </header>
 
-  {e.review.status === 'auto' && (
+  {(e.review.status === 'auto' || sortTopic) && (
     <div class="note">
-      <p>
-        This entry was filled in automatically
-        {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
-        {' '}<a href={correctionUrl} rel="noopener">Suggest a correction</a>.
-      </p>
+      {sortTopic && (
+        <p>
+          <strong>Not sorted yet.</strong>
+          {sortTopic.id === 'series-unknown' ? ' Know which series this is from? ' : ' Know what this is about? '}
+          <a href={correctionUrl} rel="noopener">Help sort it</a>.
+        </p>
+      )}
+      {e.review.status === 'auto' && (
+        <p>
+          This entry was filled in automatically
+          {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
+          {!sortTopic && <>{' '}<a href={correctionUrl} rel="noopener">Suggest a correction</a>.</>}
+        </p>
+      )}
     </div>
   )}
 
@@ -220,6 +242,12 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
           <>
             <dt>Series</dt>
             <dd><ul>{e.series.map((s: any) => <li><a href={`/series/${s.id}/`}>{s.name}</a></li>)}</ul></dd>
+          </>
+        )}
+        {e.topics.length > 0 && (
+          <>
+            <dt>{e.topics.length > 1 ? 'Topics' : 'Topic'}</dt>
+            <dd><ul>{e.topics.map((t: any) => <li><a href={`/topics/${t.id}/`}>{t.name}</a></li>)}</ul></dd>
           </>
         )}
         {e.characters.length > 0 && (

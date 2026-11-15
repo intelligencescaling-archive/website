@@ -393,6 +393,28 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
 .index-list .count { font-size: 0.85rem; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .index-list .sub { display: block; font-size: 0.82rem; color: var(--ink-3); }
 
+/* ---------- Topics ---------- */
+.topic-list { list-style: none; padding: 0; margin: 1.5rem 0 0; border-top: 2px solid var(--ink); display: grid; }
+@media (min-width: 900px) { .topic-list { grid-template-columns: 1fr 1fr; column-gap: 3rem; } }
+.topic-list > li, .help-topics li { position: relative; padding: 0.95rem 0.35rem 1rem; border-bottom: 1px solid var(--rule); display: grid; gap: 0.25rem; align-content: start; }
+.topic-name { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+.topic-name h2, .topic-name h3 { margin: 0; font-weight: 800; }
+.topic-name h2 { font-size: 1.4rem; }
+.topic-name h3 { font-size: 1.12rem; }
+.topic-name a { text-decoration: none; }
+.topic-name a::after { content: ''; position: absolute; inset: 0; }
+.topic-list .ext .topic-name a::before { content: '\2192\00a0'; color: var(--ink-3); font-weight: 600; }
+.topic-name .count { font-size: 0.9rem; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.topic-desc { margin: 0; color: var(--ink-2); font-size: 0.95rem; }
+.topic-samples { margin: 0.1rem 0 0; color: var(--ink-3); font-size: 0.85rem; overflow-wrap: anywhere; }
+.topic-list > li:hover, .help-topics li:hover { background: var(--surface); }
+.topic-list > li:hover .topic-name a, .help-topics li:hover .topic-name a { background-size: var(--sweep); color: var(--hover-ink); }
+.help-topics ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+@media (min-width: 900px) { .help-topics ul { grid-template-columns: 1fr 1fr; gap: 1rem 3rem; } }
+.help-topics li { border: 1px dashed var(--rule-2); border-radius: var(--radius); padding-inline: 0.9rem; }
+.topic-subs { margin: 0 0 0.5rem; }
+@media (prefers-reduced-motion: no-preference) { .topic-list > li, .help-topics li { transition: background-color 0.12s; } }
+
 /* ---------- Item page ---------- */
 .item-head { margin-bottom: 1.5rem; display: grid; gap: 0.35rem; }
 .item-head h1 { margin: 0; }

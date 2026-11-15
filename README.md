@@ -56,10 +56,11 @@ that gives the readable file name, which matches the default `FILES_URL_TEMPLATE
 | Path | What |
 |---|---|
 | `/` | Home: search, random doc, most-documented characters, longest docs, lost docs, series, stories |
-| `/browse/` | Every entry, filterable by category, series, character, author, tag, language (state in the URL) |
+| `/browse/` | Every entry, filterable by category, series, topic, character, author, tag, language (state in the URL) |
 | `/search/` | Full-text search (Pagefind) over the plain text of every doc + its metadata, with filters and doc-text excerpts |
 | `/items/<id>/` | One entry: titles, authors, series, characters, tags, parts with capture status, downloads, library info |
 | `/series/`, `/characters/`, `/authors/`, `/tags/` | Index pages and one page per series/character/author/tag |
+| `/topics/` | Browse home for entries with no series: SCD theory & guides, stories & OCs, community games, libraries; plus "Series not known yet" and "Needs sorting". Rules in `TOPICS` in `src/lib/archive.mjs` (from tags and category, no archive change) |
 | `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |
 
 ## Security

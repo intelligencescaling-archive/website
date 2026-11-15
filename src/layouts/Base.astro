@@ -6,7 +6,7 @@ interface Props {
   title?: string;
   description?: string;
   /** Which nav link is active. */
-  section?: 'home' | 'browse' | 'search' | 'series' | 'characters' | 'authors' | 'about';
+  section?: 'home' | 'browse' | 'search' | 'series' | 'topics' | 'characters' | 'authors' | 'about';
   /** Open Graph type: 'article' for item pages, 'website' for the rest. */
   ogType?: 'website' | 'article';
 }
@@ -21,6 +21,7 @@ const nav = [
   ['browse', '/browse/', 'Browse'],
   ['search', '/search/', 'Search'],
   ['series', '/series/', 'Series'],
+  ['topics', '/topics/', 'Topics'],
   ['characters', '/characters/', 'Characters'],
   ['authors', '/authors/', 'Authors'],
 ] as const;

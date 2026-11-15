@@ -1,0 +1,71 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadArchive, compareTitles } from '../../lib/archive.mjs';
+const { topics, series } = loadArchive();
+const main = topics.filter((t) => !t.help && t.entries.length);
+const help = topics.filter((t) => t.help && t.entries.length);
+const realLife = series.find((s) => s.id === 'real-life');
+// A few sample titles per topic: the longest ones (usually the substantial docs), skipping copies
+// and titles that start like one already picked ("Comp human doc" / "Composite human doc").
+const samples = (t: any) => {
+  const picked: string[] = [];
+  const seen = new Set<string>();
+  for (const e of [...t.entries].sort((a: any, b: any) => b.words - a.words)) {
+    if (/\b(cop(y|ied|ia))\b/i.test(e.title)) continue;
+    const key = e.title.toLowerCase().replace(/[^a-z]/g, '').slice(0, 4);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    picked.push(e.title);
+    if (picked.length === 3) break;
+  }
+  return picked.sort(compareTitles);
+};
+const charCount = (t: any) => new Set(t.entries.flatMap((e: any) => e.characters.map((c: any) => c.id))).size;
+---
+<Base title="Topics" section="topics" description="Archived docs and stories that aren't about one series: SCD theory and guides, original stories, community games and more.">
+  <h1>Topics</h1>
+  <p class="lede">Docs and stories that aren't about one series. For everything else, see <a href="/series/">Series</a>.</p>
+
+  <ul class="topic-list">
+    {main.map((t) => (
+      <li>
+        <div class="topic-name">
+          <h2><a href={`/topics/${t.id}/`}>{t.name}</a></h2>
+          <span class="count">{t.entries.length}</span>
+        </div>
+        <p class="topic-desc">{t.desc}</p>
+        <p class="topic-samples">{samples(t).join(' · ')}</p>
+      </li>
+    ))}
+    {realLife && (
+      <li class="ext">
+        <div class="topic-name">
+          <h2><a href={`/series/${realLife.id}/`}>{realLife.name}</a></h2>
+          <span class="count">{realLife.entries.length}</span>
+        </div>
+        <p class="topic-desc">Docs about real people. This opens the {realLife.name} series.</p>
+      </li>
+    )}
+  </ul>
+
+  {help.length > 0 && (
+    <section class="help-topics" aria-labelledby="h-help">
+      <h2 id="h-help">Help sort these</h2>
+      <ul>
+        {help.map((t) => (
+          <li>
+            <div class="topic-name">
+              <h3><a href={`/topics/${t.id}/`}>{t.name}</a></h3>
+              <span class="count">{t.entries.length}</span>
+            </div>
+            <p class="topic-desc">
+              {t.id === 'series-unknown'
+                ? `Docs about ${charCount(t)} characters whose series isn't in the archive yet. Know the series? Tell us.`
+                : t.desc}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+</Base>

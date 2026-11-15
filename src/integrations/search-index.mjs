@@ -47,7 +47,7 @@ export default function searchIndex() {
             meta: {
               title: e.title,
               by: e.authors.length ? e.authors.map((a) => a.name).join(', ') : 'Unknown author',
-              series: e.series.map((s) => s.name).join(', '),
+              series: (e.series.length ? e.series : e.topics.filter((t) => t.id !== 'needs-sorting' && t.id !== 'series-unknown')).map((s) => s.name).join(', '),
               words: String(e.words),
               // How many words of metadata follow the doc text, so the search page can show an
               // excerpt from the doc itself rather than from this list.
@@ -56,6 +56,7 @@ export default function searchIndex() {
             filters: uniq({
               Category: [CATEGORY_PLURAL[e.category]],
               Series: e.series.length ? e.series.map((s) => s.name) : ['(No series)'],
+              Topic: e.topics.map((t) => t.name),
               Character: e.characters.map((c) => c.name),
               Author: e.authors.length ? e.authors.map((a) => a.name) : ['Unknown author'],
               Tag: e.tags,

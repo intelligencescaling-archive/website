@@ -34,6 +34,58 @@ export const LIBRARIES = {
   },
 };
 
+/**
+ * Topics: a browse home for entries that aren't about one series. Decided from tags and category,
+ * so no archive change is needed. Only entries with no series get a topic (a `game` doc in a series
+ * is a game inside that story, not a community game). An entry can have more than one topic.
+ * `help` topics are the leftovers, shown with a "help sort it" link.
+ */
+export const TOPICS = [
+  {
+    id: 'scd-theory',
+    name: 'SCD theory & guides',
+    desc: 'Category systems, scaling methods and how-to guides.',
+    tags: ['scd-categories', 'scaling-system', 'scd-theory', 'guide', 'writing-categories', 'composite'],
+    subs: [
+      ['Categories', 'scd-categories'],
+      ['Guides', 'guide'],
+      ['Scaling systems', 'scaling-system'],
+      ['Writing', 'writing-categories'],
+    ],
+  },
+  {
+    id: 'stories-and-ocs',
+    name: 'Stories & original characters',
+    desc: 'Original fiction, OC docs and crossover fights.',
+    tags: ['oc', 'fanfiction'],
+    stories: true,
+  },
+  { id: 'community-games', name: 'Community games & events', desc: 'Rulebooks and tournaments run on the sub.', tags: ['game'] },
+  {
+    id: 'libraries-and-history',
+    name: 'Libraries & community history',
+    desc: 'Doc collections and the story of SCD.',
+    tags: ['library', 'history', 'list', 'collection'],
+    title: /\blibrar(?:y|ies)\b/i,
+  },
+  {
+    id: 'series-unknown',
+    name: 'Series not known yet',
+    desc: "Docs about characters whose series isn't in the archive yet.",
+    help: true,
+  },
+  { id: 'needs-sorting', name: 'Needs sorting', desc: "We couldn't tell what these are about yet.", help: true },
+];
+
+/** Picks an entry's topic ids. `charSeries` maps character id → series id (or null). */
+function topicsFor(e, charSeries) {
+  if (e.series.length) return [];
+  const out = TOPICS.filter((t) => !t.help && (e.tags.some((x) => t.tags.includes(x)) || (t.stories && e.category === 'story') || t.title?.test(e.title))).map((t) => t.id);
+  if (out.length) return out;
+  if (e.characters.length && e.characters.every((c) => !charSeries.get(c.id))) return ['series-unknown'];
+  return ['needs-sorting'];
+}
+
 export const CATEGORY_NAMES = { doc: 'Doc', story: 'Story', misc: 'Misc' };
 export const CATEGORY_PLURAL = { doc: 'Docs', story: 'Stories', misc: 'Misc' };
 
@@ -368,7 +420,12 @@ export function loadArchive() {
     (code, lang) => ({ id: code, name: languageName(lang) }),
   );
 
-  cache = { entries, byId, series, characters, authors, tags, languages, warnings: reg.warnings };
+  const charSeries = new Map([...reg.characters.values()].map((c) => [c.id, c.seriesId]));
+  const topicName = new Map(TOPICS.map((t) => [t.id, t.name]));
+  for (const e of entries) e.topics = topicsFor(e, charSeries).map((id) => ({ id, name: topicName.get(id) }));
+  const topics = TOPICS.map((t) => ({ ...t, entries: entries.filter((e) => e.topics.some((x) => x.id === t.id)) }));
+
+  cache = { entries, byId, series, characters, authors, tags, languages, topics, warnings: reg.warnings };
   return cache;
 }
 
