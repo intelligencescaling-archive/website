@@ -14,10 +14,10 @@ const uncredited = entries.filter((e) => e.authors.length === 0).length;
 <Base section="home">
   <section class="hero">
     <p class="eyebrow">Smart Character Debates · community archive</p>
-    <h1>The docs, stories and tier lists of r/IntelligenceScaling, saved before the links die.</h1>
+    <h1>The analysis docs and stories of r/IntelligenceScaling, in one searchable archive.</h1>
     <p class="lede">
-      Google Docs get deleted, accounts disappear, and Reddit search forgets. This archive keeps a copy of the
-      community's work with credit to its authors, and makes it searchable.
+      Most of the community's docs live in Google Docs that their owners can delete at any time. This archive keeps a
+      copy of each one, credits its author when known, and lets you search inside them.
     </p>
     <form class="search-form" action="/search/" method="get" role="search">
       <label for="home-q" class="visually-hidden">Search the archive</label>
@@ -37,9 +37,9 @@ const uncredited = entries.filter((e) => e.authors.length === 0).length;
   {uncredited > 0 && (
     <div class="notice small">
       <p>
-        <strong>Help fill the gaps.</strong> {formatNumber(uncredited)} entries don't have a known author yet, and most
-        details were filled in automatically from the community libraries. Know who wrote something? Each item page has a
-        link to suggest a fix.
+        <strong>{formatNumber(uncredited)} entries have no known author yet.</strong> Most details were filled in
+        automatically from the community libraries, so some may be wrong. If you know who wrote something, use the
+        correction link on its page.
       </p>
     </div>
   )}
