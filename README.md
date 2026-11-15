@@ -72,7 +72,7 @@ Archive metadata comes from public submissions, so it's treated as untrusted:
   index on the page with `textContent`; only Pagefind's `<mark>` tags are copied, node by node. Don't switch to the
   default UI without escaping filter values first: it inserts filter labels as raw HTML.
 - A strict Content-Security-Policy (no inline scripts or styles) is set both in a `<meta>` tag and in `public/_headers`.
-- Fonts (Archivo, Public Sans; SIL Open Font License, see `public/fonts/`) are self-hosted, so the site loads nothing from other servers.
+- Fonts (Archivo, Public Sans; SIL Open Font License, see `public/fonts/`) are self-hosted. The only outside script is Cloudflare Web Analytics (cookie-free visit counts), allowed by name in the CSP.
 - The link preview image is `public/og.png` (1200 × 630). Its numbers are fixed; redraw it when the counts change a lot.
 - `npm run test:escaping` builds the site from `test/fixture-archive/` (one entry full of hostile metadata) and fails
   if any of it shows up as live HTML.
