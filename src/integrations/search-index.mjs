@@ -6,10 +6,10 @@ import { fileURLToPath } from 'node:url';
 import * as pagefind from 'pagefind';
 import { loadArchive, entryText, sortTitle, CATEGORY_PLURAL } from '../lib/archive.mjs';
 
-const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
-const escapeFilters = (filters) =>
-  Object.fromEntries(Object.entries(filters).map(([k, values]) => [k, [...new Set(values)].map(escapeHtml)]));
+// Filter values are stored as plain text. The site's own search page (src/scripts/search.js) shows
+// them with textContent. Don't switch to Pagefind's default UI without escaping them: it inserts
+// filter labels as raw HTML.
+const uniq = (filters) => Object.fromEntries(Object.entries(filters).map(([k, values]) => [k, [...new Set(values)]]));
 
 export default function searchIndex() {
   return {
@@ -40,17 +40,20 @@ export default function searchIndex() {
           chars += text.length;
           const res = await index.addCustomRecord({
             url: `/items/${e.id}/`,
-            // Pagefind treats content as plain text, so no HTML escaping is needed here.
-            content: head.join('. ') + '\n\n' + text,
+            // Plain text. The doc text comes first so excerpts usually show the doc itself; the
+            // metadata at the end keeps titles, authors and characters searchable.
+            content: text + '\n\n' + head.join('. '),
             language: 'en',
             meta: {
               title: e.title,
               by: e.authors.length ? e.authors.map((a) => a.name).join(', ') : 'Unknown author',
               series: e.series.map((s) => s.name).join(', '),
+              words: String(e.words),
+              // How many words of metadata follow the doc text, so the search page can show an
+              // excerpt from the doc itself rather than from this list.
+              hw: String(head.join('. ').split(/\s+/).length),
             },
-            // Pagefind's default UI inserts filter values as raw HTML (titles, meta and excerpts
-            // are escaped, filter labels are not), so every filter value is escaped here.
-            filters: escapeFilters({
+            filters: uniq({
               Category: [CATEGORY_PLURAL[e.category]],
               Series: e.series.length ? e.series.map((s) => s.name) : ['(No series)'],
               Character: e.characters.map((c) => c.name),

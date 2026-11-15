@@ -1,13 +1,34 @@
 ---
 import Base from '../../layouts/Base.astro';
+import EntryList from '../../components/EntryList.astro';
 import { loadArchive, textPreview, formatBytes, formatNumber, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
-  return loadArchive().entries.map((entry) => ({ params: { id: entry.id }, props: { entry } }));
+  const { entries, characters, series } = loadArchive();
+  const byChar = new Map(characters.map((c) => [c.id, c.entries]));
+  const bySeries = new Map(series.map((s) => [s.id, s.entries]));
+  // Related: entries sharing the most characters, then the same series; longer docs first. Max 5.
+  const related = (e: any) => {
+    const score = new Map<any, number>();
+    for (const c of e.characters) for (const x of byChar.get(c.id) || []) score.set(x, (score.get(x) || 0) + 10);
+    for (const s of e.series) for (const x of bySeries.get(s.id) || []) score.set(x, (score.get(x) || 0) + 1);
+    score.delete(e);
+    return [...score.entries()].sort((a, b) => b[1] - a[1] || b[0].words - a[0].words).slice(0, 5).map(([x]) => x);
+  };
+  return entries.map((entry) => ({ params: { id: entry.id }, props: { entry, related: related(entry) } }));
 }
 
-const { entry: e } = Astro.props as { entry: any };
+const { entry: e, related } = Astro.props as { entry: any; related: any[] };
+const readMinutes = Math.round(e.words / 230);
+const readTime =
+  readMinutes < 1 ? null : readMinutes < 60 ? `about ${readMinutes} min to read` : `about ${Math.round(readMinutes / 6) / 10} hours to read`;
+const relatedTitle = e.characters[0] ? `More about ${e.characters[0].name}` : e.series[0] ? `More from ${e.series[0].name}` : 'More like this';
+const relatedMore = e.characters[0]
+  ? { href: `/characters/${e.characters[0].id}/`, label: `All docs about ${e.characters[0].name}` }
+  : e.series[0]
+    ? { href: `/series/${e.series[0].id}/`, label: `All ${e.series[0].name} docs` }
+    : null;
 const preview = textPreview(e, 1500);
 const multi = e.parts.length > 1;
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
@@ -24,7 +45,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
   </nav>
 
   <header class="item-head">
-    <p class="eyebrow">{e.categoryName}{e.variant && ` · ${e.variant}`}</p>
+    <p class="eyebrow">{[e.categoryName, e.variant && `${e.variant} version`, readTime].filter(Boolean).join(', ')}</p>
     <h1>{e.title}</h1>
     {e.altTitles.length > 0 && (
       <p class="alt-titles">Also listed as: {e.altTitles.map((t: string, i: number) => <>{i > 0 && ' · '}<q>{t}</q></>)}</p>
@@ -43,7 +64,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
   </header>
 
   {e.review.status === 'auto' && (
-    <div class="notice small">
+    <div class="note">
       <p>
         This entry was filled in automatically
         {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
@@ -150,6 +171,14 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
           <h2>Notes</h2>
           <p class="prose">{e.notes}</p>
         </>
+      )}
+
+      {related.length > 0 && (
+        <section aria-labelledby="h-related">
+          <h2 id="h-related">{relatedTitle}</h2>
+          <EntryList entries={related} />
+          {relatedMore && <p class="more-link"><a href={relatedMore.href}>{relatedMore.label}</a></p>}
+        </section>
       )}
     </div>
 

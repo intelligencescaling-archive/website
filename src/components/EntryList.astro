@@ -44,7 +44,7 @@ const lc = (s: string) => s.toLowerCase();
             {e.variant && ` (${e.variant})`}
           </span>
         )}
-        {e.words > 0 && <span class="muted">{formatNumber(e.words)} words</span>}
+        {e.words > 0 && <span class="num">{formatNumber(e.words)} words</span>}
       </div>
     </li>
   ))}

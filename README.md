@@ -55,9 +55,9 @@ that gives the readable file name, which matches the default `FILES_URL_TEMPLATE
 
 | Path | What |
 |---|---|
-| `/` | Home: search box, stats, top series and characters, stories |
+| `/` | Home: search, random doc, most-documented characters, longest docs, lost docs, series, stories |
 | `/browse/` | Every entry, filterable by category, series, character, author, tag, language (state in the URL) |
-| `/search/` | Pagefind full-text search over metadata + the plain text of every doc |
+| `/search/` | Full-text search (Pagefind) over the plain text of every doc + its metadata, with filters and doc-text excerpts |
 | `/items/<id>/` | One entry: titles, authors, series, characters, tags, parts with capture status, downloads, library info |
 | `/series/`, `/characters/`, `/authors/`, `/tags/` | Index pages and one page per series/character/author/tag |
 | `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |
@@ -68,9 +68,12 @@ Archive metadata comes from public submissions, so it's treated as untrusted:
 
 - Pages only render metadata through Astro expressions, which escape HTML. Never use `set:html` with archive data.
 - Every link from metadata goes through `safeUrl()` (only `http`/`https`).
-- Pagefind's default UI inserts **filter labels** as raw HTML, so filter values are HTML-escaped when the index is built
-  (`src/integrations/search-index.mjs`).
+- The search page (`src/scripts/search.js`) uses Pagefind's JS API, not its default UI, and puts everything from the
+  index on the page with `textContent`; only Pagefind's `<mark>` tags are copied, node by node. Don't switch to the
+  default UI without escaping filter values first: it inserts filter labels as raw HTML.
 - A strict Content-Security-Policy (no inline scripts or styles) is set both in a `<meta>` tag and in `public/_headers`.
+- Fonts (Archivo, Public Sans; SIL Open Font License, see `public/fonts/`) are self-hosted, so the site loads nothing from other servers.
+- The link preview image is `public/og.png` (1200 × 630). Its numbers are fixed; redraw it when the counts change a lot.
 - `npm run test:escaping` builds the site from `test/fixture-archive/` (one entry full of hostile metadata) and fails
   if any of it shows up as live HTML.
 - Dependencies are few (`astro`, `pagefind`, `yaml`), pinned to exact versions, and installed with scripts off (`.npmrc`).

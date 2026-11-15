@@ -39,12 +39,20 @@ const nav = [
     <meta name="description" content={desc} />
     <link rel="canonical" href={canonical.href} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/public-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
     <meta property="og:title" content={title || siteName} />
     <meta property="og:description" content={desc} />
     <meta property="og:site_name" content={siteName} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonical.href} />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content={new URL('/og.png', Astro.site).href} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Intelligence Scaling Archive: the r/IntelligenceScaling community archive at intelscaling.com" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="color-scheme" content="light dark" />
     <slot name="head" />
   </head>
@@ -53,13 +61,12 @@ const nav = [
     <header class="site-header">
       <div class="wrap header-row">
         <a class="brand" href="/" aria-current={section === 'home' ? 'page' : undefined}>
-          <span class="brand-mark" aria-hidden="true">IS</span>
-          <span class="brand-text">Intelligence Scaling <em>Archive</em></span>
+          Intelligence Scaling <span class="mark">Archive</span>
         </a>
         <nav aria-label="Main">
           <ul>
             {nav.map(([key, href, label]) => (
-              <li><a href={href} aria-current={section === key ? 'page' : undefined}>{label}</a></li>
+              <li><a href={href} aria-current={section === key ? 'page' : undefined}><span>{label}</span></a></li>
             ))}
           </ul>
         </nav>

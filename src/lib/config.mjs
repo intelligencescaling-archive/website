@@ -21,3 +21,10 @@ export const ARCHIVE_REPO_URL = 'https://github.com/intelligencescaling-archive/
 export const WEBSITE_REPO_URL = 'https://github.com/intelligencescaling-archive/website';
 export const CONTACT_EMAIL = 'intelligencescaling.archive@gmail.com';
 export const SUBREDDIT_URL = 'https://www.reddit.com/r/IntelligenceScaling/';
+
+/**
+ * Links in the community libraries that were already dead or private when the archive started
+ * (Phase 0 link check, 2026-11-14), and how many came back as text from the Wayback Machine.
+ * Not in the archive data, because those docs aren't entries (yet). Update by hand.
+ */
+export const LOST_AT_START = { deleted: 78, private: 40, recoveredText: 23 };

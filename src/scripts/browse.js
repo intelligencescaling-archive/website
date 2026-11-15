@@ -1,5 +1,7 @@
 // Client-side filtering for /browse/. The full list is already in the HTML; this only hides,
 // shows and reorders rows, and never builds HTML from data (textContent only).
+import { initSheet } from './sheet.js';
+
 export function initBrowse() {
   const form = document.getElementById('filters');
   const list = document.getElementById('list');
@@ -10,6 +12,9 @@ export function initBrowse() {
   const qEl = document.getElementById('f-q');
   const selects = [...form.querySelectorAll('select[data-facet]')];
   const facetKeys = selects.map((s) => s.dataset.facet);
+  const toggle = document.getElementById('filter-toggle');
+  const doneBtn = document.getElementById('sheet-done');
+  const sheet = initSheet({ form, toggle, backdrop: document.getElementById('sheet-backdrop'), done: doneBtn });
 
   const rows = [...list.children].map((el, i) => {
     const sets = {};
@@ -69,8 +74,11 @@ export function initBrowse() {
       list.append(...sorted.map((r) => r.el));
     }
 
-    countEl.textContent = `${shown.toLocaleString('en-US')} ${shown === 1 ? 'entry' : 'entries'}`;
+    const label = `${shown.toLocaleString('en-US')} ${shown === 1 ? 'entry' : 'entries'}`;
+    countEl.textContent = label;
+    doneBtn.textContent = `Show ${label}`;
     emptyEl.hidden = shown > 0;
+    sheet.refresh(selects.filter((s) => s.value).length);
 
     const out = new URLSearchParams();
     if (q) out.set('q', qEl.value.trim());
@@ -93,7 +101,9 @@ export function initBrowse() {
     apply();
   }));
 
+  document.getElementById('reset-2').addEventListener('click', () => form.reset());
   form.hidden = false;
+  toggle.hidden = false;
   document.getElementById('sort-wrap').hidden = false;
   apply();
 }

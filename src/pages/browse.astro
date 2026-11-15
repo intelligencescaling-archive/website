@@ -27,15 +27,19 @@ const facets = [
     To search inside the documents themselves, use <a href="/search/">full-text search</a>.
   </p>
 
+  <div class="find-row">
+    <label for="f-q" class="visually-hidden">Title or author contains</label>
+    <input type="search" id="f-q" name="q" form="filters" autocomplete="off" enterkeyhint="search" placeholder="Filter by title or author" />
+    <button type="button" class="secondary filter-toggle" id="filter-toggle" aria-controls="filters" aria-expanded="false" hidden>
+      Filters <span class="n" hidden>0</span>
+    </button>
+  </div>
+
   <div class="browse">
     <form class="filters" id="filters" role="search" aria-label="Filter entries" hidden>
       <div class="filters-head">
         <h2>Filters</h2>
         <button type="reset" class="linklike" id="reset">Clear all</button>
-      </div>
-      <div>
-        <label for="f-q">Title or author contains</label>
-        <input type="search" id="f-q" name="q" autocomplete="off" />
       </div>
       {facets.map((f) => (
         <div>
@@ -46,11 +50,13 @@ const facets = [
           </select>
         </div>
       ))}
+      <div class="filters-foot"><button type="button" id="sheet-done">Show entries</button></div>
     </form>
+    <div class="sheet-backdrop" id="sheet-backdrop"></div>
 
     <div>
       <div class="results-bar">
-        <p class="results-count tight" id="count" aria-live="polite">{entries.length.toLocaleString('en-US')} entries</p>
+        <p class="results-count" id="count" aria-live="polite">{entries.length.toLocaleString('en-US')} entries</p>
         <div id="sort-wrap" hidden>
           <label for="sort" class="visually-hidden">Sort by</label>
           <select id="sort" name="sort" form="filters">
@@ -61,11 +67,11 @@ const facets = [
         </div>
       </div>
       <noscript>
-        <p class="notice small">Filters need JavaScript. You can still browse by <a href="/series/">series</a>,
+        <p class="note">Filters need JavaScript. You can still browse by <a href="/series/">series</a>,
           <a href="/characters/">character</a> or <a href="/authors/">author</a>.</p>
       </noscript>
       <EntryList entries={entries} filterable id="list" />
-      <p class="empty" id="empty" hidden>No entries match these filters.</p>
+      <p class="empty" id="empty" hidden>No entries match these filters. <button type="button" class="linklike" id="reset-2">Clear all filters</button></p>
     </div>
   </div>
 </Base>

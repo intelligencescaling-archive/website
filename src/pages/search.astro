@@ -1,26 +1,71 @@
 ---
 import Base from '../layouts/Base.astro';
 import { loadArchive } from '../lib/archive.mjs';
-const { entries } = loadArchive();
+const { entries, characters } = loadArchive();
+const groups = ['Series', 'Character', 'Author', 'Tag', 'Category', 'Language'];
+const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length).slice(0, 8);
 ---
 <Base title="Search" section="search" description="Full-text search across every archived doc and story: titles, authors, characters and the text itself.">
-  <link slot="head" rel="stylesheet" href="/pagefind/pagefind-ui.css" />
   <h1>Search</h1>
-  <p class="lede">
-    Searches titles, authors, series, characters and the full text of {entries.length.toLocaleString('en-US')} entries.
-    Use the filters to narrow it down.
-  </p>
-  <div class="search-page">
-    <div id="search"></div>
-    <noscript><p class="notice">Search needs JavaScript. You can still <a href="/browse/">browse</a> by series, character or author.</p></noscript>
-    <p class="small muted search-hint" id="search-missing" hidden>
-      The search index isn't built in development mode. Run <code>npm run build</code> and <code>npm run preview</code>.
-    </p>
+  <p class="lede">Searches the full text of all {entries.length.toLocaleString('en-US')} entries, plus their titles, authors, series and characters.</p>
+
+  <form class="search-box" id="search-form" role="search" action="/search/" method="get">
+    <label for="q" class="visually-hidden">Search</label>
+    <input type="search" id="q" name="q" autocomplete="off" enterkeyhint="search" placeholder="Try Lelouch, mind palace, chess" />
+    <button type="submit">Search</button>
+  </form>
+  <noscript><p class="note">Search needs JavaScript. You can still <a href="/browse/">browse</a> by series, character or author.</p></noscript>
+
+  <div class="browse">
+    <form class="filters" id="search-filters" aria-label="Narrow the results" hidden>
+      <div class="filters-head">
+        <h2>Narrow down</h2>
+        <button type="button" class="linklike" id="clear-filters">Clear all</button>
+      </div>
+      {groups.map((g) => (
+        <div>
+          <label for={`sf-${g}`}>{g}</label>
+          <select id={`sf-${g}`} data-group={g}><option value="">Any</option></select>
+        </div>
+      ))}
+      <div>
+        <label for="sf-sort">Order</label>
+        <select id="sf-sort">
+          <option value="">Best match</option>
+          <option value="long">Longest first</option>
+        </select>
+      </div>
+      <div class="filters-foot"><button type="button" id="sheet-done">Show results</button></div>
+    </form>
+    <div class="sheet-backdrop" id="sheet-backdrop"></div>
+
+    <div>
+      <div class="results-bar">
+        <p class="results-count" id="status" aria-live="polite"></p>
+        <button type="button" class="secondary filter-toggle" id="filter-toggle" aria-controls="search-filters" aria-expanded="false" hidden>
+          Filters <span class="n" hidden>0</span>
+        </button>
+      </div>
+      <ul class="chips quick" id="quick" aria-label="Quick filters" hidden></ul>
+      <div id="idle">
+        <p class="small muted">Popular characters:</p>
+        <ul class="chips">
+          {popular.map((c) => <li><a class="chip" href={`/search/?q=${encodeURIComponent(c.name)}`}>{c.name}</a></li>)}
+          <li><a class="chip" href="/browse/" data-random>Random doc</a></li>
+        </ul>
+      </div>
+      <ol class="results" id="results"></ol>
+      <button type="button" class="secondary more" id="more" hidden>Show more results</button>
+      <p class="small muted mt" id="dev-note" hidden>
+        The search index only exists after a build. Run <code>npm run build</code> and <code>npm run preview</code>.
+      </p>
+    </div>
   </div>
-  <script is:inline src="/pagefind/pagefind-ui.js"></script>
 </Base>
 
 <script>
   import { initSearch } from '../scripts/search.js';
+  import { initRandom } from '../scripts/random.js';
   initSearch();
+  initRandom();
 </script>
