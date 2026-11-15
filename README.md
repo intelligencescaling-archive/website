@@ -30,6 +30,24 @@ npm run preview    # serves dist/ at http://localhost:4321
 | `FILES_URL_TEMPLATE` | empty | Where PDF/DOCX downloads live, e.g. `https://files.intelscaling.com/{sha256}.{format}`. Placeholders: `{sha256}`, `{format}`, `{id}`, `{name}`. Empty = download buttons show "coming soon". A `url` on a file in `meta.yaml` always wins. |
 | `ASTRO_TELEMETRY_DISABLED` | | Set to `1` to turn off Astro's anonymous usage data. |
 
+## Cloudflare Pages
+
+Cloudflare builds the site itself from this repo and downloads the archive repo during the build
+(`scripts/fetch-archive.mjs`, a shallow clone). That needs the archive repo to be **public**, so this is set up at launch.
+
+| Setting | Value |
+|---|---|
+| Build command | `npm run build:cloudflare` |
+| Build output directory | `dist` |
+| Node version | from `.node-version` |
+| Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; `FILES_URL_TEMPLATE` once R2 is ready; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH` |
+
+To rebuild when the archive changes, create a **deploy hook** in Cloudflare Pages and have the archive repo's CI
+call it after a push to `main` (the hook URL is a secret in the archive repo).
+
+Downloads (Step C): R2 objects are named `<sha256>.<format>` and uploaded with a `Content-Disposition` header
+that gives the readable file name, so `FILES_URL_TEMPLATE=https://files.intelscaling.com/{sha256}.{format}`.
+
 ## Pages
 
 | Path | What |

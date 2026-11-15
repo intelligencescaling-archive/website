@@ -8,7 +8,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "test:escaping": "node scripts/test-escaping.mjs"
+    "test:escaping": "node scripts/test-escaping.mjs",
+    "build:cloudflare": "node scripts/fetch-archive.mjs && astro build"
   },
   "dependencies": {
     "astro": "7.4.7",
