@@ -4,7 +4,7 @@
   --card: #fffdf8;
   --ink: #1f1d1a;
   --ink-2: #514c44;
-  --ink-3: #7a7368;
+  --ink-3: #6b645a;
   --rule: #ddd5c6;
   --rule-2: #c9bfad;
   --accent: #8c2f25;
@@ -112,6 +112,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .badge.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
 .badge.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
 .badge.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.part h3 .badge { white-space: normal; }
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0; margin: 0; }
 .chip {
   display: inline-flex; align-items: baseline; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 999px;

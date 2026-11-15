@@ -4,7 +4,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as pagefind from 'pagefind';
-import { loadArchive, entryText, CATEGORY_PLURAL } from '../lib/archive.mjs';
+import { loadArchive, entryText, sortTitle, CATEGORY_PLURAL } from '../lib/archive.mjs';
 
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
@@ -17,7 +17,9 @@ export default function searchIndex() {
     hooks: {
       'astro:build:done': async ({ dir, logger }) => {
         const out = path.join(fileURLToPath(dir), 'pagefind');
-        const { entries, warnings } = loadArchive();
+        const { entries, warnings, series, characters } = loadArchive();
+        // Other spellings ("Ayanokouji" for "Ayanokoji") so a search finds the entry either way.
+        const aliasesOf = new Map([...series, ...characters].map((x) => [x.id, x.aliases || []]));
         for (const w of warnings.slice(0, 20)) logger.warn(w);
         if (warnings.length > 20) logger.warn(`...and ${warnings.length - 20} more warnings`);
         const { errors, index } = await pagefind.createIndex({ forceLanguage: 'en' });
@@ -30,6 +32,7 @@ export default function searchIndex() {
             e.authors.length ? e.authors.map((a) => a.name + (a.reddit ? ` u/${a.reddit}` : '')).join(', ') : 'Unknown author',
             e.series.map((s) => s.name).join(', '),
             e.characters.map((c) => c.name).join(', '),
+            [...e.series, ...e.characters].flatMap((x) => aliasesOf.get(x.id) || []).join(', '),
             e.variant,
             e.tags.join(' '),
           ].filter(Boolean);
@@ -55,7 +58,7 @@ export default function searchIndex() {
               Tag: e.tags,
               Language: [e.languageName],
             }),
-            sort: { title: e.title.toLowerCase(), words: String(e.words).padStart(9, '0') },
+            sort: { title: (/^\p{N}/u.test(sortTitle(e.title)) ? '~' : '') + sortTitle(e.title).toLowerCase(), words: String(e.words).padStart(9, '0') },
           });
           if (res.errors?.length) logger.warn(`${e.id}: ${res.errors.join('; ')}`);
         }

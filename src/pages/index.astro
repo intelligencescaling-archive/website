@@ -9,7 +9,7 @@ const words = entries.reduce((n, e) => n + e.words, 0);
 const topSeries = [...series].sort((a, b) => b.entries.length - a.entries.length).slice(0, 24);
 const topChars = [...characters].sort((a, b) => b.entries.length - a.entries.length).slice(0, 18);
 const stories = entries.filter((e) => e.category === 'story');
-const unreviewed = entries.filter((e) => e.review.status === 'auto').length;
+const uncredited = entries.filter((e) => e.authors.length === 0).length;
 ---
 <Base section="home">
   <section class="hero">
@@ -34,11 +34,12 @@ const unreviewed = entries.filter((e) => e.review.status === 'auto').length;
     </ul>
   </section>
 
-  {unreviewed > 0 && (
+  {uncredited > 0 && (
     <div class="notice small">
       <p>
-        <strong>Work in progress.</strong> {formatNumber(unreviewed)} entries were filled in automatically from the
-        community libraries, so some authors, series or tags may be wrong or missing. Each item page has a link to suggest a fix.
+        <strong>Help fill the gaps.</strong> {formatNumber(uncredited)} entries don't have a known author yet, and most
+        details were filled in automatically from the community libraries. Know who wrote something? Each item page has a
+        link to suggest a fix.
       </p>
     </div>
   )}

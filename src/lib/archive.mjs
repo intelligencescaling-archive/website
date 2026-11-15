@@ -40,7 +40,7 @@ export const CATEGORY_PLURAL = { doc: 'Docs', story: 'Stories', misc: 'Misc' };
 export const STATUS = {
   complete: { label: 'Saved', tone: 'ok' },
   partial: { label: 'Partly saved', tone: 'warn' },
-  'export-blocked': { label: 'Not saved yet: owner blocked downloads', tone: 'warn' },
+  'export-blocked': { label: 'Not saved: downloads blocked', tone: 'warn' },
   dead: { label: 'Original deleted', tone: 'bad' },
   private: { label: 'Original made private', tone: 'bad' },
   'not-captured': { label: 'Not saved yet', tone: 'warn' },
@@ -121,6 +121,36 @@ function fileHref(entryId, file) {
   return safeUrl(url);
 }
 
+/** Turns a capture error ("HTTP 401") into words a reader understands. */
+function missingReason(value) {
+  const v = str(value);
+  if (/HTTP 40[13]|disabled by owner/i.test(v)) return 'the owner turned off downloads';
+  if (/HTTP 5\d\d/.test(v)) return "Google couldn't export it, usually because the doc is very large";
+  return v;
+}
+
+/**
+ * Key for A–Z sorting: ignores leading quotes, emoji and other symbols, and a leading bracketed
+ * note like "(COPIA)" or "(Upgrade WIP)", so the list starts with real titles.
+ */
+export function sortTitle(title) {
+  const t = str(title)
+    .replace(/^[^\p{L}\p{N}(\[]+/u, '')
+    .replace(/^[(\[][^)\]]{1,24}[)\]]\s*/, '')
+    .replace(/^[^\p{L}\p{N}]+/u, '');
+  return t || str(title);
+}
+
+/** A–Z by sortTitle(), with titles that start with a number after the letters. */
+export function compareTitles(a, b) {
+  const ka = sortTitle(a);
+  const kb = sortTitle(b);
+  const na = /^\p{N}/u.test(ka);
+  const nb = /^\p{N}/u.test(kb);
+  if (na !== nb) return na ? 1 : -1;
+  return ka.localeCompare(kb, 'en', { sensitivity: 'base', numeric: true });
+}
+
 function findMetaFiles(root) {
   const out = [];
   const walk = (dir, depth) => {
@@ -197,7 +227,7 @@ function normalizeEntry(raw, metaFile, reg) {
       textPath: textFile && fs.existsSync(path.join(dir, textFile)) ? path.join(dir, textFile) : null,
       textFile,
       missing: Object.entries(capture.missing && typeof capture.missing === 'object' ? capture.missing : {}).map(
-        ([k, v]) => [FORMAT_NAMES[k] || str(k), str(v)],
+        ([k, v]) => [FORMAT_NAMES[k] || str(k), missingReason(v)],
       ),
     };
   });
@@ -274,7 +304,7 @@ export function loadArchive() {
     seen.set(e.id, e.repoPath);
     entries.push(e);
   }
-  entries.sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base', numeric: true }));
+  entries.sort((a, b) => compareTitles(a.title, b.title));
   const byId = new Map(entries.map((e) => [e.id, e]));
 
   const group = (keyFn, makeFn) => {
