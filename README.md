@@ -27,7 +27,7 @@ npm run preview    # serves dist/ at http://localhost:4321
 | Variable | Default | What it does |
 |---|---|---|
 | `ARCHIVE_DIR` | `../archive` | Path to a checkout of the archive repo. |
-| `FILES_URL_TEMPLATE` | empty | Where PDF/DOCX downloads live, e.g. `https://files.intelscaling.com/{sha256}.{format}`. Placeholders: `{sha256}`, `{format}`, `{id}`, `{name}`. Empty = download buttons show "coming soon". A `url` on a file in `meta.yaml` always wins. |
+| `FILES_URL_TEMPLATE` | `https://files.intelscaling.com/{sha256}.{format}` | Where PDF/DOCX downloads live (the R2 bucket). Placeholders: `{sha256}`, `{format}`, `{id}`, `{name}`. Set to an empty string to show "coming soon" buttons instead. A `url` on a file in `meta.yaml` always wins. |
 | `ASTRO_TELEMETRY_DISABLED` | | Set to `1` to turn off Astro's anonymous usage data. |
 
 ## Cloudflare Pages
@@ -40,13 +40,13 @@ Cloudflare builds the site itself from this repo and downloads the archive repo 
 | Build command | `npm run build:cloudflare` |
 | Build output directory | `dist` |
 | Node version | from `.node-version` |
-| Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; `FILES_URL_TEMPLATE` once R2 is ready; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH` |
+| Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH` |
 
 To rebuild when the archive changes, create a **deploy hook** in Cloudflare Pages and have the archive repo's CI
 call it after a push to `main` (the hook URL is a secret in the archive repo).
 
 Downloads (Step C): R2 objects are named `<sha256>.<format>` and uploaded with a `Content-Disposition` header
-that gives the readable file name, so `FILES_URL_TEMPLATE=https://files.intelscaling.com/{sha256}.{format}`.
+that gives the readable file name, which matches the default `FILES_URL_TEMPLATE`.
 
 ## Pages
 

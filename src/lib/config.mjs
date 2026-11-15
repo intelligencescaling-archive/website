@@ -10,11 +10,11 @@ export const ARCHIVE_DIR = path.resolve(websiteRoot, process.env.ARCHIVE_DIR || 
 
 /**
  * Where PDF/DOCX files are downloaded from. Placeholders: {sha256} {format} {id} {name}.
- * Example: https://files.intelscaling.com/{sha256}.{format}
- * Empty = files aren't hosted yet, so the site shows "not available yet".
+ * Default: the R2 bucket at files.intelscaling.com (objects are named <sha256>.<format>).
+ * Set it to an empty string to turn downloads off ("not available yet" buttons).
  * A `url` on a file in meta.yaml always wins over the template.
  */
-export const FILES_URL_TEMPLATE = (process.env.FILES_URL_TEMPLATE || '').trim();
+export const FILES_URL_TEMPLATE = (process.env.FILES_URL_TEMPLATE ?? 'https://files.intelscaling.com/{sha256}.{format}').trim();
 
 /** Public repos, used for "suggest a correction" and "source" links. */
 export const ARCHIVE_REPO_URL = 'https://github.com/intelligencescaling-archive/archive';

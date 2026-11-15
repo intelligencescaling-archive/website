@@ -71,8 +71,8 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
             <div class="downloads">
               {p.files.map((f: any) =>
                 f.href ? (
-                  <a class="button" href={f.href} rel="noopener" download>
-                    Download {f.formatName} <span class="size">{formatBytes(f.bytes)}</span>
+                  <a class={`button${f.format === 'pdf' ? '' : ' secondary'}`} href={f.href} rel="noopener">
+                    {f.format === 'pdf' ? 'Open PDF' : `Download ${f.formatName}`} <span class="size">{formatBytes(f.bytes)}</span>
                   </a>
                 ) : (
                   <span class="button" aria-disabled="true" title="Downloads are not available yet">
