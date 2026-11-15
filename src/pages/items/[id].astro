@@ -85,7 +85,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
           <div class="part-meta">
             {p.pages && <span>{formatNumber(p.pages)} pages</span>}
             {p.words !== null && <span>{formatNumber(p.words)} words</span>}
-            {p.date && <span>{p.recovered ? 'Snapshot from' : p.status === 'complete' ? 'Saved' : p.status === 'partial' ? 'Partly saved' : 'Tried'} {p.date}</span>}
+            {p.date && <span>{p.fromSnapshot ? 'Snapshot from' : p.status === 'complete' ? 'Saved' : p.status === 'partial' ? 'Partly saved' : 'Tried'} {p.date}</span>}
             {multi && <span>{p.sourceLabel}</span>}
           </div>
           {p.images.length > 0 && (

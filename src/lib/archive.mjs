@@ -223,6 +223,7 @@ function normalizeEntry(raw, metaFile, reg) {
     // downloads): offer the text itself as the download.
     const textOnly = hasText && !files.some((f) => ['pdf', 'docx', 'pptx', 'epub', 'html'].includes(f.format));
     const recovered = status === 'partial' && textOnly && files.length === 0;
+    const fromSnapshot = recovered && arr(raw.links).some((l) => l?.type === 'wayback');
     const linkOnly = status === 'not-captured' && arr(raw.links).some((l) => l?.type === 'wayback');
     const label = recovered ? STATUS_TEXT_ONLY : linkOnly ? STATUS_LINK_ONLY : STATUS[status];
     return {
@@ -235,6 +236,7 @@ function normalizeEntry(raw, metaFile, reg) {
       statusLabel: label.label,
       tone: label.tone,
       recovered,
+      fromSnapshot,
       linkOnly,
       images: files.filter((f) => (f.format === 'png' || f.format === 'jpg') && f.href),
       textHref: textOnly ? `${ARCHIVE_RAW_URL}/${encodeRepoPath(path.relative(ARCHIVE_DIR, path.join(dir, textFile)))}` : null,
