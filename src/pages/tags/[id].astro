@@ -11,6 +11,6 @@ const { t } = Astro.props as { t: any };
 <Base title={`Tag: ${t.name}`} description={`${t.entries.length} archived entries tagged ${t.name}.`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/tags/">Tags</a></nav>
   <h1>Tag: {t.name}</h1>
-  <p class="lede">{t.entries.length} {t.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/browse/?tag=${t.id}`}>Filter these further</a>.</p>
+  <p class="lede">{t.entries.length} {t.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/search/?tag=${t.id}`}>Filter these further</a>.</p>
   <EntryList entries={t.entries} />
 </Base>

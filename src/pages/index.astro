@@ -1,100 +1,31 @@
 ---
+// Home has one job: getting started. Everything to explore lives in Search and the Library.
 import Base from '../layouts/Base.astro';
-import EntryList from '../components/EntryList.astro';
 import { loadArchive, formatNumber } from '../lib/archive.mjs';
-import { SUBREDDIT_URL, LOST_AT_START } from '../lib/config.mjs';
 
-const { entries, series, characters, authors } = loadArchive();
+const { entries, series, characters } = loadArchive();
 const words = entries.reduce((n, e) => n + e.words, 0);
-const topSeries = [...series].sort((a, b) => b.entries.length - a.entries.length).slice(0, 24);
-const topChars = [...characters].sort((a, b) => b.entries.length - a.entries.length || a.name.localeCompare(b.name)).slice(0, 24);
-const sizeOf = (n: number) => (n >= 30 ? 'r1' : n >= 16 ? 'r2' : n >= 10 ? 'r3' : 'r4');
-const longest = [...entries].sort((a, b) => b.words - a.words).slice(0, 5);
-const maxWords = longest[0]?.words || 1;
-const barClass = (w: number) => `w-${Math.max(1, Math.round((w / maxWords) * 10)) * 10}`;
-const lost = LOST_AT_START.deleted + LOST_AT_START.private;
-const stories = entries.filter((e) => e.category === 'story');
-const uncredited = entries.filter((e) => e.authors.length === 0).length;
+const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length || a.name.localeCompare(b.name)).slice(0, 6);
 ---
 <Base section="home">
   <section class="hero">
-    <h1>The analysis docs of r/<wbr />IntelligenceScaling, <span class="mark">in one searchable archive.</span></h1>
-    <p class="lede">
-      Most of the community's docs live in Google Docs that their owners can delete at any time. This archive keeps a
-      copy of each one, credits its author when known, and lets you search inside them.
-    </p>
+    <h1>Every r/<wbr />IntelligenceScaling doc, <span class="mark">saved and searchable.</span></h1>
     <form class="search-form" action="/search/" method="get" role="search">
       <label for="home-q" class="visually-hidden">Search the archive</label>
       <input type="search" id="home-q" name="q" placeholder="A character, a doc, a word inside a doc" enterkeyhint="search" />
       <button type="submit">Search</button>
-      <a class="button secondary" href="/browse/" data-random>Random doc</a>
+      <a class="button secondary" href="/search/" data-random>Random doc</a>
     </form>
-    <ul class="stats">
-      <li><strong>{formatNumber(entries.length)}</strong>docs and stories</li>
-      <li><strong>{formatNumber(characters.length)}</strong>characters</li>
-      <li><strong>{formatNumber(series.length)}</strong>series</li>
-      <li><strong>{(words / 1e6).toFixed(1)}M</strong>words</li>
-    </ul>
-  </section>
-
-  {uncredited > 0 && (
-    <div class="note">
-      <p>
-        <strong>{formatNumber(uncredited)} entries have no known author yet.</strong> Most details were filled in
-        automatically from the community libraries, so some may be wrong. If you know who wrote something, use the
-        correction link on its page.
-      </p>
-    </div>
-  )}
-
-  <div class="home-grid">
-    <section aria-labelledby="h-chars">
-      <h2 id="h-chars">Most-documented characters</h2>
-      <ul class="roster">
-        {topChars.map((c) => (
-          <li class={sizeOf(c.entries.length)}><a href={`/characters/${c.id}/`}>{c.name}</a><span class="count">{c.entries.length}</span></li>
-        ))}
+    <div class="popular">
+      <h2 class="popular-h">Popular characters</h2>
+      <ul class="chips">
+        {popular.map((c) => <li><a class="chip" href={`/characters/${c.id}/`}>{c.name}</a></li>)}
       </ul>
-      <p class="more-link"><a href="/characters/">All {characters.length} characters</a></p>
-    </section>
-    <section aria-labelledby="h-long">
-      <h2 id="h-long">The longest docs</h2>
-      <ol class="longest">
-        {longest.map((e) => (
-          <li>
-            <span class="t"><a href={`/items/${e.id}/`}>{e.title}</a></span>
-            <span class="w">{formatNumber(e.words)} words</span>
-            <span class="bar" aria-hidden="true"><i class={barClass(e.words)}></i></span>
-            <span class="sub">{[e.authors.map((a) => a.name).join(', ') || 'Unknown author', e.series.map((s) => s.name).join(', ')].filter(Boolean).join(', ')}</span>
-          </li>
-        ))}
-      </ol>
-      <p class="more-link"><a href="/browse/?sort=long">All docs, longest first</a></p>
-    </section>
-  </div>
-
-  <div class="lost">
-    <strong>{lost} docs were already gone</strong>
-    <p>
-      Of the links in the community libraries, {LOST_AT_START.deleted} were deleted and {LOST_AT_START.private} made
-      private before this archive started. The text of {LOST_AT_START.recoveredText} came back from the Wayback Machine.
-      If you saved a copy of a lost doc, <a href="/about/#adding">tell us</a>.
+    </div>
+    <p class="stats-line">
+      {formatNumber(entries.length)} docs and stories · {formatNumber(characters.length)} characters · {formatNumber(series.length)} series · {(words / 1e6).toFixed(1)}M words
     </p>
-  </div>
-
-  <h2>Series</h2>
-  <ul class="chips">
-    {topSeries.map((s) => <li><a class="chip" href={`/series/${s.id}/`}>{s.name} <span class="count">{s.entries.length}</span></a></li>)}
-  </ul>
-  <p class="more-link"><a href="/series/">All {series.length} series</a></p>
-
-  {stories.length > 0 && (
-    <>
-      <h2>Stories</h2>
-      <EntryList entries={stories} />
-      <p class="more-link"><a href="/browse/?category=story">All stories</a></p>
-    </>
-  )}
+  </section>
 </Base>
 
 <script>

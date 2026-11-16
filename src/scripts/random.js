@@ -1,4 +1,4 @@
-// "Random doc" links: without JavaScript they go to /browse/; with it, to a random entry.
+// "Random doc" links: without JavaScript they go to /search/; with it, to a random entry.
 // The id list is fetched on the first click only, and ids are checked before building a URL.
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 let ids = null;

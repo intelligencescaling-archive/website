@@ -6,7 +6,7 @@ interface Props {
   title?: string;
   description?: string;
   /** Which nav link is active. */
-  section?: 'home' | 'browse' | 'search' | 'series' | 'topics' | 'characters' | 'authors' | 'library' | 'about';
+  section?: 'home' | 'search' | 'series' | 'topics' | 'characters' | 'authors' | 'library' | 'about';
   /** Open Graph type: 'article' for item pages, 'website' for the rest. */
   ogType?: 'website' | 'article';
 }
@@ -18,7 +18,6 @@ const desc =
   'A searchable archive of the analysis docs and stories shared on r/IntelligenceScaling (Smart Character Debates), with credit to their authors.';
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const nav = [
-  ['browse', '/browse/', 'Browse'],
   ['search', '/search/', 'Search'],
   ['series', '/series/', 'Series'],
   ['topics', '/topics/', 'Topics'],

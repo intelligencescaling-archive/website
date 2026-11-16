@@ -6,7 +6,7 @@ const xmlEscape = (s) => s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;
 export function GET({ site }) {
   const { entries, series, characters, authors, tags, topics } = loadArchive();
   const paths = [
-    '/', '/browse/', '/search/', '/series/', '/topics/', '/characters/', '/authors/', '/tags/', '/about/', '/acknowledgments/', '/removal/',
+    '/', '/search/', '/library/', '/series/', '/topics/', '/characters/', '/authors/', '/tags/', '/about/', '/acknowledgments/', '/removal/',
     ...entries.map((e) => `/items/${e.id}/`),
     ...series.map((s) => `/series/${s.id}/`),
     ...characters.map((c) => `/characters/${c.id}/`),

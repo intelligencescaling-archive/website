@@ -1,36 +1,21 @@
-// Search page, built on Pagefind's JS API. Everything from the index is inserted as text
-// (textContent); the only markup kept is Pagefind's <mark> highlighting, copied node by node.
+// The Search page: one place to find things.
+// - Empty search box: the full list from the HTML, filtered, counted and sorted here (this only
+//   hides, shows and reorders rows; it never builds HTML from data).
+// - Words typed: full-text search with Pagefind, using the same filters.
+// Everything from the index is inserted as text (textContent); the only markup kept from an excerpt
+// is the <mark> around matched words, rebuilt node by node.
 import { initSheet } from './sheet.js';
 
 const PAGE = 10;
-const QUICK_GROUPS = ['Series', 'Character', 'Tag'];
-const QUICK_MAX = 5;
+const SORTS = { title: { title: 'asc' }, long: { words: 'desc' }, short: { words: 'asc' } };
 
-// Long rules in docs ("— — — —", "-----", "=====") collapse to one dash, so excerpts can't stretch the page.
-const RULE_RUN = /([-‐-―_=~*─-╿•·])(\s*\1){3,}/g;
-const squeeze = (t) => t.replace(RULE_RUN, '—');
-const isRule = (w) => /^[-‐-―_=~*─-╿•·.]{3,}$/.test(w);
-
-/** Appends Pagefind's excerpt (escaped text + <mark> tags) to `el` without using innerHTML on the page. */
-function appendExcerpt(el, html) {
-  const tpl = document.createElement('template'); // inert: nothing in it runs or loads
-  tpl.innerHTML = html;
-  const walk = (node, into) => {
-    for (const child of node.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) into.append(squeeze(child.textContent));
-      else if (child.nodeName === 'MARK') {
-        const m = document.createElement('mark');
-        m.textContent = child.textContent;
-        into.append(m);
-      } else walk(child, into);
-    }
-  };
-  walk(tpl.content, el);
-}
+// Long rules in docs ("— — — —", "-----", "=====") collapse to one dash in excerpts.
+const isRule = (w) => /^[\p{Pd}_=~*•·─━.]{3,}$/u.test(w) || /^[\p{Pd}_=~*•·─━]$/u.test(w);
 
 /**
- * Builds an excerpt around the first match inside the doc text (not the metadata appended after
- * it). Returns false when the only matches are in the metadata, so Pagefind's excerpt is used.
+ * Adds a short excerpt that starts at the first match inside the doc text (not the metadata
+ * appended after it). Returns false when the words only match the title, author or other metadata:
+ * then no excerpt is shown, since it would only repeat the title and author.
  */
 function appendDocExcerpt(target, d, query) {
   const words = (d.content || '').split(/\s+/);
@@ -38,14 +23,12 @@ function appendDocExcerpt(target, d, query) {
   const loc = (d.locations || []).find((l) => l < limit);
   if (loc === undefined || limit < 1) return false;
   const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
-  const start = Math.max(0, loc - 12);
-  const end = Math.min(limit, start + 32);
-  if (start > 0) target.append('… ');
+  const end = Math.min(limit, loc + 28);
+  if (loc > 0) target.append('… ');
   let lastRule = false;
-  for (let i = start; i < end; i++) {
+  for (let i = loc; i < end; i++) {
     const w = words[i];
-    // Long "— — — —" or "-----" rules in docs become one dash, so they can't stretch the page.
-    if (isRule(w) || (w.length === 1 && isRule(w.repeat(3)))) {
+    if (isRule(w)) {
       if (!lastRule) target.append('— ');
       lastRule = true;
       continue;
@@ -69,7 +52,7 @@ const KINDS = [
   ['t', 'Topics', 'Topic', '/topics/'],
   ['a', 'Authors', 'Author', '/authors/'],
 ];
-const norm = (x) => x.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const norm = (x) => x.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 function scoreName(name, q, terms) {
   const n = norm(name);
@@ -83,7 +66,7 @@ function scoreName(name, q, terms) {
   return 0;
 }
 
-/** All name matches for a query, best first: [{kind, name, href, count, sub, score}]. */
+/** All name matches for a query, best first: [{k, name, href, count, sub, score}]. */
 function matchNames(names, query) {
   const q = norm(query);
   if (!names || !q) return [];
@@ -100,7 +83,7 @@ function matchNames(names, query) {
   return out.sort((a, b) => b.score - a.score || b.count - a.count);
 }
 
-const entriesLabel = (n) => `${n.toLocaleString('en-US')} ${n === 1 ? 'entry' : 'entries'}`;
+const plural = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -112,75 +95,167 @@ function el(tag, props = {}, ...children) {
 export async function initSearch() {
   const form = document.getElementById('search-form');
   const input = document.getElementById('q');
-  const filtersForm = document.getElementById('search-filters');
-  const selects = [...filtersForm.querySelectorAll('select[data-group]')];
-  const sortEl = document.getElementById('sf-sort');
+  const filtersForm = document.getElementById('filters');
+  const selects = [...filtersForm.querySelectorAll('select[data-facet]')];
+  const sortEl = document.getElementById('sort');
+  const bestOpt = sortEl.querySelector('option[value="best"]');
   const status = document.getElementById('status');
-  const list = document.getElementById('results');
+  const results = document.getElementById('results');
+  const list = document.getElementById('list');
   const moreBtn = document.getElementById('more');
-  const quick = document.getElementById('quick');
-  const idle = document.getElementById('idle');
-  const toggle = document.getElementById('filter-toggle');
+  const active = document.getElementById('active');
+  const empty = document.getElementById('empty');
   const matchesBox = document.getElementById('matches');
-  const narrow = matchMedia('(max-width: 767.98px)');
-  let names = null;
-  fetch('/names.json')
-    .then((r) => (r.ok ? r.json() : null))
-    .then((j) => {
-      names = j;
-      if (names && input.value.trim()) renderMatches(input.value.trim(), activeFilters());
-    })
-    .catch(() => {});
+  const doneBtn = document.getElementById('sheet-done');
   const sheet = initSheet({
     form: filtersForm,
-    toggle,
+    toggle: document.getElementById('filter-toggle'),
     backdrop: document.getElementById('sheet-backdrop'),
-    done: document.getElementById('sheet-done'),
+    done: doneBtn,
   });
 
-  let pagefind;
-  try {
-    const path = '/pagefind/pagefind.js';
-    pagefind = await import(/* @vite-ignore */ path);
-    await pagefind.options({ excerptLength: 30 });
-    pagefind.init();
-  } catch {
-    document.getElementById('dev-note').hidden = false;
-    return;
-  }
+  // Rows of the full list, for filtering without a search.
+  const facetKeys = selects.map((s) => s.dataset.facet);
+  const rows = [...list.children].map((li, i) => {
+    const sets = {};
+    for (const k of facetKeys) sets[k] = new Set((li.dataset[k] || '').split(' ').filter(Boolean));
+    return { li, i, sets, words: Number(li.dataset.words) || 0 };
+  });
 
-  // Fill the filter dropdowns with every value (sorted by name).
-  const all = await pagefind.filters();
-  for (const s of selects) {
-    const values = Object.keys(all[s.dataset.group] || {}).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
-    for (const v of values) s.append(el('option', { value: v, textContent: v }));
-  }
-  filtersForm.hidden = false;
-  toggle.hidden = false;
-
-  // Restore state from the URL.
+  // Restore state from the URL. Values can be ids (?series=death-note, as old /browse/ links) or
+  // names (?series=Death Note, as old /search/ links).
   const params = new URLSearchParams(location.search);
   input.value = params.get('q') || '';
   for (const s of selects) {
-    const v = params.get(s.dataset.group.toLowerCase());
-    if (v && [...s.options].some((o) => o.value === v)) s.value = v;
+    const v = (params.get(s.name) || '').toLowerCase();
+    if (!v) continue;
+    const o = [...s.options].find((o) => o.value && (o.value.toLowerCase() === v || o.dataset.label.toLowerCase() === v || o.dataset.pf.toLowerCase() === v));
+    if (o) s.value = o.value;
   }
-  if (params.get('sort') === 'long') sortEl.value = 'long';
+  let chosenSort = ['best', 'title', 'long', 'short'].includes(params.get('sort')) ? params.get('sort') : '';
 
+  let pagefind = null;
+  let names = null;
+  async function loadPagefind() {
+    if (pagefind) return pagefind;
+    try {
+      const path = '/pagefind/pagefind.js';
+      pagefind = await import(/* @vite-ignore */ path);
+      await pagefind.options({ excerptLength: 30 });
+      pagefind.init();
+    } catch {
+      document.getElementById('dev-note').hidden = false;
+      pagefind = null;
+    }
+    return pagefind;
+  }
+  function loadNames() {
+    if (names !== null) return;
+    names = false;
+    fetch('/names.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        names = j;
+        if (names && input.value.trim()) renderMatches(input.value.trim());
+      })
+      .catch(() => {});
+  }
+
+  const activeSelects = () => selects.filter((s) => s.value);
+  const pfFilters = () => Object.fromEntries(activeSelects().map((s) => [s.dataset.group, s.selectedOptions[0].dataset.pf]));
+
+  function setSortChoices(searching) {
+    bestOpt.hidden = !searching;
+    bestOpt.disabled = !searching;
+    const def = searching ? 'best' : 'title';
+    sortEl.value = chosenSort && (searching || chosenSort !== 'best') ? chosenSort : def;
+    return sortEl.value;
+  }
+
+  // Active filters as removable chips (the only place they're shown outside the panel).
+  function renderActive() {
+    const chips = activeSelects().map((s) => {
+      const name = s.selectedOptions[0].dataset.label;
+      const b = el('button', { type: 'button', className: 'chip on', textContent: `${name} ✕` });
+      b.setAttribute('aria-label', `Remove filter: ${name}`);
+      b.addEventListener('click', () => {
+        s.value = '';
+        run();
+      });
+      return el('li', {}, b);
+    });
+    active.replaceChildren(...chips);
+    active.hidden = chips.length === 0;
+    sheet.refresh(0);
+  }
+
+  function setCounts(countOf) {
+    for (const s of selects) {
+      for (const o of s.options) {
+        if (!o.value) continue;
+        const n = countOf(s, o);
+        o.textContent = `${o.dataset.label} (${n})`;
+        o.disabled = n === 0 && o.value !== s.value;
+      }
+    }
+  }
+
+  function showCount(n, one, many) {
+    const label = plural(n, one, many);
+    status.textContent = label;
+    doneBtn.textContent = `Show ${label}`;
+  }
+
+  // ----- Without a search: filter and sort the full list -----
+  let lastSort = 'title';
+  function browse() {
+    const chosen = Object.fromEntries(selects.map((s) => [s.dataset.facet, s.value]));
+    const facetOk = (r, k) => !chosen[k] || r.sets[k].has(chosen[k]);
+    const counts = Object.fromEntries(facetKeys.map((k) => [k, new Map()]));
+    let shown = 0;
+    for (const r of rows) {
+      const fails = facetKeys.filter((k) => !facetOk(r, k));
+      r.li.hidden = fails.length > 0;
+      if (!r.li.hidden) shown++;
+      for (const k of facetKeys) {
+        if (fails.length === 0 || (fails.length === 1 && fails[0] === k)) {
+          for (const v of r.sets[k]) counts[k].set(v, (counts[k].get(v) || 0) + 1);
+        }
+      }
+    }
+    setCounts((s, o) => counts[s.dataset.facet].get(o.value) || 0);
+    const sort = setSortChoices(false);
+    if (sort !== lastSort) {
+      lastSort = sort;
+      const sorted = [...rows].sort((a, b) =>
+        sort === 'long' ? b.words - a.words || a.i - b.i : sort === 'short' ? a.words - b.words || a.i - b.i : a.i - b.i,
+      );
+      list.append(...sorted.map((r) => r.li));
+    }
+    list.classList.toggle('one-category', !!chosen.cat);
+    showCount(shown, 'entry', 'entries');
+    empty.hidden = shown > 0;
+    list.hidden = false;
+    results.hidden = true;
+    moreBtn.hidden = true;
+    matchesBox.hidden = true;
+  }
+
+  // ----- With a search: Pagefind -----
   let current = null;
   let shown = 0;
-  const activeFilters = () => Object.fromEntries(selects.filter((s) => s.value).map((s) => [s.dataset.group, s.value]));
 
   async function renderMore() {
+    const q = input.value.trim();
     const batch = current.results.slice(shown, shown + PAGE);
     shown += batch.length;
     const data = await Promise.all(batch.map((r) => r.data()));
     for (const d of data) {
       const meta = d.meta || {};
       const excerpt = el('p', { className: 'excerpt' });
-      if (!appendDocExcerpt(excerpt, d, input.value.trim())) appendExcerpt(excerpt, d.excerpt || '');
-      const by = meta.by || 'Unknown author';
-      list.append(
+      const hasExcerpt = appendDocExcerpt(excerpt, d, q);
+      const known = meta.by && meta.by !== 'Unknown author';
+      results.append(
         el(
           'li',
           { className: 'result' },
@@ -188,68 +263,21 @@ export async function initSearch() {
           el(
             'div',
             { className: 'meta' },
-            el('span', { className: by === 'Unknown author' ? 'unknown' : 'by', textContent: by }),
+            known ? el('span', { className: 'by', textContent: meta.by }) : null,
             meta.series ? el('span', { textContent: meta.series }) : null,
             meta.words && meta.words !== '0' ? el('span', { className: 'num', textContent: `${Number(meta.words).toLocaleString('en-US')} words` }) : null,
           ),
-          excerpt,
+          hasExcerpt ? excerpt : null,
         ),
       );
     }
     moreBtn.hidden = shown >= current.results.length;
   }
 
-  function renderQuick(counts, total) {
-    const active = activeFilters();
-    const chips = [];
-    for (const [group, value] of Object.entries(active)) {
-      const b = el('button', { type: 'button', className: 'chip on', textContent: `${value} ✕` });
-      b.setAttribute('aria-label', `Remove filter: ${value}`);
-      b.addEventListener('click', () => {
-        selects.find((s) => s.dataset.group === group).value = '';
-        run();
-      });
-      chips.push(b);
-    }
-    if (counts && total > 1) {
-      const options = [];
-      for (const g of QUICK_GROUPS) {
-        if (active[g]) continue;
-        for (const [value, n] of Object.entries(counts[g] || {})) {
-          if (n > 0 && n < total && value !== '(No series)') options.push({ g, value, n });
-        }
-      }
-      options.sort((a, b) => b.n - a.n);
-      for (const o of options.slice(0, narrow.matches ? 3 : QUICK_MAX)) {
-        const b = el('button', { type: 'button', className: 'chip' }, o.value, ' ', el('span', { className: 'count', textContent: String(o.n) }));
-        b.addEventListener('click', () => {
-          selects.find((s) => s.dataset.group === o.g).value = o.value;
-          run();
-        });
-        chips.push(b);
-      }
-    }
-    quick.replaceChildren(...chips.map((c) => el('li', {}, c)));
-    quick.hidden = chips.length === 0;
-    sheet.refresh(Object.keys(active).length);
-  }
-
-  function updateCounts(counts) {
-    for (const s of selects) {
-      const c = counts ? counts[s.dataset.group] || {} : all[s.dataset.group] || {};
-      for (const o of s.options) {
-        if (!o.value) continue;
-        const n = c[o.value] || 0;
-        o.textContent = `${o.value} (${n})`;
-        o.disabled = n === 0 && o.value !== s.value;
-      }
-    }
-  }
-
-  // Shows the best-matching character/series/topic/author as a "top result", then up to three
-  // more of each kind. Only for a plain query (no filters set).
-  function renderMatches(q, filters) {
-    const found = q && !Object.keys(filters).length ? matchNames(names, q) : [];
+  // The best-matching character/series/topic/author as a "top result", then up to three more of
+  // each kind. Only for a plain search (no filters set).
+  function renderMatches(q) {
+    const found = q && !activeSelects().length ? matchNames(names, q) : [];
     if (!found.length) {
       matchesBox.replaceChildren();
       matchesBox.hidden = true;
@@ -257,21 +285,16 @@ export async function initSearch() {
     }
     const [top, ...rest] = found;
     const kindOf = (k) => KINDS.find((x) => x[0] === k);
-    const subLine = (m) => [kindOf(m.k)[2], m.sub, entriesLabel(m.count)].filter(Boolean).join(' · ');
+    const subLine = (m) => [kindOf(m.k)[2], m.sub, plural(m.count, 'entry', 'entries')].filter(Boolean).join(' · ');
     const parts = [
       el('h2', { className: 'match-h', textContent: 'Top result' }),
-      el(
-        'a',
-        { className: 'top-result', href: top.href },
-        el('span', { className: 'top-name', textContent: top.name }),
-        el('span', { className: 'top-sub', textContent: subLine(top) }),
-      ),
+      el('a', { className: 'top-result', href: top.href }, el('span', { className: 'top-name', textContent: top.name }), el('span', { className: 'top-sub', textContent: subLine(top) })),
     ];
-    for (const [k, plural] of KINDS) {
+    for (const [k, label] of KINDS) {
       const group = rest.filter((m) => m.k === k).slice(0, 3);
       if (!group.length) continue;
       parts.push(
-        el('h2', { className: 'match-h', textContent: plural }),
+        el('h2', { className: 'match-h', textContent: label }),
         el(
           'ul',
           { className: 'match-list' },
@@ -291,42 +314,48 @@ export async function initSearch() {
     matchesBox.hidden = false;
   }
 
-  async function run() {
-    const q = input.value.trim();
-    const filters = activeFilters();
-    const sort = sortEl.value === 'long' ? { words: 'desc' } : undefined;
-
-    const out = new URLSearchParams();
-    if (q) out.set('q', q);
-    for (const [g, v] of Object.entries(filters)) out.set(g.toLowerCase(), v);
-    if (sortEl.value) out.set('sort', sortEl.value);
-    history.replaceState(null, '', out.toString() ? `?${out}` : location.pathname);
-
-    if (!q && !Object.keys(filters).length) {
-      current = null;
-      list.replaceChildren();
-      moreBtn.hidden = true;
-      status.textContent = '';
-      idle.hidden = false;
-      renderMatches('', filters);
-      updateCounts(null);
-      renderQuick(null, 0);
-      return;
-    }
-    idle.hidden = true;
-    renderMatches(q, filters);
-    const search = await pagefind.debouncedSearch(q || null, { filters, sort }, 180);
-    if (search === null) return; // a newer search replaced this one
-    current = search;
+  async function search(q) {
+    list.hidden = true;
+    empty.hidden = true;
+    const sort = setSortChoices(true);
+    loadNames();
+    if (names) renderMatches(q);
+    const pf = await loadPagefind();
+    if (!pf) return;
+    const res = await pf.debouncedSearch(q, { filters: pfFilters(), sort: SORTS[sort] }, 180);
+    if (res === null || input.value.trim() !== q) return; // a newer search replaced this one
+    current = res;
     shown = 0;
-    list.replaceChildren();
-    const n = search.results.length;
-    status.textContent = n
-      ? `${n.toLocaleString('en-US')} ${n === 1 ? 'result' : 'results'}`
-      : 'No results. Try other words, another spelling, or fewer filters.';
-    updateCounts(search.filters);
-    renderQuick(search.filters, n);
+    results.replaceChildren();
+    results.hidden = false;
+    const n = res.results.length;
+    if (n) showCount(n, 'result', 'results');
+    else {
+      status.textContent = 'No results. Try other words, another spelling, or fewer filters.';
+      doneBtn.textContent = 'Show results';
+    }
+    const counts = res.filters || {};
+    setCounts((s, o) => (counts[s.dataset.group] || {})[o.dataset.pf] || 0);
     if (n) await renderMore();
+    else moreBtn.hidden = true;
+  }
+
+  function updateUrl() {
+    const out = new URLSearchParams();
+    const q = input.value.trim();
+    if (q) out.set('q', q);
+    for (const s of activeSelects()) out.set(s.name, s.value);
+    if (chosenSort && chosenSort !== (q ? 'best' : 'title')) out.set('sort', chosenSort);
+    history.replaceState(null, '', out.toString() ? `?${out}` : location.pathname);
+  }
+
+  async function run() {
+    updateUrl();
+    renderActive();
+    const q = input.value.trim();
+    if (q) await search(q);
+    else browse();
+    document.documentElement.classList.remove('search-pending');
   }
 
   form.addEventListener('submit', (ev) => {
@@ -334,13 +363,23 @@ export async function initSearch() {
     input.blur(); // closes the phone keyboard so the results are visible
     run();
   });
-  input.addEventListener('input', run);
+  let typing;
+  input.addEventListener('input', () => {
+    clearTimeout(typing);
+    typing = setTimeout(run, 150);
+  });
   filtersForm.addEventListener('change', run);
-  document.getElementById('clear-filters').addEventListener('click', () => {
-    for (const s of selects) s.value = '';
-    sortEl.value = '';
+  filtersForm.addEventListener('submit', (ev) => ev.preventDefault());
+  sortEl.addEventListener('change', () => {
+    chosenSort = sortEl.value;
     run();
   });
+  const clearAll = () => {
+    for (const s of selects) s.value = '';
+    run();
+  };
+  document.getElementById('clear-filters').addEventListener('click', clearAll);
+  document.getElementById('clear-2').addEventListener('click', clearAll);
   moreBtn.addEventListener('click', renderMore);
   addEventListener('keydown', (ev) => {
     const a = document.activeElement;
@@ -350,7 +389,8 @@ export async function initSearch() {
     }
   });
 
-  updateCounts(null);
-  if (!input.value && matchMedia('(min-width: 900px)').matches) input.focus();
+  filtersForm.hidden = false;
+  document.getElementById('tools').hidden = false;
+  if (!input.value && matchMedia('(min-width: 900px)').matches) input.focus({ preventScroll: true });
   run();
 }

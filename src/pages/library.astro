@@ -4,13 +4,13 @@ import { loadArchive, formatNumber } from '../lib/archive.mjs';
 const { entries, series, characters, authors, topics } = loadArchive();
 const mainTopics = topics.filter((t: any) => !t.help && t.entries.length);
 const stories = entries.filter((e: any) => e.category === 'story').length;
+// The full list with filters is the Search page (empty search box), so it isn't repeated here.
 const rows = [
-  { href: '/characters/', name: 'Characters', count: characters.length, sub: 'Feat lists, analyses and matchups, by character' },
-  { href: '/series/', name: 'Series', count: series.length, sub: 'Everything about one anime, novel, show or game' },
-  { href: '/topics/', name: 'Topics', count: mainTopics.length, sub: 'SCD theory and guides, stories, community games' },
-  { href: '/authors/', name: 'Authors', count: authors.length, sub: 'Everyone whose work is saved here' },
-  { href: '/browse/?category=story', name: 'Stories', count: stories, sub: 'Original stories and fanfiction' },
-  { href: '/browse/', name: 'All entries', count: entries.length, sub: 'Filter by series, character, author, tag or length' },
+  { href: '/characters/', name: 'Characters', count: characters.length, sub: 'Docs by character' },
+  { href: '/series/', name: 'Series', count: series.length, sub: 'Docs by series' },
+  { href: '/topics/', name: 'Topics', count: mainTopics.length, sub: 'Theory, guides, games' },
+  { href: '/authors/', name: 'Authors', count: authors.length, sub: 'Who wrote what' },
+  { href: '/search/?category=story', name: 'Stories', count: stories, sub: 'Original stories and fanfiction' },
 ];
 ---
 <Base title="Library" section="library" description="Browse the archive by character, series, topic or author.">

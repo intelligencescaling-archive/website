@@ -3,16 +3,26 @@ import { formatNumber } from '../lib/archive.mjs';
 
 interface Props {
   entries: any[];
-  /** Adds data-* attributes used by the browse page's filter script. */
+  /** Adds data-* attributes used by the Search page's filter script. */
   filterable?: boolean;
   id?: string;
 }
 const { entries, filterable = false, id } = Astro.props;
 const MAX_CHARS = 4;
-const lc = (s: string) => s.toLowerCase();
+// Leave out what every row in this list has in common (the series on a series page, the character
+// on a character page, "Story" in a list of stories): it is already in the page's title.
+const many = entries.length > 1;
+const inAll = (pick: (e: any) => any[]) =>
+  many ? new Set(pick(entries[0]).map((x: any) => x.id).filter((x: string) => entries.every((e) => pick(e).some((y: any) => y.id === x)))) : new Set();
+const commonSeries = inAll((e) => e.series);
+const commonChars = inAll((e) => e.characters);
+const oneCategory = many && entries.every((e) => e.category === entries[0].category);
 ---
 <ul class="entries" id={id}>
-  {entries.map((e) => (
+  {entries.map((e) => {
+    const seriesShown = e.series.filter((s: any) => !commonSeries.has(s.id));
+    const charsShown = e.characters.filter((c: any) => !commonChars.has(c.id));
+    return (
     <li
       class="entry"
       data-cat={filterable ? e.category : undefined}
@@ -22,31 +32,26 @@ const lc = (s: string) => s.toLowerCase();
       data-authors={filterable ? (e.authors.length ? e.authors.map((a: any) => a.key).join(' ') : '_unknown') : undefined}
       data-tags={filterable ? e.tags.join(' ') : undefined}
       data-lang={filterable ? e.language || 'unknown' : undefined}
-      data-status={filterable ? e.status : undefined}
       data-words={filterable ? String(e.words) : undefined}
-      data-text={filterable ? lc([e.title, ...e.altTitles, ...e.authors.map((a: any) => a.name)].join(' | ')) : undefined}
     >
       <div class="entry-title">
         <a href={`/items/${e.id}/`}>{e.title}</a>
-        {e.category !== 'doc' && <> <span class="badge">{e.categoryName}</span></>}
+        {e.category !== 'doc' && !oneCategory && <> <span class="badge cat">{e.categoryName}</span></>}
         {e.status !== 'complete' && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
       </div>
       <div class="entry-meta">
-        {e.authors.length ? (
-          <span class="by">{e.authors.map((a: any) => a.name).join(', ')}</span>
-        ) : (
-          <span class="unknown">Unknown author</span>
-        )}
-        {e.series.length > 0 && <span>{e.series.map((s: any) => s.name).join(', ')}</span>}
-        {e.characters.length > 0 && (
+        {e.authors.length > 0 && <span class="by">{e.authors.map((a: any) => a.name).join(', ')}</span>}
+        {seriesShown.length > 0 && <span>{seriesShown.map((s: any) => s.name).join(', ')}</span>}
+        {charsShown.length > 0 && (
           <span>
-            {e.characters.slice(0, MAX_CHARS).map((c: any) => c.name).join(', ')}
-            {e.characters.length > MAX_CHARS && ` +${e.characters.length - MAX_CHARS} more`}
+            {charsShown.slice(0, MAX_CHARS).map((c: any) => c.name).join(', ')}
+            {charsShown.length > MAX_CHARS && ` +${charsShown.length - MAX_CHARS} more`}
             {e.variant && ` (${e.variant})`}
           </span>
         )}
         {e.words > 0 && <span class="num">{formatNumber(e.words)} words</span>}
       </div>
     </li>
-  ))}
+    );
+  })}
 </ul>

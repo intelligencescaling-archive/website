@@ -48,20 +48,23 @@ const correctionUrl = `${ARCHIVE_REPO_URL}/issues/new?title=${encodeURIComponent
   `Entry: ${e.repoPath}/meta.yaml\n\nWhat should change?\n`,
 )}`;
 const checkNames: Record<string, string> = { authors: 'author', series: 'series', characters: 'characters', tags: 'tags', title: 'title', language: 'language' };
+// Other titles, leaving out ones that differ from the title only in quote marks, case or spacing.
+const same = (t: string) => t.toLowerCase().replace(/[‘’“”'"`\s]/g, '');
+const altTitles = e.altTitles.filter((t: string, i: number, all: string[]) => same(t) !== same(e.title) && all.findIndex((x) => same(x) === same(t)) === i);
 const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about ${e.series.map((s: any) => s.name).join(', ')}` : ''}. Archived from r/IntelligenceScaling.`;
 ---
 <Base title={e.title} description={desc} ogType="article">
-  <nav class="crumbs" aria-label="Breadcrumb">
-    <a href="/browse/">Browse</a>
-    {e.series[0] && <> / <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a></>}
-    {!e.series[0] && topic && <> / <a href={`/topics/${topic.id}/`}>{topic.name}</a></>}
-  </nav>
+  {(e.series[0] || topic) && (
+    <nav class="crumbs" aria-label="Breadcrumb">
+      {e.series[0] ? <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a> : <a href={`/topics/${topic.id}/`}>{topic.name}</a>}
+    </nav>
+  )}
 
   <header class="item-head">
     <p class="eyebrow">{[e.categoryName, e.variant && `${e.variant} version`, readTime].filter(Boolean).join(', ')}</p>
     <h1>{e.title}</h1>
-    {e.altTitles.length > 0 && (
-      <p class="alt-titles">Also listed as: {e.altTitles.map((t: string, i: number) => <>{i > 0 && ' · '}<q>{t}</q></>)}</p>
+    {altTitles.length > 0 && (
+      <p class="alt-titles">Also listed as: {altTitles.map((t: string, i: number) => <>{i > 0 && ' · '}<q>{t}</q></>)}</p>
     )}
     <p class="byline">
       {e.authors.length ? (
@@ -76,25 +79,6 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
     </p>
   </header>
 
-  {(e.review.status === 'auto' || sortTopic) && (
-    <div class="note wide-only">
-      {sortTopic && (
-        <p>
-          <strong>Not sorted yet.</strong>
-          {sortTopic.id === 'series-unknown' ? ' Know which series this is from? ' : ' Know what this is about? '}
-          <a href={correctionUrl} rel="noopener">Help sort it</a>.
-        </p>
-      )}
-      {e.review.status === 'auto' && (
-        <p>
-          This entry was filled in automatically
-          {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
-          {!sortTopic && <>{' '}<a href={correctionUrl} rel="noopener">Suggest a correction</a>.</>}
-        </p>
-      )}
-    </div>
-  )}
-
   <div class="item-grid">
     <div>
       <h2 class={multi ? undefined : 'wide-only'}>{multi ? `Parts (${e.parts.length})` : 'File'}</h2>
@@ -106,14 +90,14 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
             <summary>
               <h3>
                 <span>{p.title || `Part ${p.n}`}</span>
-                <span class={`badge ${p.tone}`}>{p.statusLabel}</span>
+                {p.status !== 'complete' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
                 {p.words !== null && <span class="part-words">{formatNumber(p.words)} words</span>}
               </h3>
             </summary>
           ) : (
             <h3>
               <span>{p.sourceLabel}</span>
-              <span class={`badge ${p.tone}`}>{p.statusLabel}</span>
+              {p.status !== 'complete' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
             </h3>
           )}
           <div class="part-meta">
@@ -287,7 +271,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
       </details>
       <details class="fold aside-fold">
         <summary><h2>Corrections and removal</h2></summary>
-        <div class="phone-only">
+        <div>
           {sortTopic && <p class="small">Not sorted yet. <a href={correctionUrl} rel="noopener">Help sort it</a>.</p>}
           {e.review.status === 'auto' && (
             <p class="small">

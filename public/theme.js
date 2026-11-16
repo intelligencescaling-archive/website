@@ -56,3 +56,15 @@
     });
   });
 })();
+
+// Search page opened with words or filters in the URL: hide the full list until the search script
+// has applied them, so the page doesn't show 1,215 entries and then jump. Shown again after 4 s
+// in case the script fails.
+(function () {
+  var root = document.documentElement;
+  if (location.pathname !== '/search/' || !location.search) return;
+  root.classList.add('search-pending');
+  setTimeout(function () {
+    root.classList.remove('search-pending');
+  }, 4000);
+})();

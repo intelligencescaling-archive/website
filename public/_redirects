@@ -1,0 +1,3 @@
+# Browse and Search are one page now. Query strings (?series=..., ?q=...) are kept.
+/browse /search/ 301
+/browse/ /search/ 301
