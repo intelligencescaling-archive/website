@@ -24,7 +24,21 @@ export function getStaticPaths() {
 const { entry: e, related } = Astro.props as { entry: any; related: any[] };
 const readMinutes = Math.round(e.words / 230);
 const readTime =
-  readMinutes < 1 ? null : readMinutes < 60 ? `about ${readMinutes} min to read` : `about ${Math.round(readMinutes / 6) / 10} hours to read`;
+  readMinutes < 1 ? null : readMinutes < 60 ? `about ${readMinutes} min` : `about ${Math.round(readMinutes / 6) / 10} hours`;
+// One line of facts under the title: kind, size, reading time and when it was saved.
+const single = e.parts.length === 1 ? e.parts[0] : null;
+const dates = e.parts.map((p: any) => p.date).filter(Boolean).sort();
+const savedBit = single
+  ? single.date && `${single.fromSnapshot ? 'snapshot from' : single.status === 'complete' || single.status === 'partial' ? 'saved' : 'tried'} ${single.date}`
+  : dates.length && `saved ${dates[dates.length - 1]}`;
+const metaBits = [
+  e.variant ? `${e.categoryName} (${e.variant} version)` : e.categoryName,
+  e.parts.length > 1 && `${e.parts.length} parts`,
+  e.pages > 0 && `${formatNumber(e.pages)} pages`,
+  e.words > 0 && `${formatNumber(e.words)} words`,
+  readTime,
+  savedBit,
+].filter(Boolean);
 const topic = e.topics[0] || null;
 const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
 const relatedTitle = e.characters[0]
@@ -71,8 +85,11 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
   )}
 
   <header class="item-head">
-    <p class="eyebrow">{[e.categoryName, e.variant && `${e.variant} version`, readTime].filter(Boolean).join(', ')}</p>
     <h1>{e.title}</h1>
+    <p class="item-meta">
+      {metaBits.join(' · ')}
+      {single && single.status !== 'complete' && single.status !== 'export-blocked' && <> <span class={`badge ${single.tone}`}>{single.statusLabel}</span></>}
+    </p>
     {altTitles.length > 0 && (
       <p class="alt-titles">Also listed as: {altTitles.map((t: string, i: number) => <>{i > 0 && ' · '}<q>{t}</q></>)}</p>
     )}
@@ -91,11 +108,11 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
 
   <div class="item-grid">
     <div>
-      <h2 class={multi ? undefined : 'wide-only'}>{multi ? `Parts (${e.parts.length})` : 'File'}</h2>
+      {multi && <h2>Parts</h2>}
       {e.parts.map((p: any) => {
         const Part = multi ? 'details' : 'section';
         return (
-        <Part class={multi ? 'part fold' : 'part'} aria-label={multi ? undefined : 'File'}>
+        <Part class={multi ? 'part fold' : 'files'} aria-label={multi ? undefined : 'Files'}>
           {multi ? (
             <summary>
               <h3>
@@ -104,18 +121,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
                 {p.words !== null && <span class="part-words">{formatNumber(p.words)} words</span>}
               </h3>
             </summary>
-          ) : (
-            <h3>
-              <span>{p.sourceLabel}</span>
-              {p.status !== 'complete' && p.status !== 'export-blocked' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
-            </h3>
-          )}
-          <div class="part-meta">
-            {p.pages && <span>{formatNumber(p.pages)} pages</span>}
-            {p.words !== null && !multi && <span>{formatNumber(p.words)} words</span>}
-            {/* The badge above says how complete the copy is; this only says when. */}
-            {p.date && <span>{p.fromSnapshot ? 'Snapshot from' : p.status === 'complete' || p.status === 'partial' ? 'Saved' : 'Tried'} {p.date}</span>}
-          </div>
+          ) : null}
           {p.images.length > 0 && (
             <div class="post-images">
               {p.images.map((f: any, k: number) => (
@@ -155,9 +161,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
             <p class="small muted">{missingSentence(p)}</p>
           )}
           {p.url && (
-            <p class="small tight">
-              <a href={p.url} rel="noopener nofollow ugc">Open the original {p.sourceLabel}</a>
-            </p>
+            <a class="original-link" href={p.url} rel="noopener nofollow ugc">Open the original {p.sourceLabel} <span aria-hidden="true">↗</span></a>
           )}
         </Part>
         );
