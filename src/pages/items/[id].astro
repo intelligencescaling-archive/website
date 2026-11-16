@@ -77,7 +77,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
   </header>
 
   {(e.review.status === 'auto' || sortTopic) && (
-    <div class="note">
+    <div class="note wide-only">
       {sortTopic && (
         <p>
           <strong>Not sorted yet.</strong>
@@ -97,13 +97,25 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
 
   <div class="item-grid">
     <div>
-      <h2>{multi ? `Parts (${e.parts.length})` : 'File'}</h2>
-      {e.parts.map((p: any) => (
-        <section class="part" aria-label={multi ? `Part ${p.n}` : 'File'}>
-          <h3>
-            {multi ? <span>{p.title || `Part ${p.n}`}</span> : <span>{p.sourceLabel}</span>}
-            <span class={`badge ${p.tone}`}>{p.statusLabel}</span>
-          </h3>
+      <h2 class={multi ? undefined : 'wide-only'}>{multi ? `Parts (${e.parts.length})` : 'File'}</h2>
+      {e.parts.map((p: any) => {
+        const Part = multi ? 'details' : 'section';
+        return (
+        <Part class={multi ? 'part fold' : 'part'} aria-label={multi ? undefined : 'File'}>
+          {multi ? (
+            <summary>
+              <h3>
+                <span>{p.title || `Part ${p.n}`}</span>
+                <span class={`badge ${p.tone}`}>{p.statusLabel}</span>
+                {p.words !== null && <span class="part-words">{formatNumber(p.words)} words</span>}
+              </h3>
+            </summary>
+          ) : (
+            <h3>
+              <span>{p.sourceLabel}</span>
+              <span class={`badge ${p.tone}`}>{p.statusLabel}</span>
+            </h3>
+          )}
           <div class="part-meta">
             {p.pages && <span>{formatNumber(p.pages)} pages</span>}
             {p.words !== null && <span>{formatNumber(p.words)} words</span>}
@@ -154,28 +166,29 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
               {p.status === 'dead' || p.status === 'private' ? <span class="muted"> (may no longer work)</span> : null}
             </p>
           )}
-        </section>
-      ))}
+        </Part>
+        );
+      })}
 
       {!preview && e.status === 'complete' && e.parts.some((p: any) => p.files.length > 0) && (
         <p class="small muted mt">This doc is mostly images, so there is no text preview and full-text search can't look inside it. Open the PDF to read it.</p>
       )}
 
       {preview && (
-        <details class="preview">
-          <summary>Text preview</summary>
+        <section class="preview" aria-labelledby="h-preview">
+          <h2 id="h-preview">{multi ? 'Start of the story' : 'Start of the text'}</h2>
           <div class="preview-text">{preview}</div>
           <p class="small muted">
             {e.parts.some((p: any) => p.files.some((f: any) => f.format === 'pdf' || f.format === 'docx'))
               ? 'The first lines of the plain-text copy. Formatting and images are only in the PDF/DOCX.'
               : 'The first lines of the saved text.'}
           </p>
-        </details>
+        </section>
       )}
 
       {e.foundIn.length > 0 && (
-        <>
-          <h2>Listed in</h2>
+        <details class="fold">
+          <summary><h2>Where it was listed</h2></summary>
           <ul class="found-in">
             {e.foundIn.map((f: any) => (
               <li>
@@ -190,18 +203,18 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
               </li>
             ))}
           </ul>
-        </>
+        </details>
       )}
 
       {e.links.length > 0 && (
-        <>
-          <h2>Links</h2>
-          <ul>
+        <details class="fold">
+          <summary><h2>Links</h2></summary>
+          <ul class="link-list">
             {e.links.map((l: any) => (
               <li><a href={l.url} rel="noopener nofollow ugc">{l.label}</a>{l.note && <span class="muted"> · {l.note}</span>}</li>
             ))}
           </ul>
-        </>
+        </details>
       )}
 
       {e.notes && (
@@ -212,16 +225,17 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
       )}
 
       {related.length > 0 && (
-        <section aria-labelledby="h-related">
-          <h2 id="h-related">{relatedTitle}</h2>
+        <details class="fold">
+          <summary><h2>{relatedTitle}</h2></summary>
           <EntryList entries={related} />
           {relatedMore && <p class="more-link"><a href={relatedMore.href}>{relatedMore.label}</a></p>}
-        </section>
+        </details>
       )}
     </div>
 
     <aside>
-      <h2 class="visually-hidden">Details</h2>
+      <details class="fold aside-fold">
+      <summary><h2>Details</h2></summary>
       <dl class="facts">
         <dt>Author</dt>
         <dd>
@@ -270,9 +284,23 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
         <dt>Source</dt>
         <dd><a href={`${ARCHIVE_REPO_URL}/tree/main/${e.repoPath}`} rel="noopener">Metadata on GitHub</a></dd>
       </dl>
-      <p class="small muted mt">
-        Are you the author? You can <a href={`/removal/?item=${e.id}`}>ask for this to be removed</a> or credited differently.
-      </p>
+      </details>
+      <details class="fold aside-fold">
+        <summary><h2>Corrections and removal</h2></summary>
+        <div class="phone-only">
+          {sortTopic && <p class="small">Not sorted yet. <a href={correctionUrl} rel="noopener">Help sort it</a>.</p>}
+          {e.review.status === 'auto' && (
+            <p class="small">
+              This entry was filled in automatically
+              {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
+            </p>
+          )}
+          <p class="small"><a href={correctionUrl} rel="noopener">Suggest a correction</a></p>
+        </div>
+        <p class="small muted mt">
+          Are you the author? You can <a href={`/removal/?item=${e.id}`}>ask for this to be removed</a> or credited differently.
+        </p>
+      </details>
     </aside>
   </div>
 </Base>

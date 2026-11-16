@@ -6,7 +6,7 @@ interface Props {
   title?: string;
   description?: string;
   /** Which nav link is active. */
-  section?: 'home' | 'browse' | 'search' | 'series' | 'topics' | 'characters' | 'authors' | 'about';
+  section?: 'home' | 'browse' | 'search' | 'series' | 'topics' | 'characters' | 'authors' | 'library' | 'about';
   /** Open Graph type: 'article' for item pages, 'website' for the rest. */
   ogType?: 'website' | 'article';
 }
@@ -25,6 +25,9 @@ const nav = [
   ['characters', '/characters/', 'Characters'],
   ['authors', '/authors/', 'Authors'],
 ] as const;
+// Phones (under 768 px) get a bottom tab bar instead of the top links: Home, Search, Library.
+// Library holds Characters, Series, Topics, Authors and the full list.
+const tab = section === 'home' ? 'home' : section === 'search' ? 'search' : section && section !== 'about' ? 'library' : null;
 ---
 <!doctype html>
 <html lang="en">
@@ -95,5 +98,20 @@ const nav = [
         </ul>
       </div>
     </footer>
+    <nav class="tabbar" aria-label="Main">
+      <a href="/" aria-current={tab === 'home' ? 'page' : undefined}>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20h-5.5v-6h-5v6H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+        <span>Home</span>
+      </a>
+      <a href="/search/" aria-current={tab === 'search' ? 'page' : undefined}>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2" /><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        <span>Search</span>
+      </a>
+      <a href="/library/" aria-current={tab === 'library' ? 'page' : undefined}>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M5 4v16M10 4v16M14.5 4.8l4.3 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        <span>Library</span>
+      </a>
+    </nav>
+    <script is:inline src="/fold.js"></script>
   </body>
 </html>

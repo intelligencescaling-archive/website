@@ -6,8 +6,8 @@ const groups = ['Series', 'Topic', 'Character', 'Author', 'Tag', 'Category', 'La
 const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length).slice(0, 8);
 ---
 <Base title="Search" section="search" description="Full-text search across every archived doc and story: titles, authors, characters and the text itself.">
-  <h1>Search</h1>
-  <p class="lede">Searches the full text of all {entries.length.toLocaleString('en-US')} entries, plus their titles, authors, series and characters.</p>
+  <h1 class="search-h1">Search</h1>
+  <p class="lede search-lede">Searches the full text of all {entries.length.toLocaleString('en-US')} entries, plus their titles, authors, series and characters.</p>
 
   <form class="search-box" id="search-form" role="search" action="/search/" method="get">
     <label for="q" class="visually-hidden">Search</label>
@@ -40,6 +40,7 @@ const popular = [...characters].sort((a, b) => b.entries.length - a.entries.leng
     <div class="sheet-backdrop" id="sheet-backdrop"></div>
 
     <div>
+      <div class="matches" id="matches" aria-live="polite" hidden></div>
       <div class="results-bar">
         <p class="results-count" id="status" aria-live="polite"></p>
         <button type="button" class="secondary filter-toggle" id="filter-toggle" aria-controls="search-filters" aria-expanded="false" hidden>

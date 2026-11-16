@@ -6,13 +6,18 @@ const PAGE = 10;
 const QUICK_GROUPS = ['Series', 'Character', 'Tag'];
 const QUICK_MAX = 5;
 
+// Long rules in docs ("— — — —", "-----", "=====") collapse to one dash, so excerpts can't stretch the page.
+const RULE_RUN = /([-‐-―_=~*─-╿•·])(\s*\1){3,}/g;
+const squeeze = (t) => t.replace(RULE_RUN, '—');
+const isRule = (w) => /^[-‐-―_=~*─-╿•·.]{3,}$/.test(w);
+
 /** Appends Pagefind's excerpt (escaped text + <mark> tags) to `el` without using innerHTML on the page. */
 function appendExcerpt(el, html) {
   const tpl = document.createElement('template'); // inert: nothing in it runs or loads
   tpl.innerHTML = html;
   const walk = (node, into) => {
     for (const child of node.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) into.append(child.textContent);
+      if (child.nodeType === Node.TEXT_NODE) into.append(squeeze(child.textContent));
       else if (child.nodeName === 'MARK') {
         const m = document.createElement('mark');
         m.textContent = child.textContent;
@@ -36,8 +41,16 @@ function appendDocExcerpt(target, d, query) {
   const start = Math.max(0, loc - 12);
   const end = Math.min(limit, start + 32);
   if (start > 0) target.append('… ');
+  let lastRule = false;
   for (let i = start; i < end; i++) {
     const w = words[i];
+    // Long "— — — —" or "-----" rules in docs become one dash, so they can't stretch the page.
+    if (isRule(w) || (w.length === 1 && isRule(w.repeat(3)))) {
+      if (!lastRule) target.append('— ');
+      lastRule = true;
+      continue;
+    }
+    lastRule = false;
     const lw = w.toLowerCase();
     if (terms.some((t) => lw.includes(t))) {
       const m = document.createElement('mark');
@@ -48,6 +61,46 @@ function appendDocExcerpt(target, d, query) {
   if (end < limit) target.append('…');
   return true;
 }
+
+// ---------- Top result: characters, series, topics and authors whose name matches ----------
+const KINDS = [
+  ['c', 'Characters', 'Character', '/characters/'],
+  ['s', 'Series', 'Series', '/series/'],
+  ['t', 'Topics', 'Topic', '/topics/'],
+  ['a', 'Authors', 'Author', '/authors/'],
+];
+const norm = (x) => x.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+function scoreName(name, q, terms) {
+  const n = norm(name);
+  if (!n) return 0;
+  if (n === q) return 100;
+  if (q.length >= 3 && n.startsWith(q)) return 70;
+  if (q.length >= 3) {
+    const words = n.split(' ');
+    if (terms.every((t) => words.some((w) => w.startsWith(t)))) return 50;
+  }
+  return 0;
+}
+
+/** All name matches for a query, best first: [{kind, name, href, count, sub, score}]. */
+function matchNames(names, query) {
+  const q = norm(query);
+  if (!names || !q) return [];
+  const terms = q.split(' ').filter((t) => t.length >= 2);
+  if (!terms.length && q.length < 2) return [];
+  const out = [];
+  for (const [k, , , base] of KINDS) {
+    for (const [name, id, count, sub, aliases] of names[k] || []) {
+      let best = 0;
+      for (const n of [name, ...aliases]) best = Math.max(best, scoreName(n, q, terms));
+      if (best) out.push({ k, name, href: `${base}${id}/`, count, sub, score: best });
+    }
+  }
+  return out.sort((a, b) => b.score - a.score || b.count - a.count);
+}
+
+const entriesLabel = (n) => `${n.toLocaleString('en-US')} ${n === 1 ? 'entry' : 'entries'}`;
 
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -68,6 +121,16 @@ export async function initSearch() {
   const quick = document.getElementById('quick');
   const idle = document.getElementById('idle');
   const toggle = document.getElementById('filter-toggle');
+  const matchesBox = document.getElementById('matches');
+  const narrow = matchMedia('(max-width: 767.98px)');
+  let names = null;
+  fetch('/names.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      names = j;
+      if (names && input.value.trim()) renderMatches(input.value.trim(), activeFilters());
+    })
+    .catch(() => {});
   const sheet = initSheet({
     form: filtersForm,
     toggle,
@@ -157,7 +220,7 @@ export async function initSearch() {
         }
       }
       options.sort((a, b) => b.n - a.n);
-      for (const o of options.slice(0, QUICK_MAX)) {
+      for (const o of options.slice(0, narrow.matches ? 3 : QUICK_MAX)) {
         const b = el('button', { type: 'button', className: 'chip' }, o.value, ' ', el('span', { className: 'count', textContent: String(o.n) }));
         b.addEventListener('click', () => {
           selects.find((s) => s.dataset.group === o.g).value = o.value;
@@ -183,6 +246,51 @@ export async function initSearch() {
     }
   }
 
+  // Shows the best-matching character/series/topic/author as a "top result", then up to three
+  // more of each kind. Only for a plain query (no filters set).
+  function renderMatches(q, filters) {
+    const found = q && !Object.keys(filters).length ? matchNames(names, q) : [];
+    if (!found.length) {
+      matchesBox.replaceChildren();
+      matchesBox.hidden = true;
+      return;
+    }
+    const [top, ...rest] = found;
+    const kindOf = (k) => KINDS.find((x) => x[0] === k);
+    const subLine = (m) => [kindOf(m.k)[2], m.sub, entriesLabel(m.count)].filter(Boolean).join(' · ');
+    const parts = [
+      el('h2', { className: 'match-h', textContent: 'Top result' }),
+      el(
+        'a',
+        { className: 'top-result', href: top.href },
+        el('span', { className: 'top-name', textContent: top.name }),
+        el('span', { className: 'top-sub', textContent: subLine(top) }),
+      ),
+    ];
+    for (const [k, plural] of KINDS) {
+      const group = rest.filter((m) => m.k === k).slice(0, 3);
+      if (!group.length) continue;
+      parts.push(
+        el('h2', { className: 'match-h', textContent: plural }),
+        el(
+          'ul',
+          { className: 'match-list' },
+          ...group.map((m) =>
+            el(
+              'li',
+              {},
+              el('a', { href: m.href }, el('span', { className: 'm-name', textContent: m.name }), el('span', { className: 'count', textContent: String(m.count) })),
+              m.sub ? el('span', { className: 'm-sub', textContent: m.sub }) : null,
+            ),
+          ),
+        ),
+      );
+    }
+    parts.push(el('h2', { className: 'match-h docs-h', textContent: 'Docs and stories' }));
+    matchesBox.replaceChildren(...parts);
+    matchesBox.hidden = false;
+  }
+
   async function run() {
     const q = input.value.trim();
     const filters = activeFilters();
@@ -200,11 +308,13 @@ export async function initSearch() {
       moreBtn.hidden = true;
       status.textContent = '';
       idle.hidden = false;
+      renderMatches('', filters);
       updateCounts(null);
       renderQuick(null, 0);
       return;
     }
     idle.hidden = true;
+    renderMatches(q, filters);
     const search = await pagefind.debouncedSearch(q || null, { filters, sort }, 180);
     if (search === null) return; // a newer search replaced this one
     current = search;
