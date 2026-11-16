@@ -119,7 +119,7 @@ export async function initSearch() {
   const rows = [...list.children].map((li, i) => {
     const sets = {};
     for (const k of facetKeys) sets[k] = new Set((li.dataset[k] || '').split(' ').filter(Boolean));
-    return { li, i, sets, words: Number(li.dataset.words) || 0 };
+    return { li, i, sets, words: Number(li.dataset.words) || 0, rank: Number(li.dataset.rank) || 0 };
   });
 
   // Restore state from the URL. Values can be ids (?series=death-note, as old /browse/ links) or
@@ -167,7 +167,7 @@ export async function initSearch() {
   function setSortChoices(searching) {
     bestOpt.hidden = !searching;
     bestOpt.disabled = !searching;
-    const def = searching ? 'best' : 'title';
+    const def = searching ? 'best' : 'long';
     sortEl.value = chosenSort && (searching || chosenSort !== 'best') ? chosenSort : def;
     return sortEl.value;
   }
@@ -207,7 +207,7 @@ export async function initSearch() {
   }
 
   // ----- Without a search: filter and sort the full list -----
-  let lastSort = 'title';
+  let lastSort = 'long'; // the HTML list comes longest first
   function browse() {
     const chosen = Object.fromEntries(selects.map((s) => [s.dataset.facet, s.value]));
     const facetOk = (r, k) => !chosen[k] || r.sets[k].has(chosen[k]);
@@ -228,7 +228,7 @@ export async function initSearch() {
     if (sort !== lastSort) {
       lastSort = sort;
       const sorted = [...rows].sort((a, b) =>
-        sort === 'long' ? b.words - a.words || a.i - b.i : sort === 'short' ? a.words - b.words || a.i - b.i : a.i - b.i,
+        sort === 'title' ? a.rank - b.rank : sort === 'short' ? a.words - b.words || a.rank - b.rank : a.i - b.i,
       );
       list.append(...sorted.map((r) => r.li));
     }
@@ -345,7 +345,7 @@ export async function initSearch() {
     const q = input.value.trim();
     if (q) out.set('q', q);
     for (const s of activeSelects()) out.set(s.name, s.value);
-    if (chosenSort && chosenSort !== (q ? 'best' : 'title')) out.set('sort', chosenSort);
+    if (chosenSort && chosenSort !== (q ? 'best' : 'long')) out.set('sort', chosenSort);
     history.replaceState(null, '', out.toString() ? `?${out}` : location.pathname);
   }
 

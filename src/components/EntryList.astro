@@ -6,8 +6,13 @@ interface Props {
   /** Adds data-* attributes used by the Search page's filter script. */
   filterable?: boolean;
   id?: string;
+  /** 'long' (default): longest first. 'none': keep the order given (e.g. related docs by relevance). */
+  sort?: 'long' | 'none';
 }
-const { entries, filterable = false, id } = Astro.props;
+const { filterable = false, id, sort = 'long' } = Astro.props;
+// Position in A-Z order (the order loadArchive returns), so the Search page can switch back to A-Z.
+const titleRank = new Map(Astro.props.entries.map((e: any, i: number) => [e, i]));
+const entries = sort === 'long' ? [...Astro.props.entries].sort((a: any, b: any) => b.words - a.words || titleRank.get(a)! - titleRank.get(b)!) : Astro.props.entries;
 const MAX_CHARS = 4;
 // Leave out what every row in this list has in common (the series on a series page, the character
 // on a character page, "Story" in a list of stories): it is already in the page's title.
@@ -33,6 +38,7 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
       data-tags={filterable ? e.tags.join(' ') : undefined}
       data-lang={filterable ? e.language || 'unknown' : undefined}
       data-words={filterable ? String(e.words) : undefined}
+      data-rank={filterable ? String(titleRank.get(e)) : undefined}
     >
       <div class="entry-title">
         <a href={`/items/${e.id}/`}>{e.title}</a>

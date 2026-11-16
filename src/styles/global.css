@@ -138,7 +138,6 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  min-height: 100dvh;
   -webkit-tap-highlight-color: transparent;
 }
 main { flex: 1; padding-block: 1.75rem 4rem; }
@@ -519,7 +518,9 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
   .site-header nav { display: none; }
   .header-row { padding-block: 0.3rem; }
   .tabbar {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    /* Plain fixed bar on its own layer: nothing here depends on the viewport height, so it stays put
+       while Android Chrome's address bar slides in and out. */
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; transform: translateZ(0);
     background: var(--page); border-top: 1px solid var(--rule);
     padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }

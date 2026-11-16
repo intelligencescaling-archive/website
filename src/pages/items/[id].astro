@@ -228,7 +228,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
       {related.length > 0 && (
         <details class="fold">
           <summary><h2>{relatedTitle}</h2></summary>
-          <EntryList entries={related} />
+          <EntryList entries={related} sort="none" />
           {relatedMore && <p class="more-link"><a href={relatedMore.href}>{relatedMore.label}</a></p>}
         </details>
       )}
