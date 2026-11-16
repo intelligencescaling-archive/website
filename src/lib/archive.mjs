@@ -184,7 +184,7 @@ function fileHref(entryId, file) {
 function missingReason(value) {
   const v = str(value);
   if (/HTTP 40[13]|disabled by owner/i.test(v)) return 'the owner turned off downloads';
-  if (/HTTP 5\d\d/.test(v)) return "Google couldn't export it, usually because the doc is very large";
+  if (/HTTP (5\d\d|413)/.test(v)) return "Google couldn't export it, usually because the doc is very large";
   return v;
 }
 

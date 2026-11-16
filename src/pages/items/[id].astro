@@ -47,6 +47,16 @@ const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown
 const correctionUrl = `${ARCHIVE_REPO_URL}/issues/new?title=${encodeURIComponent(`Correction: ${e.id}`)}&body=${encodeURIComponent(
   `Entry: ${e.repoPath}/meta.yaml\n\nWhat should change?\n`,
 )}`;
+// What couldn't be saved, as one sentence: formats with the same reason are named once.
+const andList = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+const missingSentence = (p: any) => {
+  const byReason = new Map<string, string[]>();
+  for (const [fmt, why] of p.missing as [string, string][]) byReason.set(why, [...(byReason.get(why) || []), fmt]);
+  if (byReason.size === 1 && byReason.has('the owner turned off downloads')) {
+    return p.textPath ? 'The owner turned off downloads.' : 'The owner turned off downloads, so no copy could be saved.';
+  }
+  return `Not saved: ${[...byReason].map(([why, fmts]) => (why ? `${andList(fmts)} (${why})` : andList(fmts))).join('; ')}.`;
+};
 const checkNames: Record<string, string> = { authors: 'author', series: 'series', characters: 'characters', tags: 'tags', title: 'title', language: 'language' };
 // Other titles, leaving out ones that differ from the title only in quote marks, case or spacing.
 const same = (t: string) => t.toLowerCase().replace(/[‘’“”'"`\s]/g, '');
@@ -72,7 +82,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
       ) : (
         <>
           <span class="muted">Unknown author.</span>
-          {e.originalUrl && <> See the <a href={e.originalUrl} rel="noopener nofollow ugc">{e.hasRedditSource || e.links.some((l: any) => l.type === 'reddit-post') ? 'original post' : 'original'}</a>.</>}
+          {e.originalUrl && !e.parts.some((p: any) => p.url === e.originalUrl) && <> See the <a href={e.originalUrl} rel="noopener nofollow ugc">{e.hasRedditSource || e.links.some((l: any) => l.type === 'reddit-post') ? 'original post' : 'original'}</a>.</>}
           {' '}<a href={correctionUrl} rel="noopener">Know who made it?</a>
         </>
       )}
@@ -90,21 +100,21 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
             <summary>
               <h3>
                 <span>{p.title || `Part ${p.n}`}</span>
-                {p.status !== 'complete' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
+                {p.status !== 'complete' && p.status !== 'export-blocked' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
                 {p.words !== null && <span class="part-words">{formatNumber(p.words)} words</span>}
               </h3>
             </summary>
           ) : (
             <h3>
               <span>{p.sourceLabel}</span>
-              {p.status !== 'complete' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
+              {p.status !== 'complete' && p.status !== 'export-blocked' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
             </h3>
           )}
           <div class="part-meta">
             {p.pages && <span>{formatNumber(p.pages)} pages</span>}
-            {p.words !== null && <span>{formatNumber(p.words)} words</span>}
-            {p.date && <span>{p.fromSnapshot ? 'Snapshot from' : p.status === 'complete' ? 'Saved' : p.status === 'partial' ? 'Partly saved' : 'Tried'} {p.date}</span>}
-            {multi && <span>{p.sourceLabel}</span>}
+            {p.words !== null && !multi && <span>{formatNumber(p.words)} words</span>}
+            {/* The badge above says how complete the copy is; this only says when. */}
+            {p.date && <span>{p.fromSnapshot ? 'Snapshot from' : p.status === 'complete' || p.status === 'partial' ? 'Saved' : 'Tried'} {p.date}</span>}
           </div>
           {p.images.length > 0 && (
             <div class="post-images">
@@ -142,12 +152,11 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
               {p.url && ' Open the original while it is still online.'}
             </p>
           ) : p.missing.length > 0 && (
-            <p class="small muted">Not saved: {p.missing.map(([k, v]: [string, string]) => `${k} (${v})`).join(', ')}.</p>
+            <p class="small muted">{missingSentence(p)}</p>
           )}
           {p.url && (
             <p class="small tight">
               <a href={p.url} rel="noopener nofollow ugc">Open the original {p.sourceLabel}</a>
-              {p.status === 'dead' || p.status === 'private' ? <span class="muted"> (may no longer work)</span> : null}
             </p>
           )}
         </Part>
