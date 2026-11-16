@@ -337,24 +337,19 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
 @media (max-width: 899.98px) {
   .filter-toggle { display: inline-flex; flex: none; }
   .filters {
-    position: fixed; inset: auto 0 0 0; z-index: 40; max-height: 82vh; max-height: 82dvh; overflow: auto;
+    position: fixed; inset: auto 0 0 0; z-index: 40; max-height: 82vh; overflow: auto;
     background: var(--page); border-radius: 12px 12px 0 0; box-shadow: var(--shadow);
     padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
-    transform: translateY(105%); visibility: hidden;
+    display: none; /* closed: out of layout entirely, nothing to reflow while scrolling */
   }
-  .filters.open { transform: none; visibility: visible; }
+  .filters.open { display: grid; }
   .filters-head { position: sticky; top: 0; background: var(--page); padding: 0.9rem 0 0.6rem; z-index: 1; border-bottom: 1px solid var(--rule); }
   .filters-head::before { content: ''; position: absolute; top: 0.4rem; left: 50%; width: 2.5rem; height: 4px; margin-left: -1.25rem; border-radius: 2px; background: var(--rule-2); }
   .filters-foot { display: block; position: sticky; bottom: 0; background: var(--page); padding-top: 0.75rem; }
   .filters-foot button { width: 100%; }
-  .sheet-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: rgb(0 0 0 / 0.4); opacity: 0; pointer-events: none; }
-  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet-backdrop { display: none; position: fixed; inset: 0; z-index: 39; background: rgb(0 0 0 / 0.4); }
+  .sheet-backdrop.open { display: block; }
   body.sheet-open { overflow: hidden; }
-}
-@media (max-width: 899.98px) and (prefers-reduced-motion: no-preference) {
-  .filters { transition: transform 0.28s var(--ease), visibility 0s linear 0.28s; }
-  .filters.open { transition: transform 0.28s var(--ease), visibility 0s; }
-  .sheet-backdrop { transition: opacity 0.2s; }
 }
 
 /* ---------- Index pages (series, characters, authors) ---------- */
@@ -518,9 +513,9 @@ label { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); display: blo
   .site-header nav { display: none; }
   .header-row { padding-block: 0.3rem; }
   .tabbar {
-    /* Plain fixed bar on its own layer: nothing here depends on the viewport height, so it stays put
+    /* Plain fixed bar (no transform or layer promotion): nothing here depends on the viewport height, so it stays put
        while Android Chrome's address bar slides in and out. */
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; transform: translateZ(0);
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
     background: var(--page); border-top: 1px solid var(--rule);
     padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
