@@ -1,3 +1,6 @@
 # Browse and Search are one page now. Query strings (?series=..., ?q=...) are kept.
 /browse /search/ 301
 /browse/ /search/ 301
+# Merged entries: the old id points to the entry it was merged into.
+/items/wildfire-2 /items/wildfire/ 301
+/items/wildfire-2/ /items/wildfire/ 301
