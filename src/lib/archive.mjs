@@ -162,6 +162,18 @@ export function formatNumber(n) {
   return Number.isFinite(n) ? n.toLocaleString('en-US') : '';
 }
 
+/** "2026-11-15" -> "Nov 15, 2026". Anything that is not an ISO date is returned as it is. */
+export function formatDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return String(iso || '');
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** Rewrites ISO dates inside free text ("Snapshot from 2025-08-20") as readable dates. */
+export function readableDates(text) {
+  return String(text || '').replace(/\b\d{4}-\d{2}-\d{2}\b/g, (d) => formatDate(d));
+}
+
 const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
 const arr = (v) => (Array.isArray(v) ? v : []);
 const byName = (a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });

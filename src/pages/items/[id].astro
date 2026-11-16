@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import { loadArchive, textPreview, formatBytes, formatNumber, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
+import { loadArchive, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
@@ -24,21 +24,21 @@ export function getStaticPaths() {
 const { entry: e, related } = Astro.props as { entry: any; related: any[] };
 const readMinutes = Math.round(e.words / 230);
 const readTime =
-  readMinutes < 1 ? null : readMinutes < 60 ? `about ${readMinutes} min` : `about ${Math.round(readMinutes / 6) / 10} hours`;
-// One line of facts under the title: kind, size, reading time and when it was saved.
+  readMinutes < 1 ? null : readMinutes < 60 ? `${readMinutes} min` : `${readMinutes < 600 ? Math.round(readMinutes / 6) / 10 : Math.round(readMinutes / 60)} h`;
+// Stats under the byline: up to four short columns (value on top, label below), only what exists.
 const single = e.parts.length === 1 ? e.parts[0] : null;
 const dates = e.parts.map((p: any) => p.date).filter(Boolean).sort();
-const savedBit = single
-  ? single.date && `${single.fromSnapshot ? 'snapshot from' : single.status === 'complete' || single.status === 'partial' ? 'saved' : 'tried'} ${single.date}`
-  : dates.length && `saved ${dates[dates.length - 1]}`;
-const metaBits = [
-  e.variant ? `${e.categoryName} (${e.variant} version)` : e.categoryName,
-  e.parts.length > 1 && `${e.parts.length} parts`,
-  e.pages > 0 && `${formatNumber(e.pages)} pages`,
-  e.words > 0 && `${formatNumber(e.words)} words`,
-  readTime,
-  savedBit,
+const savedDate = single ? single.date : dates[dates.length - 1];
+const savedLabel = single?.fromSnapshot ? 'snapshot' : !single || single.status === 'complete' || single.status === 'partial' ? 'saved' : 'tried';
+const stats = [
+  e.parts.length > 1 && { v: formatNumber(e.parts.length), l: 'parts' },
+  e.pages > 0 && { v: formatNumber(e.pages), l: 'pages' },
+  e.words > 0 && { v: formatNumber(e.words), l: 'words' },
+  readTime && { v: readTime, l: 'read' },
+  savedDate && { v: formatDate(savedDate), l: savedLabel, iso: savedDate },
 ].filter(Boolean);
+if (stats.length > 4) stats.splice(stats.findIndex((s: any) => s.l === 'pages'), 1);
+const statusLabel = single && single.status !== 'complete' && single.status !== 'export-blocked' ? single : null;
 const topic = e.topics[0] || null;
 const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
 const relatedTitle = e.characters[0]
@@ -86,13 +86,6 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
 
   <header class="item-head">
     <h1>{e.title}</h1>
-    <p class="item-meta">
-      {metaBits.join(' · ')}
-      {single && single.status !== 'complete' && single.status !== 'export-blocked' && <> <span class={`badge ${single.tone}`}>{single.statusLabel}</span></>}
-    </p>
-    {altTitles.length > 0 && (
-      <p class="alt-titles">Also listed as: {altTitles.map((t: string, i: number) => <>{i > 0 && ' · '}<q>{t}</q></>)}</p>
-    )}
     <p class="byline">
       {e.authors.length ? (
         <>by {e.authors.map((a: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${a.key}/`}>{a.name}</a></>)}</>
@@ -104,6 +97,17 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
         </>
       )}
     </p>
+    {stats.length > 0 && (
+      <dl class="stats-row">
+        {stats.map((s: any) => (
+          <div>
+            <dt>{s.l}</dt>
+            <dd>{s.iso ? <time datetime={s.iso}>{s.v}</time> : s.v}</dd>
+          </div>
+        ))}
+      </dl>
+    )}
+    {statusLabel && <p class="item-status"><span class={`badge ${statusLabel.tone}`}>{statusLabel.statusLabel}</span></p>}
   </header>
 
   <div class="item-grid">
@@ -195,7 +199,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
                   {f.section && <>Section: {f.section}</>}
                   {f.character && <> · Character: {f.character}</>}
                   {f.linkText && f.linkText !== e.title && <> · Listed as <q>{f.linkText}</q></>}
-                  {f.note && <> · {f.note}</>}
+                  {f.note && <> · {readableDates(f.note)}</>}
                 </div>
               </li>
             ))}
@@ -208,7 +212,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
           <summary><h2>Links</h2></summary>
           <ul class="link-list">
             {e.links.map((l: any) => (
-              <li><a href={l.url} rel="noopener nofollow ugc">{l.label}</a>{l.note && <span class="muted"> · {l.note}</span>}</li>
+              <li><a href={l.url} rel="noopener nofollow ugc">{l.label}</a>{l.note && <span class="muted"> · {readableDates(l.note)}</span>}</li>
             ))}
           </ul>
         </details>
@@ -217,7 +221,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
       {e.notes && (
         <>
           <h2>Notes</h2>
-          <p class="prose">{e.notes}</p>
+          <p class="prose">{readableDates(e.notes)}</p>
         </>
       )}
 
@@ -268,6 +272,7 @@ const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about 
           </>
         )}
         {e.variant && (<><dt>Version</dt><dd>{e.variant}</dd></>)}
+        {altTitles.length > 0 && (<><dt>Also listed as</dt><dd><ul>{altTitles.map((t: string) => <li>{t}</li>)}</ul></dd></>)}
         {e.tags.length > 0 && (
           <>
             <dt>Tags</dt>
