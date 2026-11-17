@@ -21,7 +21,9 @@ export const ARCHIVE_REPO_URL = 'https://github.com/intelligencescaling-archive/
 export const WEBSITE_REPO_URL = 'https://github.com/intelligencescaling-archive/website';
 /** Plain files of the archive repo's main branch (text-only entries link their text.txt here). */
 export const ARCHIVE_RAW_URL = 'https://raw.githubusercontent.com/intelligencescaling-archive/archive/main';
-export const CONTACT_EMAIL = 'intelligencescaling.archive@gmail.com';
+export const CONTACT_EMAIL = 'contact@intelscaling.com';
+/** Forwarded to the same inbox (Cloudflare Email Routing); used on the removal page. */
+export const REMOVALS_EMAIL = 'removals@intelscaling.com';
 
 /**
  * Cloudflare Turnstile site key for the Submit form (public, not a secret). Set TURNSTILE_SITE_KEY in the
