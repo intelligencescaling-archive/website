@@ -16,16 +16,16 @@ const user = (u: string) => `https://www.reddit.com/user/${u}/`;
     <p>Every entry here started as a link in one of these libraries. Their structure (series, then character, then doc) shaped how the archive is organized.</p>
     <ul>
       <li>
-        <strong><a href={LIBRARIES.remastered.url} rel="noopener">{LIBRARIES.remastered.name}</a></strong> by
+        <strong><a href={LIBRARIES.remastered.url} rel="noopener">{LIBRARIES.remastered.name}</a></strong> by{' '}
         <a href={user('TheMcBaconX')} rel="noopener">u/TheMcBaconX</a> and <a href={user('BudgetPosition6080')} rel="noopener">u/BudgetPosition6080</a>.
         {formatNumber(counts.remastered)} entries.
       </li>
       <li>
-        <strong><a href={LIBRARIES.old.url} rel="noopener">{LIBRARIES.old.name}</a></strong>, the original library, by
+        <strong><a href={LIBRARIES.old.url} rel="noopener">{LIBRARIES.old.name}</a></strong>, the original library, by{' '}
         <a href={user('BudgetPosition6080')} rel="noopener">u/BudgetPosition6080</a>. {formatNumber(counts.old)} entries.
       </li>
       <li>
-        <strong><a href={LIBRARIES.stories.url} rel="noopener">{LIBRARIES.stories.name}</a></strong> by
+        <strong><a href={LIBRARIES.stories.url} rel="noopener">{LIBRARIES.stories.name}</a></strong> by{' '}
         <a href={user('ConversationSea1684')} rel="noopener">u/ConversationSea1684</a>. {formatNumber(counts.stories)} entries.
       </li>
     </ul>

@@ -29,6 +29,7 @@ const popular = [...characters].sort((a, b) => b.entries.length - a.entries.leng
     <p class="stats-line">
       {formatNumber(entries.length)} docs and stories · {formatNumber(characters.length)} characters · {formatNumber(series.length)} series · {(words / 1e6).toFixed(1)}M words
     </p>
+    <p class="submit-line">Know a doc that's missing? <a href="/submit/">Submit it</a></p>
   </section>
   {recent.length > 0 && (
     <section class="recent">

@@ -23,10 +23,20 @@ import { ARCHIVE_REPO_URL, WEBSITE_REPO_URL, SUBREDDIT_URL } from '../lib/config
       copy of each doc is saved, and a plain-text copy makes the full text searchable.
     </p>
 
+    <h2 id="features">What you can do here</h2>
+    <ul>
+      <li><strong>Search the full text.</strong> <a href="/search/">Search</a> looks inside every doc, not only the titles. Filters narrow it down by series, character, author and more.</li>
+      <li><strong>Filter by source language.</strong> The Source language filter in Search shows only docs about Japanese, Korean, Chinese or English works, for example.</li>
+      <li><strong>Read docs on the site.</strong> Any doc with text has a Read here button. The reader remembers where you stopped and lets you change the text size and theme. Images and tables are only in the PDF.</li>
+      <li><strong>Sort the lists.</strong> <a href="/authors/">Authors</a>, <a href="/characters/">Characters</a> and <a href="/series/">Series</a> can be sorted A to Z or by most docs.</li>
+      <li><strong>Send something in.</strong> The <a href="/submit/">Submit form</a> lets you add a missing doc, fix a wrong entry or ask for a removal. You don't need an account.</li>
+      <li><strong>Follow new docs.</strong> The <a href="/feed.xml">RSS feed</a> lists what was added most recently.</li>
+    </ul>
+
     <h2>How it's built</h2>
     <p>
       Both parts are public on GitHub. The <a href={ARCHIVE_REPO_URL} rel="noopener">archive repository</a> holds the
-      metadata and plain text of every entry, and the <a href={WEBSITE_REPO_URL} rel="noopener">website repository</a>
+      metadata and plain text of every entry, and the <a href={WEBSITE_REPO_URL} rel="noopener">website repository</a>{' '}
       builds this site from it. The site is plain static files, with no accounts or ads. It counts visits with
       Cloudflare Web Analytics, which sets no cookies and doesn't follow you to other sites, so we can see which pages
       people use.
@@ -34,15 +44,15 @@ import { ARCHIVE_REPO_URL, WEBSITE_REPO_URL, SUBREDDIT_URL } from '../lib/config
 
     <h2 id="adding">Adding something</h2>
     <p>
-      Know a doc or story that should be here? A submission form is coming. Until then, open an issue on the
-      <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive repository</a> with the link. If you saved a copy of
-      a doc that has since been deleted, that helps too.
+      Know a doc or story that should be here? Send the link with the <a href="/submit/">Submit form</a>. You can also
+      open an issue on the <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive repository</a>. If you saved a
+      copy of a doc that has since been deleted, that helps too.
     </p>
 
     <h2>Credit and removal</h2>
     <p>
-      Everything archived here is © its author. Authors can <a href="/removal/">ask for removal or a credit change</a>
-      at any time. The people who built the community libraries this started from are thanked on the
+      Everything archived here is © its author. Authors can <a href="/removal/">ask for removal or a credit change</a>{' '}
+      at any time. The people who built the community libraries this started from are thanked on the{' '}
       <a href="/acknowledgments/">acknowledgments</a> page.
     </p>
   </div>
