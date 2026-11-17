@@ -521,6 +521,48 @@ export function textPreview(entry, maxChars = 1200) {
   }
 }
 
+// Formats that mean the doc has its own layout (read it there). Entries with none of them get the reader view.
+const LAID_OUT = ['pdf', 'docx', 'pptx', 'epub', 'html'];
+
+/** True when the entry has saved text and no PDF/DOCX/EPUB/… in any part: the site's reader view is the way to read it. */
+export function hasReader(entry) {
+  return entry.parts.some((p) => p.textPath) && entry.parts.every((p) => !p.files.some((f) => LAID_OUT.includes(f.format)));
+}
+
+/**
+ * The reader view's chapters: one per part with text. Each chapter is a list of blocks, `{ level, text }`:
+ * level 0 is a paragraph (blank-line separated; single line breaks are kept by CSS), 1–3 a heading
+ * (a line starting with #, ## or ###). Plain strings only: pages render them with Astro expressions.
+ * A first line that only repeats the part title is dropped, since the chapter heading shows it.
+ */
+export function readerChapters(entry) {
+  const same = (a, b) => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '') === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  return entry.parts
+    .filter((p) => p.textPath)
+    .map((p) => {
+      const text = fs.readFileSync(p.textPath, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+      const blocks = [];
+      let para = [];
+      const flush = () => {
+        const t = para.join('\n').trim();
+        if (t) blocks.push({ level: 0, text: t });
+        para = [];
+      };
+      for (const line of text.split('\n')) {
+        const h = /^(#{1,6})\s*(.*\S)\s*$/.exec(line);
+        if (h) {
+          flush();
+          blocks.push({ level: Math.min(h[1].length, 3), text: h[2] });
+        } else if (!line.trim()) flush();
+        else para.push(line.replace(/\s+$/, ''));
+      }
+      flush();
+      if (blocks.length > 1 && p.title && same(blocks[0].text, p.title)) blocks.shift();
+      const words = blocks.reduce((n, b) => n + (b.text.match(/\S+/g) || []).length, 0);
+      return { n: p.n, title: p.title, blocks, words };
+    });
+}
+
 export function authorLabel(entry) {
   return entry.authors.length ? entry.authors.map((a) => a.name).join(', ') : 'Unknown author';
 }

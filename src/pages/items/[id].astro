@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import { loadArchive, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
+import { loadArchive, hasReader, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
@@ -57,6 +57,8 @@ const relatedMore = e.characters[0]
       : null;
 const preview = textPreview(e, 1500);
 const multi = e.parts.length > 1;
+// Text-only entries (no PDF/DOCX to open) are read on the site itself.
+const readHref = hasReader(e) ? `/items/${e.id}/read/` : null;
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
 // The Submit form, with this entry filled in (no account needed). Public GitHub issues are linked from there.
 const correctionUrl = `/submit/?fix=${e.id}`;
@@ -135,6 +137,11 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
 
   <div class="item-grid">
     <div>
+      {readHref && multi && (
+        <div class="downloads read-cta">
+          <a class="button" href={readHref}>Read {e.category === 'story' ? 'the story' : 'it here'}</a>
+        </div>
+      )}
       {multi && <h2>Parts</h2>}
       {e.parts.map((p: any) => {
         const Part = multi ? 'details' : 'section';
@@ -160,8 +167,9 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
           )}
           {(p.textHref || p.files.some((f: any) => !p.images.includes(f))) && (
             <div class="downloads">
+              {readHref && !multi && <a class="button" href={readHref}>Read</a>}
               {p.textHref && (
-                <a class="button" href={p.textHref} rel="noopener">Download text <span class="size">TXT</span></a>
+                <a class={`button${readHref ? ' secondary' : ''}`} href={p.textHref} rel="noopener">Download text <span class="size">TXT</span></a>
               )}
               {p.files.filter((f: any) => !p.images.includes(f)).map((f: any) =>
                 f.href ? (
@@ -207,6 +215,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
               ? 'The first lines of the plain-text copy. Formatting and images are only in the PDF/DOCX.'
               : 'The first lines of the saved text.'}
           </p>
+          {readHref && <p class="read-more"><a class="button secondary" href={readHref}>Read the full text</a></p>}
         </section>
       )}
 

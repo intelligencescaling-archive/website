@@ -39,6 +39,18 @@
 
   apply(saved());
   if (media && media.addEventListener) media.addEventListener('change', sync);
+  // For the reader view's theme picker (src/scripts/reader.js): same rules as the toggle.
+  window.siteTheme = {
+    current: current,
+    set: function (t) {
+      var keep = t === system() ? null : t;
+      try {
+        if (keep) localStorage.setItem(KEY, keep);
+        else localStorage.removeItem(KEY);
+      } catch (e) {}
+      apply(keep);
+    },
+  };
 
   document.addEventListener('DOMContentLoaded', function () {
     var b = document.getElementById('theme-toggle');
@@ -67,4 +79,20 @@
   setTimeout(function () {
     root.classList.remove('search-pending');
   }, 4000);
+})();
+
+// Reader view (/items/<id>/read/): apply the saved text settings before the page paints, so the
+// text doesn't jump or flash when src/scripts/reader.js loads. Keys and values are checked there too.
+(function () {
+  if (!/^\/items\/[^/]+\/read\/$/.test(location.pathname)) return;
+  var root = document.documentElement;
+  var s = null;
+  try {
+    s = JSON.parse(localStorage.getItem('reader') || 'null');
+  } catch (e) {}
+  if (!s || typeof s !== 'object') return;
+  if (s.size >= 15 && s.size <= 24) root.setAttribute('data-rsize', String(Math.round(s.size)));
+  if (s.lh === 'tight' || s.lh === 'loose') root.setAttribute('data-rlh', s.lh);
+  if (s.w === 'narrow' || s.w === 'wide') root.setAttribute('data-rw', s.w);
+  if (s.sepia === true) root.setAttribute('data-reader', 'sepia');
 })();
