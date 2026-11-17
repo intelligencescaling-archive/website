@@ -37,6 +37,7 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
       data-authors={filterable ? (e.authors.length ? e.authors.map((a: any) => a.key).join(' ') : '_unknown') : undefined}
       data-tags={filterable ? e.tags.join(' ') : undefined}
       data-lang={filterable ? e.language || 'unknown' : undefined}
+      data-origin={filterable ? e.origins.map((o: any) => o.id).join(' ') : undefined}
       data-words={filterable ? String(e.words) : undefined}
       data-rank={filterable ? String(titleRank.get(e)) : undefined}
     >

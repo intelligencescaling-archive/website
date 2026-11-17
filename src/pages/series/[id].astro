@@ -17,6 +17,7 @@ const aliases = s.aliases.map((a: string) => a.replace(/:\s*$/, '')).filter((a: 
 <Base title={s.name} section="series" description={`${s.entries.length} archived docs and stories about ${s.name}.`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/series/">Series</a></nav>
   <h1>{s.name}</h1>
+  {s.originLabel && <p class="alt-titles">Original: {s.originLabel}</p>}
   {aliases.length > 0 && <p class="alt-titles">Also known as: {aliases.join(' · ')}</p>}
   <p class="lede">{s.entries.length} {s.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/search/?series=${s.id}`}>Filter these further</a>.</p>
   {chars.length > 0 && (

@@ -118,6 +118,34 @@ const SOURCE_TYPES = {
 const LINK_TYPES = { 'reddit-post': 'Reddit post', wayback: 'Wayback Machine snapshot', discussion: 'Discussion', other: 'Link' };
 const FORMAT_NAMES = { pdf: 'PDF', docx: 'DOCX', html: 'HTML', pptx: 'PPTX', epub: 'EPUB', png: 'PNG', jpg: 'JPG', txt: 'TXT' };
 
+/**
+ * Source language: the language the original work (the series) was first made in, from
+ * `origin_language` in the archive's data/series.yaml. The Search filter groups the codes into a
+ * few choices; the rarely used languages share "Other languages".
+ */
+export const ORIGIN_GROUPS = [
+  { id: 'ja', name: 'Japanese' },
+  { id: 'ko', name: 'Korean' },
+  { id: 'zh', name: 'Chinese' },
+  { id: 'en', name: 'English' },
+  { id: 'other', name: 'Other languages' },
+  { id: 'real', name: 'Real life' },
+];
+const originGroup = (code) => (!code ? null : ORIGIN_GROUPS.some((g) => g.id === code) ? code : 'other');
+const MEDIUM_NAMES = {
+  anime: 'anime', comic: 'comic', film: 'film', game: 'game', 'light-novel': 'light novel', manga: 'manga',
+  manhua: 'manhua', manhwa: 'manhwa', novel: 'novel', poem: 'poem', tv: 'TV series', 'visual-novel': 'visual novel',
+  web: 'web series', 'web-novel': 'web novel', webtoon: 'webtoon',
+};
+/** "Japanese light novel", "Korean webtoon", "Real life". Empty when the source language isn't known. */
+export function originLabel(code, medium) {
+  if (!code) return '';
+  if (code === 'real') return 'Real life';
+  const lang = languageName(code);
+  const m = MEDIUM_NAMES[medium] || (medium ? medium.replaceAll('-', ' ') : '');
+  return m ? `${lang} ${m}` : lang;
+}
+
 const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
 export function languageName(code) {
   if (!code) return 'Unknown';
@@ -376,7 +404,11 @@ export function loadArchive() {
   }
   const reg = { series: new Map(), characters: new Map(), warnings: [] };
   for (const s of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'series.yaml')))) {
-    if (s && SLUG.test(str(s.id))) reg.series.set(s.id, { id: s.id, name: str(s.name) || s.id, aliases: arr(s.aliases).map(str) });
+    if (s && SLUG.test(str(s.id))) {
+      const origin = /^([a-z]{2}|real)$/.test(str(s.origin_language)) ? s.origin_language : null;
+      const medium = origin && SLUG.test(str(s.origin_medium)) ? s.origin_medium : null;
+      reg.series.set(s.id, { id: s.id, name: str(s.name) || s.id, aliases: arr(s.aliases).map(str), origin, originLabel: originLabel(origin, medium) });
+    }
   }
   for (const c of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'characters.yaml')))) {
     if (c && SLUG.test(str(c.id)))
@@ -408,8 +440,15 @@ export function loadArchive() {
 
   const series = group(
     (e) => e.series.map((s) => [s.id, s]),
-    (id, s) => ({ id, name: s.name, aliases: reg.series.get(id)?.aliases || [] }),
+    (id, s) => ({ id, name: s.name, aliases: reg.series.get(id)?.aliases || [], originLabel: reg.series.get(id)?.originLabel || '' }),
   );
+  // Source-language groups of each entry, through its series (a crossover can have two).
+  for (const e of entries) {
+    e.origins = [...new Set(e.series.map((s) => originGroup(reg.series.get(s.id)?.origin)).filter(Boolean))].map(
+      (id) => ORIGIN_GROUPS.find((g) => g.id === id),
+    );
+  }
+  const origins = ORIGIN_GROUPS.map((g) => ({ ...g, entries: entries.filter((e) => e.origins.some((o) => o.id === g.id)) }));
   const characters = group(
     (e) => e.characters.map((c) => [c.id, c]),
     (id, c) => {
@@ -437,7 +476,7 @@ export function loadArchive() {
   for (const e of entries) e.topics = topicsFor(e, charSeries).map((id) => ({ id, name: topicName.get(id) }));
   const topics = TOPICS.map((t) => ({ ...t, entries: entries.filter((e) => e.topics.some((x) => x.id === t.id)) }));
 
-  cache = { entries, byId, series, characters, authors, tags, languages, topics, warnings: reg.warnings };
+  cache = { entries, byId, series, characters, authors, tags, languages, origins, topics, warnings: reg.warnings };
   return cache;
 }
 

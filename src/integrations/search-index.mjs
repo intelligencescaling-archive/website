@@ -61,6 +61,7 @@ export default function searchIndex() {
               Author: e.authors.length ? e.authors.map((a) => a.name) : ['Unknown author'],
               Tag: e.tags,
               Language: [e.languageName],
+              'Source language': e.origins.map((o) => o.name),
             }),
             sort: { title: (/^\p{N}/u.test(sortTitle(e.title)) ? '~' : '') + sortTitle(e.title).toLowerCase(), words: String(e.words).padStart(9, '0') },
           });
