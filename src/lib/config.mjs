@@ -22,6 +22,13 @@ export const WEBSITE_REPO_URL = 'https://github.com/intelligencescaling-archive/
 /** Plain files of the archive repo's main branch (text-only entries link their text.txt here). */
 export const ARCHIVE_RAW_URL = 'https://raw.githubusercontent.com/intelligencescaling-archive/archive/main';
 export const CONTACT_EMAIL = 'intelligencescaling.archive@gmail.com';
+
+/**
+ * Cloudflare Turnstile site key for the Submit form (public, not a secret). Set TURNSTILE_SITE_KEY in the
+ * Cloudflare Pages build settings. Empty: the Submit page says submissions aren't open yet.
+ * For local testing, Cloudflare's always-pass test key is 1x00000000000000000000AA.
+ */
+export const TURNSTILE_SITE_KEY = (process.env.TURNSTILE_SITE_KEY || '').trim();
 export const SUBREDDIT_URL = 'https://www.reddit.com/r/IntelligenceScaling/';
 
 /**

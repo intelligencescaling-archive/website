@@ -18,6 +18,7 @@ const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Removal re
         Email <a id="mail" href={mailto}>{CONTACT_EMAIL}</a> with the link to the item on this site (or its title), and
         say what you'd like: removal, a different name, or adding your name.
       </li>
+      <li>Or use the <a id="form-link" href="/submit/?remove=">removal form</a>. No account needed, and only the maintainers see it. Add your Reddit username so we can reply.</li>
       <li>Or open an issue on the <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive's GitHub</a>, if you'd rather do it in public.</li>
     </ul>
 
@@ -46,6 +47,7 @@ const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Removal re
     document.getElementById('item-note')!.hidden = false;
     const mail = document.getElementById('mail') as HTMLAnchorElement;
     const body = `Item: https://intelscaling.com/items/${id}/\n\nWhat I'd like (remove / change credit):\n`;
+    (document.getElementById('form-link') as HTMLAnchorElement).href = `/submit/?remove=${id}`;
     mail.href = `${mail.href.split('?')[0]}?subject=${encodeURIComponent(`Removal request: ${id}`)}&body=${encodeURIComponent(body)}`;
   }
 </script>

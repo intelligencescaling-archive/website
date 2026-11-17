@@ -42,7 +42,18 @@ preview URL on `intelscaling.pages.dev`. Domains: `intelscaling.com` and `www.in
 | Build command | `npm run build:cloudflare` |
 | Build output directory | `dist` |
 | Node version | from `.node-version` |
-| Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH` |
+| Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH`; `TURNSTILE_SITE_KEY` (Submit form, public) |
+| Secrets (Functions) | `TURNSTILE_SECRET`, `GITHUB_TOKEN` (fine-grained, Issues read+write on the private `submissions` repo only) |
+
+### Submit form
+
+`/submit/` posts to a Pages Function, `functions/api/submit.js`. It checks the Turnstile token (and its hostname),
+accepts only Google Docs/Drive/Slides links and posts on r/IntelligenceScaling, removes email addresses, escapes
+everything for Markdown, and files an issue in the **private** `intelligencescaling-archive/submissions` repo. It
+downloads nothing. `public/_routes.json` limits Functions to `/api/*`, so the static site doesn't count against the
+Functions quota. Without `TURNSTILE_SITE_KEY` at build time the page says the form isn't open yet; without the two
+secrets the function answers 503. `/archived-ids.json` (built from the archive) lets the form say "already
+archived" before sending. Approved issues are imported by the maintainer's local script.
 
 The site also rebuilds once a day (`.github/workflows/rebuild.yml`) through a Cloudflare Pages **deploy hook**,
 stored as the `CF_DEPLOY_HOOK` secret in this repo, so archive changes show up within a day. It can also be started by
@@ -62,6 +73,7 @@ that gives the readable file name, which matches the default `FILES_URL_TEMPLATE
 | `/series/`, `/characters/`, `/authors/`, `/tags/` | Index pages and one page per series/character/author/tag |
 | `/topics/` | Browse home for entries with no series: SCD theory & guides, stories & OCs, community games, libraries; plus "Series not known yet" and "Needs sorting". Rules in `TOPICS` in `src/lib/archive.mjs` (from tags and category, no archive change) |
 | `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |
+| `/submit/` | Submit a doc or Reddit post, suggest a fix (`?fix=<id>`), or ask for removal (`?remove=<id>`) |
 
 ## Security
 

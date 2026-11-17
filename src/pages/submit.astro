@@ -1,0 +1,138 @@
+---
+// Submit a doc, suggest a fix, or ask for removal. Sends to /api/submit (functions/api/submit.js), which
+// files it in a private queue; a maintainer approves it before anything is added or changed.
+import Base from '../layouts/Base.astro';
+import { loadArchive } from '../lib/archive.mjs';
+import { ARCHIVE_REPO_URL, CONTACT_EMAIL, TURNSTILE_SITE_KEY } from '../lib/config.mjs';
+
+const { series } = loadArchive();
+const open = Boolean(TURNSTILE_SITE_KEY);
+---
+<Base title="Submit" section="about" description="Send a doc or story to the archive, suggest a fix to an entry, or ask for something to be removed. No account needed.">
+  <div class="prose">
+    <h1>Submit</h1>
+    <p class="lede">Send us a doc or story that isn't here yet, or tell us what's wrong with an entry. No account needed.</p>
+  </div>
+
+  {!open && (
+    <p class="note submit-closed">
+      The form isn't open yet. For now, post the link on the subreddit, or email <span class="nowrap">{CONTACT_EMAIL}</span>.
+    </p>
+  )}
+
+  <form class="submit-form" id="submit-form" novalidate hidden={!open}>
+    <fieldset class="choice">
+      <legend>What do you want to do?</legend>
+      <label><input type="radio" name="kind" value="add" checked /> Add a doc or story</label>
+      <label><input type="radio" name="kind" value="fix" /> Fix an entry</label>
+      <label><input type="radio" name="kind" value="remove" /> Ask for removal</label>
+    </fieldset>
+
+    <fieldset data-kind="add">
+      <legend class="visually-hidden">The doc or story</legend>
+      <div class="field">
+        <label for="url">Link</label>
+        <input type="url" id="url" name="url" maxlength="500" inputmode="url" autocomplete="off" placeholder="https://docs.google.com/document/d/…" />
+        <p class="hint">A Google Doc, a Google Drive file, or a post on r/IntelligenceScaling.</p>
+      </div>
+      <div class="field">
+        <label for="what">What is it?</label>
+        <select id="what" name="what">
+          <option value="doc">A doc (analysis, feats, a scaling doc…)</option>
+          <option value="story">A story or fanfic</option>
+          <option value="other">Not sure</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="title">Title <span class="opt">optional</span></label>
+        <input type="text" id="title" name="title" maxlength="200" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="series">Series <span class="opt">optional</span></label>
+        <input type="text" id="series" name="series" maxlength="200" list="series-list" autocomplete="off" />
+        <datalist id="series-list">{series.map((s) => <option value={s.name} />)}</datalist>
+      </div>
+      <div class="field">
+        <label for="characters">Characters <span class="opt">optional</span></label>
+        <input type="text" id="characters" name="characters" maxlength="200" autocomplete="off" placeholder="Separate names with commas" />
+      </div>
+      <div class="field">
+        <label for="author">Who made it? <span class="opt">optional</span></label>
+        <input type="text" id="author" name="author" maxlength="60" autocomplete="off" placeholder="Their Reddit username, if you know it" />
+      </div>
+    </fieldset>
+
+    <fieldset data-kind="fix remove" hidden>
+      <legend class="visually-hidden">The entry</legend>
+      <div class="field">
+        <label for="item">Entry</label>
+        <input type="text" id="item" name="item" maxlength="200" autocomplete="off" placeholder="Its link on this site, or its title" />
+      </div>
+    </fieldset>
+
+    <fieldset data-kind="fix" hidden>
+      <legend class="visually-hidden">The fix</legend>
+      <div class="field">
+        <label for="field">What's wrong?</label>
+        <select id="field" name="field">
+          <option value="author">Who made it</option>
+          <option value="title">Title</option>
+          <option value="series">Series</option>
+          <option value="characters">Characters</option>
+          <option value="tags">Tags or topic</option>
+          <option value="duplicate">It's a duplicate</option>
+          <option value="other">Something else</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="value">What should it be?</label>
+        <input type="text" id="value" name="value" maxlength="200" autocomplete="off" />
+      </div>
+    </fieldset>
+
+    <fieldset data-kind="remove" hidden>
+      <legend class="visually-hidden">The request</legend>
+      <div class="field">
+        <label for="wish">What would you like?</label>
+        <select id="wish" name="wish">
+          <option value="remove">Remove it</option>
+          <option value="credit">Credit me differently</option>
+          <option value="add-name">Add my name</option>
+        </select>
+      </div>
+      <p class="hint">We may ask you to show it's yours, for example by editing the original doc or sending a Reddit message from the account that posted it. See <a href="/removal/">Request removal</a>.</p>
+    </fieldset>
+
+    <div class="field">
+      <label for="note">Anything else? <span class="opt">optional</span></label>
+      <textarea id="note" name="note" maxlength="2000" rows="3"></textarea>
+    </div>
+    <div class="field">
+      <label for="by">Your Reddit username <span class="opt">optional</span></label>
+      <input type="text" id="by" name="by" maxlength="60" autocomplete="off" placeholder="So we can thank you or ask a question" />
+      <p class="hint">Please don't write an email address or real name anywhere here: we remove them.</p>
+    </div>
+
+    {open && <div class="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-theme="auto" data-appearance="interaction-only" data-size="flexible"></div>}
+
+    <div class="submit-row">
+      <button type="submit" id="send">Send</button>
+    </div>
+    <div class="submit-result" id="result" role="status" aria-live="polite" hidden></div>
+  </form>
+
+  <div class="prose">
+    <h2>What happens next</h2>
+    <ul>
+      <li>Everything goes to a private queue first. Nothing shows up on the site until a maintainer has looked at it.</li>
+      <li>New docs are usually added within a few days. We don't add exposé or allegation docs, published books, or things that aren't about the community.</li>
+      <li>Rather do it in public? Open an issue on the <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive's GitHub</a>.</li>
+    </ul>
+  </div>
+  {open && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+</Base>
+
+<script>
+  import { initSubmit } from '../scripts/submit.js';
+  initSubmit();
+</script>

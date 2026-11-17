@@ -641,3 +641,29 @@ main > .hero { padding-top: 0.5rem; }
   .stats-row dd { font-size: 1.05rem; }
   .item-head { margin-bottom: 1.25rem; }
 }
+
+/* ---------- Submit form ---------- */
+.submit-form { display: grid; gap: 1.1rem; max-width: 36rem; margin-top: 1.5rem; }
+.submit-form fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 1.1rem; min-width: 0; }
+.submit-form fieldset[hidden] { display: none; }
+.submit-form legend { font-size: 0.875rem; font-weight: 600; color: var(--ink-2); margin-bottom: 0.4rem; padding: 0; }
+.submit-form .choice { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
+.submit-form .choice legend { width: 100%; }
+.submit-form .choice label { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 44px; margin: 0; font-size: 1rem; font-weight: 500; color: var(--ink); }
+.submit-form input[type='radio'] { width: 1.15rem; height: 1.15rem; accent-color: var(--ink); margin: 0; }
+.submit-form input[type='url'], .submit-form textarea {
+  font: inherit; font-size: 1rem; color: var(--ink); background: var(--page); border: 1px solid var(--rule-2);
+  border-radius: var(--radius); padding: 0.6rem 0.7rem; min-height: 44px; width: 100%; min-width: 0;
+}
+.submit-form textarea { resize: vertical; min-height: 5.5rem; }
+.submit-form input:focus, .submit-form textarea:focus { border-color: var(--ink); outline: 3px solid var(--mark); outline-offset: 0; }
+.submit-form .opt { font-weight: 400; color: var(--ink-3); }
+.submit-form .hint { margin: 0.35rem 0 0; font-size: 0.85rem; color: var(--ink-3); }
+.submit-row button { min-height: 48px; padding-inline: 2rem; }
+.submit-result { padding: 0.85rem 1rem; border-radius: var(--radius); background: var(--surface); color: var(--ink); overflow-wrap: anywhere; }
+.submit-result.ok { background: var(--ok-soft); }
+.submit-result.warn { background: var(--warn-soft); }
+.submit-result.bad { background: var(--bad-soft); }
+.submit-closed { max-width: 36rem; }
+.nowrap { white-space: nowrap; }
+@media (max-width: 479.98px) { .submit-row button { width: 100%; } }

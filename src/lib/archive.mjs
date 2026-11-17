@@ -322,6 +322,7 @@ function normalizeEntry(raw, metaFile, reg) {
       n: i + 1,
       title: str(p?.title),
       sourceType: str(source.type),
+      googleId: /^[A-Za-z0-9_-]{10,}$/.test(str(source.google_id)) ? source.google_id : null,
       sourceLabel: SOURCE_TYPES[source.type] || 'Link',
       url: safeUrl(source.url),
       status,

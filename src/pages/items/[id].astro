@@ -58,9 +58,8 @@ const relatedMore = e.characters[0]
 const preview = textPreview(e, 1500);
 const multi = e.parts.length > 1;
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
-const correctionUrl = `${ARCHIVE_REPO_URL}/issues/new?title=${encodeURIComponent(`Correction: ${e.id}`)}&body=${encodeURIComponent(
-  `Entry: ${e.repoPath}/meta.yaml\n\nWhat should change?\n`,
-)}`;
+// The Submit form, with this entry filled in (no account needed). Public GitHub issues are linked from there.
+const correctionUrl = `/submit/?fix=${e.id}`;
 // What couldn't be saved, as one sentence: formats with the same reason are named once.
 const andList = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const missingSentence = (p: any) => {
