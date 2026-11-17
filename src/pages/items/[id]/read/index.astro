@@ -1,0 +1,17 @@
+---
+// Reader view, first (often only) page: /items/<id>/read/. Later pages of long docs are in [page].astro.
+// Every entry with saved text gets one (image-only docs with 0 words don't). See src/components/Reader.astro.
+import Reader from '../../../../components/Reader.astro';
+import { loadArchive, hasReader, readerChapters, readerPages } from '../../../../lib/archive.mjs';
+
+export function getStaticPaths() {
+  return loadArchive()
+    .entries.filter(hasReader)
+    .map((entry) => ({ params: { id: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props as { entry: any };
+const chapters = readerChapters(entry);
+const pages = readerPages(chapters);
+---
+<Reader entry={entry} chapters={chapters} pages={pages} page={0} />

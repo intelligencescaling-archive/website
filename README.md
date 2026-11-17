@@ -70,6 +70,7 @@ that gives the readable file name, which matches the default `FILES_URL_TEMPLATE
 | `/browse/` | Every entry, filterable by category, series, topic, character, author, tag, language (state in the URL) |
 | `/search/` | Full-text search (Pagefind) over the plain text of every doc + its metadata, with filters and doc-text excerpts |
 | `/items/<id>/` | One entry: titles, authors, series, characters, tags, parts with capture status, downloads, library info |
+| `/items/<id>/read/` | Reader view of the entry's plain text, for every entry with words (image-only docs have none). Docs with a PDF/DOCX get a short "text version" note linking to the original. Long docs are split into pages of about 600 KB (`/read/2/`, `/read/3/`, …; `readerPages` in `src/lib/archive.mjs`), so no page is much over 600 KB of HTML. `noindex`, not in the sitemap |
 | `/series/`, `/characters/`, `/authors/`, `/tags/` | Index pages and one page per series/character/author/tag |
 | `/topics/` | Browse home for entries with no series: SCD theory & guides, stories & OCs, community games, libraries; plus "Series not known yet" and "Needs sorting". Rules in `TOPICS` in `src/lib/archive.mjs` (from tags and category, no archive change) |
 | `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |

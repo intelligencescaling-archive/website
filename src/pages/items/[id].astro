@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import { loadArchive, hasReader, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
+import { loadArchive, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
@@ -57,8 +57,12 @@ const relatedMore = e.characters[0]
       : null;
 const preview = textPreview(e, 1500);
 const multi = e.parts.length > 1;
-// Text-only entries (no PDF/DOCX to open) are read on the site itself.
+// Every entry with text has the reader. For text-only entries (no PDF/DOCX to open) it is the main way to read;
+// for the rest the PDF stays the main button and "Read here" is a quieter second one.
 const readHref = hasReader(e) ? `/items/${e.id}/read/` : null;
+const readOnly = readHref && textOnly(e);
+// The main (filled) file button of a part: its PDF, else its first other file.
+const mainFile = (p: any) => p.files.find((f: any) => f.format === 'pdf' && !p.images.includes(f)) || p.files.find((f: any) => !p.images.includes(f));
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
 // The Submit form, with this entry filled in (no account needed). Public GitHub issues are linked from there.
 const correctionUrl = `/submit/?fix=${e.id}`;
@@ -139,7 +143,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
     <div>
       {readHref && multi && (
         <div class="downloads read-cta">
-          <a class="button" href={readHref}>Read {e.category === 'story' ? 'the story' : 'it here'}</a>
+          <a class={`button${readOnly ? '' : ' secondary'}`} href={readHref}>Read {e.category === 'story' ? 'the story' : 'it'} here</a>
         </div>
       )}
       {multi && <h2>Parts</h2>}
@@ -167,13 +171,13 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
           )}
           {(p.textHref || p.files.some((f: any) => !p.images.includes(f))) && (
             <div class="downloads">
-              {readHref && !multi && <a class="button" href={readHref}>Read</a>}
+              {readOnly && !multi && <a class="button" href={readHref}>Read</a>}
               {p.textHref && (
                 <a class={`button${readHref ? ' secondary' : ''}`} href={p.textHref} rel="noopener">Download text <span class="size">TXT</span></a>
               )}
               {p.files.filter((f: any) => !p.images.includes(f)).map((f: any) =>
                 f.href ? (
-                  <a class={`button${f.format === 'pdf' ? '' : ' secondary'}`} href={f.href} rel="noopener">
+                  <a class={`button${f === mainFile(p) ? '' : ' secondary'}`} href={f.href} rel="noopener">
                     {f.format === 'pdf' ? 'Open PDF' : `Download ${f.formatName}`} <span class="size">{formatBytes(f.bytes)}</span>
                   </a>
                 ) : (
@@ -182,6 +186,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
                   </span>
                 ),
               )}
+              {readHref && !readOnly && !multi && <a class="button secondary" href={readHref}>Read here</a>}
             </div>
           )}
           {p.files.length > 0 && p.files.some((f: any) => !f.href) && (

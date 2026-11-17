@@ -521,18 +521,66 @@ export function textPreview(entry, maxChars = 1200) {
   }
 }
 
-// Formats that mean the doc has its own layout (read it there). Entries with none of them get the reader view.
+// Formats that mean the doc has its own layout (images, colours, tables). The reader shows only the plain text of
+// these, with a note that points to the original file.
 const LAID_OUT = ['pdf', 'docx', 'pptx', 'epub', 'html'];
 
-/** True when the entry has saved text and no PDF/DOCX/EPUB/… in any part: the site's reader view is the way to read it. */
+/** True when the entry has saved text with words in it: it gets the reader view. Image-only docs (0 words) don't. */
 export function hasReader(entry) {
-  return entry.parts.some((p) => p.textPath) && entry.parts.every((p) => !p.files.some((f) => LAID_OUT.includes(f.format)));
+  return entry.words > 0 && entry.parts.some((p) => p.textPath);
+}
+
+/** True when the entry has no PDF/DOCX/EPUB/… in any part: the reader view is the main way to read it. */
+export function textOnly(entry) {
+  return entry.parts.every((p) => !p.files.some((f) => LAID_OUT.includes(f.format)));
 }
 
 /**
- * The reader view's chapters: one per part with text. Each chapter is a list of blocks, `{ level, text }`:
+ * The best original file to open instead of the plain text: the first PDF, else the first DOCX/PPTX/EPUB/HTML
+ * that is online. `multi` is true when more than one part has one (then the item page lists them all).
+ */
+export function originalFile(entry) {
+  const withFiles = entry.parts.filter((p) => p.files.some((f) => LAID_OUT.includes(f.format) && f.href));
+  for (const fmt of LAID_OUT) {
+    for (const p of withFiles) {
+      const f = p.files.find((x) => x.format === fmt && x.href);
+      if (f) return { href: f.href, format: f.format, formatName: f.formatName, multi: withFiles.length > 1 };
+    }
+  }
+  return null;
+}
+
+// Paragraphs longer than this are cut at line breaks into pieces (shown as one paragraph), so a reading position
+// and a page break can fall inside them. A single line longer than PAGE_BYTES is cut at a space.
+const PIECE_CHARS = 3000;
+// About this much text (UTF-8 bytes, escaped) per reader page, so no page gets much over ~700 KB of HTML.
+export const PAGE_BYTES = 600_000;
+
+function pieces(text) {
+  if (text.length <= PIECE_CHARS) return [text];
+  const out = [];
+  let cur = '';
+  for (let line of text.split('\n')) {
+    // A huge line with no breaks (rare): cut at spaces, about every PIECE_CHARS * 10 characters.
+    while (line.length > PIECE_CHARS * 10) {
+      let cut = line.lastIndexOf(' ', PIECE_CHARS * 10);
+      if (cut < PIECE_CHARS) cut = PIECE_CHARS * 10;
+      if (cur) out.push(cur), (cur = '');
+      out.push(line.slice(0, cut));
+      line = line.slice(cut).replace(/^ /, '');
+    }
+    if (cur && cur.length + line.length + 1 > PIECE_CHARS) out.push(cur), (cur = line);
+    else cur = cur ? `${cur}\n${line}` : line;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/**
+ * The reader view's chapters: one per part with text. Each chapter is a list of blocks, `{ level, text, cont }`:
  * level 0 is a paragraph (blank-line separated; single line breaks are kept by CSS), 1–3 a heading
- * (a line starting with #, ## or ###). Plain strings only: pages render them with Astro expressions.
+ * (a line starting with #, ## or ###). `cont` marks a piece of a long paragraph that the next block continues.
+ * Plain strings only: pages render them with Astro expressions.
  * A first line that only repeats the part title is dropped, since the chapter heading shows it.
  */
 export function readerChapters(entry) {
@@ -545,14 +593,17 @@ export function readerChapters(entry) {
       let para = [];
       const flush = () => {
         const t = para.join('\n').trim();
-        if (t) blocks.push({ level: 0, text: t });
+        if (t) {
+          const ps = pieces(t);
+          ps.forEach((x, i) => blocks.push({ level: 0, text: x, cont: i < ps.length - 1 }));
+        }
         para = [];
       };
       for (const line of text.split('\n')) {
         const h = /^(#{1,6})\s*(.*\S)\s*$/.exec(line);
         if (h) {
           flush();
-          blocks.push({ level: Math.min(h[1].length, 3), text: h[2] });
+          blocks.push({ level: Math.min(h[1].length, 3), text: h[2], cont: false });
         } else if (!line.trim()) flush();
         else para.push(line.replace(/\s+$/, ''));
       }
@@ -561,6 +612,58 @@ export function readerChapters(entry) {
       const words = blocks.reduce((n, b) => n + (b.text.match(/\S+/g) || []).length, 0);
       return { n: p.n, title: p.title, blocks, words };
     });
+}
+
+const htmlBytes = (s) => Buffer.byteLength(s) + (s.match(/[&<>"]/g)?.length || 0) * 4 + 12;
+
+/**
+ * Splits the reader text into pages of about PAGE_BYTES each (most docs are one page). Pages break between
+ * chapters where they can, else before a heading, else between paragraphs. Returns
+ * `[{ chapters: [{ i, title, words, blocks, cont, first }], wordsBefore, words }]`: `i` is the chapter's index in the
+ * whole doc, `first` is true on the page where the chapter starts, `cont` when it goes on to the next page.
+ */
+export function readerPages(chapters) {
+  const sizes = chapters.map((c) => c.blocks.map((b) => htmlBytes(b.text)));
+  const total = sizes.flat().reduce((a, b) => a + b, 0);
+  const n = Math.max(1, Math.ceil(total / PAGE_BYTES));
+  const target = total / n;
+  const wordsOf = (b) => (b.text.match(/\S+/g) || []).length;
+  const pages = [];
+  let page = null;
+  let size = 0;
+  let wordsSoFar = 0;
+  const newPage = () => {
+    page = { chapters: [], wordsBefore: wordsSoFar, words: 0 };
+    pages.push(page);
+    size = 0;
+  };
+  newPage();
+  chapters.forEach((c, i) => {
+    // A new chapter starts a new page when this page is already well filled.
+    if (page.chapters.length && size >= target * 0.6 && pages.length < n) newPage();
+    let part = { i, title: c.title, words: 0, blocks: [], cont: false, first: true };
+    page.chapters.push(part);
+    c.blocks.forEach((b, k) => {
+      const s = sizes[i][k];
+      const prev = c.blocks[k - 1];
+      const breakable = k > 0 && !prev.cont;
+      const full = size + s > target && size >= target * 0.5;
+      const headingBreak = b.level > 0 && size >= target * 0.85;
+      if (breakable && pages.length < n && (full || headingBreak)) {
+        part.cont = true;
+        newPage();
+        part = { i, title: c.title, words: 0, blocks: [], cont: false, first: false };
+        page.chapters.push(part);
+      }
+      const w = wordsOf(b);
+      part.blocks.push(b);
+      part.words += w;
+      page.words += w;
+      wordsSoFar += w;
+      size += s;
+    });
+  });
+  return pages;
 }
 
 export function authorLabel(entry) {

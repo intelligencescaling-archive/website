@@ -1,0 +1,201 @@
+---
+// Reader view ("Book"): the full text of an entry, chapters in scroll mode. Long docs are split into pages of
+// about 600 KB (readerPages in src/lib/archive.mjs): /items/<id>/read/, /items/<id>/read/2/, …
+// For docs that also have a PDF/DOCX/…, a short note at the top says this is only the text and links to the original.
+// The text is untrusted: it is only ever rendered through Astro expressions (escaped), never set:html. Settings,
+// progress, chapters and resume are in src/scripts/reader.js; without JavaScript the page is just the text.
+import Base from '../layouts/Base.astro';
+import { authorLabel, formatNumber, textOnly, originalFile } from '../lib/archive.mjs';
+
+interface Props {
+  entry: any;
+  chapters: any[];
+  pages: any[];
+  page: number; // 0-based
+}
+const { entry: e, chapters: all, pages, page } = Astro.props;
+const here = pages[page];
+const chapters = here.chapters;
+const multi = all.length > 1;
+const paged = pages.length > 1;
+const unit = e.category === 'story' ? 'Chapter' : 'Part';
+const words = all.reduce((n: number, c: any) => n + c.words, 0);
+const time = (w: number) => {
+  const m = Math.max(1, Math.round(w / 230));
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+};
+const readTime = time(words);
+const itemHref = `/items/${e.id}/`;
+const pageHref = (p: number) => (p === 0 ? `/items/${e.id}/read/` : `/items/${e.id}/read/${p + 1}/`);
+// Page where each chapter starts (for the chapter list).
+const startPage = new Map<number, number>();
+pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.first && !startPage.has(c.i) && startPage.set(c.i, k)));
+const original = textOnly(e) ? null : originalFile(e);
+const hasOriginal = !textOnly(e);
+// Headings from the text sit one level under the chapter heading.
+const base = multi ? 3 : 2;
+const tagFor = (level: number) => (level === 0 ? 'p' : `h${Math.min(base + level - 1, 6)}`);
+const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` : `Read: ${e.title}`;
+---
+<Base title={title} description={`Read ${e.title} by ${authorLabel(e)} on the Intelligence Scaling Archive.`} ogType="article">
+  <meta slot="head" name="robots" content="noindex, follow" />
+  <div class="reader" id="reader" data-id={e.id} data-unit={unit} data-page={page + 1} data-pages={pages.length}
+    data-before={here.wordsBefore} data-total={words} data-prev={page > 0 ? pageHref(page - 1) : undefined}
+    data-next={page < pages.length - 1 ? pageHref(page + 1) : undefined} data-base={pageHref(0)}>
+    <div class="r-bar">
+      <a class="r-icon" href={itemHref} aria-label="Back to the item page">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+      </a>
+      <span class="r-title">{e.title}</span>
+      <button type="button" class="r-icon r-aa" id="r-aa" aria-label="Text settings" aria-haspopup="dialog" hidden>Aa</button>
+      {multi && (
+        <button type="button" class="r-icon" id="r-toc" aria-label={`${unit}s`} aria-haspopup="dialog" hidden>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+        </button>
+      )}
+    </div>
+
+    <article class="r-page" id="r-page" lang={e.language || undefined}>
+      {hasOriginal && (
+        <p class="r-note">
+          <span>Text version. Images, colours and tables are only in the original.</span>
+          {original && !original.multi ? (
+            <a href={original.href} rel="noopener">{original.format === 'pdf' ? 'Open the PDF' : `Open the ${original.formatName}`}</a>
+          ) : (
+            <a href={itemHref}>See the original files</a>
+          )}
+        </p>
+      )}
+      {page > 0 && (
+        <nav class="r-pager r-pager-top" aria-label="Pages">
+          <a href={pageHref(page - 1)} rel="prev">← Page {page}</a>
+          <span>Page {page + 1} of {pages.length}</span>
+        </nav>
+      )}
+      {multi && page === 0 && (
+        <header class="r-book">
+          <h1>{e.title}</h1>
+          <p class="r-by">by {authorLabel(e)}</p>
+          <p class="r-meta">{all.length} {unit.toLowerCase()}s · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+        </header>
+      )}
+      {chapters.map((c: any) => {
+        const n = c.i + 1;
+        const id = c.first ? `ch-${n}` : `ch-${n}-more`;
+        // Words of this chapter on later pages (for "min left in chapter").
+        const after = c.cont ? pages.slice(page + 1).flatMap((p: any) => p.chapters).filter((x: any) => x.i === c.i).reduce((k: number, x: any) => k + x.words, 0) : 0;
+        return (
+          <section class="r-ch" id={id} data-n={n} data-words={c.words} data-after={after || undefined} aria-labelledby={`${id}-h`}>
+            {multi ? (
+              <>
+                <p class="r-chap">{unit} {n} of {all.length}{!c.first && ', continued'}</p>
+                <h2 id={`${id}-h`}>{c.title || `${unit} ${n}`}</h2>
+              </>
+            ) : c.first ? (
+              <>
+                <h1 id={`${id}-h`}>{e.title}</h1>
+                <p class="r-by">by {authorLabel(e)} · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+              </>
+            ) : (
+              <h1 class="visually-hidden" id={`${id}-h`}>{e.title}, page {page + 1}</h1>
+            )}
+            <div class="r-text">
+              {c.blocks.map((b: any) => {
+                const Tag = tagFor(b.level);
+                return b.cont ? <Tag class="r-cont">{b.text}</Tag> : <Tag>{b.text}</Tag>;
+              })}
+            </div>
+          </section>
+        );
+      })}
+      {page < pages.length - 1 ? (
+        <nav class="r-pager r-pager-end" aria-label="Pages">
+          <span>Page {page + 1} of {pages.length}</span>
+          <a class="button" href={pageHref(page + 1)} rel="next">Next page ({time(pages[page + 1].words)}) →</a>
+        </nav>
+      ) : (
+        <p class="r-end"><a href={itemHref}>Back to {e.title}</a></p>
+      )}
+    </article>
+
+    <div class="r-foot" id="r-foot" hidden>
+      <div class="r-resume" id="r-resume" role="region" aria-label="Continue reading" hidden>
+        <button type="button" class="r-resume-go" id="r-resume-go">Continue where you left off <span id="r-resume-where"></span></button>
+        <button type="button" class="r-icon r-resume-x" id="r-resume-x" aria-label="Dismiss">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div class="r-track" aria-hidden="true"><i id="r-fill"></i></div>
+      <div class="r-status"><span id="r-where"></span><span id="r-left"></span></div>
+    </div>
+  </div>
+
+  <dialog class="r-sheet r-settings" id="r-settings" aria-labelledby="r-settings-h">
+    <div class="r-grab" aria-hidden="true"></div>
+    <h2 id="r-settings-h" class="visually-hidden">Text settings</h2>
+    <div class="r-row">
+      <span id="r-l-size">Text size</span>
+      <div class="r-seg" role="group" aria-labelledby="r-l-size">
+        <button type="button" data-size="-1" aria-label="Smaller text">A−</button>
+        <output id="r-size" aria-live="polite">18</output>
+        <button type="button" data-size="1" aria-label="Bigger text">A+</button>
+      </div>
+    </div>
+    <div class="r-row">
+      <span id="r-l-theme">Theme</span>
+      <div class="r-swatches" role="group" aria-labelledby="r-l-theme">
+        <button type="button" class="r-sw r-sw-light" data-theme-pick="light" aria-label="Light" aria-pressed="false"></button>
+        <button type="button" class="r-sw r-sw-sepia" data-theme-pick="sepia" aria-label="Sepia" aria-pressed="false"></button>
+        <button type="button" class="r-sw r-sw-dark" data-theme-pick="dark" aria-label="Dark" aria-pressed="false"></button>
+      </div>
+    </div>
+    <div class="r-row">
+      <span id="r-l-lh">Line spacing</span>
+      <div class="r-seg" role="group" aria-labelledby="r-l-lh">
+        <button type="button" data-lh="tight" aria-pressed="false">Tight</button>
+        <button type="button" data-lh="normal" aria-pressed="false">Normal</button>
+        <button type="button" data-lh="loose" aria-pressed="false">Loose</button>
+      </div>
+    </div>
+    <div class="r-row">
+      <span id="r-l-w">Width</span>
+      <div class="r-seg" role="group" aria-labelledby="r-l-w">
+        <button type="button" data-w="narrow" aria-pressed="false">Narrow</button>
+        <button type="button" data-w="medium" aria-pressed="false">Medium</button>
+        <button type="button" data-w="wide" aria-pressed="false">Wide</button>
+      </div>
+    </div>
+    <button type="button" class="secondary r-done" data-close>Done</button>
+  </dialog>
+
+  {multi && (
+    <dialog class="r-sheet r-chapters" id="r-chapters" aria-labelledby="r-chapters-h">
+      <div class="r-grab" aria-hidden="true"></div>
+      <div class="r-sheet-head">
+        <h2 id="r-chapters-h">{unit}s</h2>
+        <button type="button" class="r-icon" data-close aria-label="Close">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <ol class="r-toc">
+        {all.map((c: any, i: number) => {
+          const p = startPage.get(i) ?? 0;
+          return (
+            <li>
+              <a href={p === page ? `#ch-${i + 1}` : `${pageHref(p)}#ch-${i + 1}`} data-ch={i + 1}>
+                <span class="r-toc-n">{i + 1}</span>
+                <span class="r-toc-t">{c.title || `${unit} ${i + 1}`}</span>
+                <span class="r-toc-m">{Math.max(1, Math.round(c.words / 230))} min</span>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+    </dialog>
+  )}
+</Base>
+
+<script>
+  import { initReader } from '../scripts/reader.js';
+  initReader();
+</script>

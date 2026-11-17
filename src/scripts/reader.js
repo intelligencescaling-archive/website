@@ -1,5 +1,6 @@
-// Reader view (src/pages/items/[id]/read.astro): text settings, the progress bar, the chapter list,
-// "continue where you left off" and [ / ] for the previous / next chapter. The page works without
+// Reader view (src/components/Reader.astro): text settings, the progress bar, the chapter list,
+// "continue where you left off" and [ / ] for the previous / next chapter. Long docs are split into pages
+// (/read/, /read/2/, …): progress counts the whole doc, and [ / ] and "continue" cross pages. The page works without
 // this file (it is just the text). Settings and the reading position are stored only in this browser.
 //
 // Settings live in localStorage "reader" as { size, lh, w, sepia }; public/theme.js applies them
@@ -36,10 +37,18 @@ export function initReader() {
   const bar = reader.querySelector('.r-bar');
   const foot = document.getElementById('r-foot');
   const chapters = [...reader.querySelectorAll('.r-ch')];
+  const nums = chapters.map((c) => Number(c.dataset.n) || 1);
   const words = chapters.map((c) => Number(c.dataset.words) || 0);
-  const total = words.reduce((a, b) => a + b, 0) || 1;
+  const after = chapters.map((c) => Number(c.dataset.after) || 0); // the chapter's words on later pages
+  const pageWords = words.reduce((a, b) => a + b, 0);
+  const before = Number(reader.dataset.before) || 0;
+  const total = Number(reader.dataset.total) || pageWords || 1;
+  const page = Number(reader.dataset.page) || 1;
+  const pageCount = Number(reader.dataset.pages) || 1;
+  const pageHref = (p) => (p <= 1 ? reader.dataset.base : `${reader.dataset.base}${p}/`);
   const blocks = [...reader.querySelectorAll('.r-text > *')];
-  const multi = chapters.length > 1;
+  const multi = Boolean(document.getElementById('r-chapters'));
+  const lastPage = page >= pageCount;
   foot.hidden = false;
 
   // ---------- Settings ----------
@@ -142,17 +151,20 @@ export function initReader() {
       toc.addEventListener('click', (ev) => {
         const a = ev.target.closest('a[data-ch]');
         if (!a) return;
+        // A chapter that starts on another page: the link goes there.
+        const i = chapters.findIndex((c) => c.id === `ch-${a.dataset.ch}`);
+        if (i < 0) return;
         ev.preventDefault();
         toc.close();
-        goTo(Number(a.dataset.ch) - 1);
+        goTo(i);
       });
     }
   }
   function markCurrent() {
     if (!toc) return;
-    const cur = state.ch;
+    const cur = nums[state.ch];
     for (const a of toc.querySelectorAll('a[data-ch]')) {
-      if (Number(a.dataset.ch) - 1 === cur) a.setAttribute('aria-current', 'true');
+      if (Number(a.dataset.ch) === cur) a.setAttribute('aria-current', 'true');
       else a.removeAttribute('aria-current');
     }
   }
@@ -161,7 +173,7 @@ export function initReader() {
     if (!c) return;
     target = i; // a quick second [ or ] counts from here while the smooth scroll runs
     c.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
-    history.replaceState(null, '', `#ch-${i + 1}`);
+    history.replaceState(null, '', `#${c.id}`);
     c.querySelector('h1, h2')?.setAttribute('tabindex', '-1');
     c.querySelector('h1, h2')?.focus({ preventScroll: true });
   }
@@ -185,9 +197,9 @@ export function initReader() {
     let frac = r.height > 0 ? Math.min(1, Math.max(0, seen / r.height)) : 0;
     const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
     if (atEnd && ch === chapters.length - 1) frac = 1;
-    const before = words.slice(0, ch).reduce((a, b) => a + b, 0);
-    const pct = Math.round(((before + frac * words[ch]) / total) * 100);
-    return { ch, frac, pct, leftWords: (1 - frac) * words[ch] };
+    const done = before + words.slice(0, ch).reduce((a, b) => a + b, 0);
+    const pct = Math.min(100, Math.round(((done + frac * words[ch]) / total) * 100));
+    return { ch, frac, pct, leftWords: (1 - frac) * words[ch] + after[ch] };
   }
   let ticking = false;
   function update() {
@@ -197,11 +209,15 @@ export function initReader() {
     if (target === m.ch) target = null;
     state.pct = m.pct;
     fill.style.transform = `scaleX(${m.pct / 100})`;
-    where.textContent = multi ? `${unit} ${m.ch + 1} · ${m.pct}%` : `${m.pct}%`;
+    where.textContent = multi ? `${unit} ${nums[m.ch]} · ${m.pct}%` : `${m.pct}%`;
     const mins = minutes(m.leftWords);
-    left.textContent = m.frac >= 1 || mins === 0 ? (multi ? `End of ${unit.toLowerCase()}` : 'The end') : `${mins} min left${multi ? ` in ${unit.toLowerCase()}` : ''}`;
+    const endText = !lastPage && m.ch === chapters.length - 1 ? 'End of page' : multi ? `End of ${unit.toLowerCase()}` : 'The end';
+    left.textContent =
+      m.frac >= 1 || mins === 0 ? endText : `${mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`} left${multi ? ` in ${unit.toLowerCase()}` : pageCount > 1 ? ' on this page' : ''}`;
     // Scrolled to (or past) the saved place by hand: the prompt has done its job.
-    if (resumePending && saved && (firstVisible()?.i ?? 0) >= saved.i) hideResume();
+    if (resumePending && saved && saved.p === page && (firstVisible()?.i ?? 0) >= saved.i) hideResume();
+    // Reading on here instead of going to the saved page: stop offering it.
+    else if (resumePending && saved && saved.p !== page && window.scrollY > window.innerHeight) hideResume();
     schedulePosSave();
   }
   const onScroll = () => {
@@ -213,23 +229,28 @@ export function initReader() {
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
 
-  // ---------- Keyboard: [ and ] for the previous / next chapter ----------
+  // ---------- Keyboard: [ and ] for the previous / next chapter (or page) ----------
   document.addEventListener('keydown', (ev) => {
-    if (!multi || ev.altKey || ev.ctrlKey || ev.metaKey || document.querySelector('dialog[open]')) return;
+    if ((!multi && pageCount < 2) || ev.altKey || ev.ctrlKey || ev.metaKey || document.querySelector('dialog[open]')) return;
     if (ev.target instanceof HTMLElement && ev.target.closest('input, textarea, select, [contenteditable]')) return;
     const cur = target ?? state.ch;
-    if (ev.key === ']') goTo(Math.min(chapters.length - 1, cur + 1));
-    else if (ev.key === '[') {
+    if (ev.key === ']') {
+      if (cur < chapters.length - 1) goTo(cur + 1);
+      else if (reader.dataset.next) location.href = reader.dataset.next;
+      else return;
+    } else if (ev.key === '[') {
       // Back to the start of this chapter first, unless already there.
       const atStart = target !== null || chapters[cur].getBoundingClientRect().top > -40;
-      goTo(atStart ? Math.max(0, cur - 1) : cur);
+      if (atStart && cur === 0 && reader.dataset.prev) location.href = reader.dataset.prev;
+      else goTo(atStart ? Math.max(0, cur - 1) : cur);
     } else return;
     ev.preventDefault();
   });
 
   // ---------- Reading position ----------
   // Saved as the index of the first text block on screen (plus how far into it), so it survives a
-  // change of text size or screen width. Never jumps on its own: a prompt offers it.
+  // change of text size or screen width. Never jumps on its own: a prompt offers it. One position per doc, with
+  // its page number (p); on another page the prompt goes to that page (#resume there jumps to the place).
   const POS = `reader-pos:${id}`;
   function firstVisible() {
     if (!blocks.length) return null;
@@ -252,9 +273,9 @@ export function initReader() {
     if (resumePending) return;
     const f = firstVisible();
     if (!f) return;
-    if (state.pct < 1 && f.i === 0) return save(POS, null);
+    if (state.pct < 1 && f.i === 0 && page === 1) return save(POS, null);
     const h = f.el.getBoundingClientRect().height || 1;
-    save(POS, { i: f.i, f: Math.round((f.offset / h) * 1000) / 1000, ch: state.ch, pct: state.pct, t: Date.now() });
+    save(POS, { p: page, i: f.i, f: Math.round((f.offset / h) * 1000) / 1000, ch: nums[state.ch] - 1, pct: state.pct, t: Date.now() });
   }
   function schedulePosSave() {
     if (!saveTimer) saveTimer = setTimeout(savePos, 800);
@@ -266,24 +287,39 @@ export function initReader() {
 
   const resume = document.getElementById('r-resume');
   const savedRaw = load(POS);
+  const savedPage = Number.isInteger(savedRaw?.p) ? savedRaw.p : 1;
+  // Saved at the end of the page before this one: that's just where the reader left it to come here.
+  const startPct = Math.floor((before / total) * 100);
   const saved =
-    savedRaw && Number.isInteger(savedRaw.i) && savedRaw.i > 0 && savedRaw.i < blocks.length && savedRaw.pct >= 1 ? savedRaw : null;
+    savedRaw && Number.isInteger(savedRaw.i) && savedRaw.i >= 0 && savedRaw.pct >= 1 && savedPage >= 1 && savedPage <= pageCount &&
+    (savedPage === page ? savedRaw.i > 0 && savedRaw.i < blocks.length : !(savedPage === page - 1 && savedRaw.pct >= startPct - 1))
+      ? { ...savedRaw, p: savedPage }
+      : null;
   let resumePending = false;
   function hideResume() {
     resumePending = false;
     resume.hidden = true;
     onScroll();
   }
-  if (saved && !location.hash) {
+  function jumpToSaved() {
+    const el = blocks[saved.i];
+    hideResume();
+    el.scrollIntoView({ block: 'start' });
+    const f = Number(saved.f) || 0;
+    if (f > 0 && f < 1) window.scrollBy(0, Math.round(f * el.getBoundingClientRect().height));
+  }
+  if (saved && saved.p === page && location.hash === '#resume') {
+    // Came here from the "continue" prompt on another page.
+    history.replaceState(null, '', location.pathname);
+    requestAnimationFrame(jumpToSaved);
+  } else if (saved && !location.hash) {
     resumePending = true;
-    document.getElementById('r-resume-where').textContent = multi ? `(${unit} ${(saved.ch || 0) + 1}, ${saved.pct}%)` : `(${saved.pct}%)`;
+    const pg = pageCount > 1 && saved.p !== page ? `page ${saved.p}, ` : '';
+    document.getElementById('r-resume-where').textContent = multi ? `(${unit} ${(saved.ch || 0) + 1}, ${saved.pct}%)` : `(${pg}${saved.pct}%)`;
     resume.hidden = false;
     document.getElementById('r-resume-go').addEventListener('click', () => {
-      const el = blocks[saved.i];
-      hideResume();
-      el.scrollIntoView({ block: 'start' });
-      const f = Number(saved.f) || 0;
-      if (f > 0 && f < 1) window.scrollBy(0, Math.round(f * el.getBoundingClientRect().height));
+      if (saved.p !== page) location.href = `${pageHref(saved.p)}#resume`;
+      else jumpToSaved();
     });
     document.getElementById('r-resume-x').addEventListener('click', hideResume);
   }

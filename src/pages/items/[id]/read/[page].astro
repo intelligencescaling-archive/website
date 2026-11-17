@@ -1,0 +1,19 @@
+---
+// Reader view, pages 2+ of long docs: /items/<id>/read/2/, … (readerPages splits at about 600 KB per page).
+import Reader from '../../../../components/Reader.astro';
+import { loadArchive, hasReader, readerChapters, readerPages } from '../../../../lib/archive.mjs';
+
+export function getStaticPaths() {
+  const paths = [];
+  for (const entry of loadArchive().entries.filter(hasReader)) {
+    const count = readerPages(readerChapters(entry)).length;
+    for (let p = 2; p <= count; p++) paths.push({ params: { id: entry.id, page: String(p) }, props: { entry, page: p - 1 } });
+  }
+  return paths;
+}
+
+const { entry, page } = Astro.props as { entry: any; page: number };
+const chapters = readerChapters(entry);
+const pages = readerPages(chapters);
+---
+<Reader entry={entry} chapters={chapters} pages={pages} page={page} />
