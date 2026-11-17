@@ -30,6 +30,7 @@ export function initSubmit() {
   const $ = (id) => document.getElementById(id);
   let ids = null;
   let confirmDuplicate = false;
+  let needsNewToken = false;
 
   const kind = () => form.querySelector('input[name="kind"]:checked').value;
   function showKind() {
@@ -110,16 +111,25 @@ export function initSubmit() {
         form.reset();
         showKind();
         say(`<strong>Thanks, it's in the queue</strong> as number ${Number(j.number) || '?'}. Quote that number if you ask about it later.`, 'ok');
+        // A spam-check token works once. Get a new one only when the person starts another submission, so the
+        // check doesn't pop up again right under the "thanks" message.
+        needsNewToken = true;
       } else {
         say(esc(j.error || 'Something went wrong on our side. Please try again later.'), 'bad');
+        window.turnstile?.reset();
       }
     } catch {
       say('Couldn\'t reach the server. Check your connection and try again.', 'bad');
+      window.turnstile?.reset();
     } finally {
       send.disabled = false;
       send.textContent = 'Send';
       confirmDuplicate = false;
-      window.turnstile?.reset();
     }
+  });
+  form.addEventListener('input', () => {
+    if (!needsNewToken) return;
+    needsNewToken = false;
+    window.turnstile?.reset();
   });
 }
