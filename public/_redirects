@@ -6,3 +6,8 @@
 /items/wildfire-2/ /items/wildfire/ 301
 /items/scaling-guide /items/dax-pmft-s-outsmarting-guide/ 301
 /items/scaling-guide/ /items/dax-pmft-s-outsmarting-guide/ 301
+# Quality sweep 2026-11-16: a vandalized copy and an exact duplicate.
+/items/composite-human-doc-editable-copy /items/comp-human-doc/ 301
+/items/composite-human-doc-editable-copy/* /items/comp-human-doc/ 301
+/items/walter-white-feats-doc-made-by-overlordthresh /items/walter-white-doc-feats-overlordthresh/ 301
+/items/walter-white-feats-doc-made-by-overlordthresh/* /items/walter-white-doc-feats-overlordthresh/ 301
