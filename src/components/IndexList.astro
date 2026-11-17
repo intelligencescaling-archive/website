@@ -1,5 +1,5 @@
 ---
-// A long alphabetical list (series, characters, authors) with a type-to-filter box.
+// A long alphabetical list (series, characters, authors) with a type-to-filter box and an A–Z / Most docs sort.
 interface Item {
   href: string;
   name: string;
@@ -14,13 +14,22 @@ interface Props {
 }
 const { items, noun } = Astro.props;
 ---
-<div class="index-filter" data-index-filter hidden>
-  <label for="index-q">Filter {noun}</label>
-  <input type="search" id="index-q" autocomplete="off" />
+<div class="index-tools" data-index-filter hidden>
+  <div class="index-filter">
+    <label for="index-q">Filter {noun}</label>
+    <input type="search" id="index-q" autocomplete="off" />
+  </div>
+  <fieldset class="index-sort">
+    <legend>Sort</legend>
+    <div class="seg-toggle">
+      <input type="radio" name="index-sort" id="sort-az" value="az" checked /><label for="sort-az">A–Z</label>
+      <input type="radio" name="index-sort" id="sort-docs" value="docs" /><label for="sort-docs">Most docs</label>
+    </div>
+  </fieldset>
 </div>
 <ul class="index-list" data-index-list>
   {items.map((it) => (
-    <li data-name={[it.name, it.sub || '', ...(it.match || [])].join(' | ').toLowerCase()}>
+    <li data-name={[it.name, it.sub || '', ...(it.match || [])].join(' | ').toLowerCase()} data-count={it.count}>
       <span>
         <a href={it.href}>{it.name}</a>
         {it.sub && <span class="sub">{it.sub}</span>}
@@ -36,6 +45,24 @@ const { items, noun } = Astro.props;
   const input = document.getElementById('index-q') as HTMLInputElement | null;
   const rows = [...document.querySelectorAll<HTMLElement>('[data-index-list] > li')];
   const empty = document.querySelector<HTMLElement>('[data-index-empty]');
+  const list = document.querySelector<HTMLElement>('[data-index-list]');
+  // Sort: A–Z (the built order) or most docs first (ties stay A–Z). Kept in the URL as ?sort=docs so it can be shared.
+  const radios = [...document.querySelectorAll<HTMLInputElement>('input[name="index-sort"]')];
+  const byDocs = [...rows].sort((a, b) => Number(b.dataset.count) - Number(a.dataset.count));
+  function applySort(v: string) {
+    if (!list) return;
+    list.append(...(v === 'docs' ? byDocs : rows));
+    const url = new URL(location.href);
+    if (v === 'docs') url.searchParams.set('sort', 'docs');
+    else url.searchParams.delete('sort');
+    history.replaceState(null, '', url);
+  }
+  for (const r of radios) r.addEventListener('change', () => r.checked && applySort(r.value));
+  if (new URLSearchParams(location.search).get('sort') === 'docs') {
+    const d = radios.find((r) => r.value === 'docs');
+    if (d) d.checked = true;
+    applySort('docs');
+  }
   if (box && input && empty) {
     box.hidden = false;
     input.addEventListener('input', () => {
