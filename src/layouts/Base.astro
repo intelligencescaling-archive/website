@@ -43,6 +43,7 @@ const tab = section === 'home' ? 'home' : section === 'search' ? 'search' : sect
     <meta name="description" content={desc} />
     <link rel="canonical" href={canonical.href} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="New docs" href="/feed.xml" />
     <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/public-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
@@ -92,6 +93,7 @@ const tab = section === 'home' ? 'home' : section === 'search' ? 'search' : sect
         <ul class="footer-links">
           <li><a href="/submit/">Submit a doc</a></li>
           <li><a href="/about/">About</a></li>
+          <li><a href="/feed.xml">RSS</a></li>
           <li><a href="/acknowledgments/">Acknowledgments</a></li>
           <li><a href="/removal/">Request removal</a></li>
           <li><a href={ARCHIVE_REPO_URL} rel="noopener">Archive on GitHub</a></li>

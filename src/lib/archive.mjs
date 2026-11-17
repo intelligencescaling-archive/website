@@ -186,6 +186,21 @@ export function formatBytes(n) {
   return `${(n / (1024 * 1024)).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
+/** Newest entries first (by `added`, then longest), at most `n`. */
+export function newestEntries(entries, n) {
+  return entries
+    .filter((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.added))
+    .sort((a, b) => b.added.localeCompare(a.added) || b.words - a.words)
+    .slice(0, n);
+}
+
+/** Entries added after the archive's first import (launch day), newest first. Empty until new docs arrive. */
+export function recentlyAdded(entries, n) {
+  const dates = entries.map((e) => e.added).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  const first = dates[0];
+  return newestEntries(entries.filter((e) => e.added > first), n);
+}
+
 export function formatNumber(n) {
   return Number.isFinite(n) ? n.toLocaleString('en-US') : '';
 }

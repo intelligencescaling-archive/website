@@ -1,9 +1,13 @@
 ---
 // Home has one job: getting started. Everything to explore lives in Search and the Library.
 import Base from '../layouts/Base.astro';
-import { loadArchive, formatNumber } from '../lib/archive.mjs';
+import EntryList from '../components/EntryList.astro';
+import { loadArchive, formatNumber, recentlyAdded } from '../lib/archive.mjs';
 
 const { entries, series, characters } = loadArchive();
+// Shows up once docs arrive after the first import (submissions, new finds).
+const recent = recentlyAdded(entries, 6);
+const dateLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const words = entries.reduce((n, e) => n + e.words, 0);
 const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length || a.name.localeCompare(b.name)).slice(0, 6);
 ---
@@ -26,6 +30,13 @@ const popular = [...characters].sort((a, b) => b.entries.length - a.entries.leng
       {formatNumber(entries.length)} docs and stories · {formatNumber(characters.length)} characters · {formatNumber(series.length)} series · {(words / 1e6).toFixed(1)}M words
     </p>
   </section>
+  {recent.length > 0 && (
+    <section class="recent">
+      <h2>Recently added</h2>
+      <p class="small muted">Newest: {dateLabel(recent[0].added)}. <a href="/feed.xml">RSS feed</a> · <a href="/submit/">Submit a doc</a></p>
+      <EntryList entries={recent} sort="none" />
+    </section>
+  )}
 </Base>
 
 <script>

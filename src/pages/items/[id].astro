@@ -75,8 +75,32 @@ const checkNames: Record<string, string> = { authors: 'author', series: 'series'
 const same = (t: string) => t.toLowerCase().replace(/[‘’“”'"`\s]/g, '');
 const altTitles = e.altTitles.filter((t: string, i: number, all: string[]) => same(t) !== same(e.title) && all.findIndex((x) => same(x) === same(t)) === i);
 const desc = `${e.categoryName} by ${authorLabel(e)}${e.series.length ? ` about ${e.series.map((s: any) => s.name).join(', ')}` : ''}. Archived from r/IntelligenceScaling.`;
+// Structured data for search engines (schema.org). "<" is escaped so archive text can't close the script tag.
+const pageUrl = new URL(`/items/${e.id}/`, Astro.site).href;
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': e.category === 'story' ? 'ShortStory' : 'CreativeWork',
+  name: e.title,
+  ...(altTitles.length ? { alternateName: altTitles.slice(0, 5) } : {}),
+  url: pageUrl,
+  description: desc,
+  ...(e.authors.length
+    ? { author: e.authors.map((a: any) => ({ '@type': 'Person', name: a.name, ...(a.reddit ? { url: `https://www.reddit.com/user/${a.reddit}/` } : {}) })) }
+    : {}),
+  ...(e.series.length || e.characters.length
+    ? { about: [...e.series.map((s: any) => ({ '@type': 'CreativeWorkSeries', name: s.name })), ...e.characters.slice(0, 10).map((c: any) => ({ '@type': 'Thing', name: c.name }))] }
+    : {}),
+  ...(e.words ? { wordCount: e.words } : {}),
+  ...(e.language ? { inLanguage: e.language } : {}),
+  // The date it was archived, not when the doc was written (that isn't known).
+  ...(/^\d{4}-\d{2}-\d{2}$/.test(e.added) ? { sdDatePublished: e.added } : {}),
+  isPartOf: { '@type': 'WebSite', name: 'Intelligence Scaling Archive', url: new URL('/', Astro.site).href },
+  ...(e.originalUrl ? { sameAs: e.originalUrl } : {}),
+};
+const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
 ---
 <Base title={e.title} description={desc} ogType="article">
+  <script type="application/ld+json" slot="head" is:inline set:html={ldJson} />
   {(e.series[0] || topic) && (
     <nav class="crumbs" aria-label="Breadcrumb">
       {e.series[0] ? <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a> : <a href={`/topics/${topic.id}/`}>{topic.name}</a>}
