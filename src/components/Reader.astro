@@ -5,7 +5,7 @@
 // The text is untrusted: it is only ever rendered through Astro expressions (escaped), never set:html. Settings,
 // progress, chapters and resume are in src/scripts/reader.js; without JavaScript the page is just the text.
 import Base from '../layouts/Base.astro';
-import { authorLabel, formatNumber, textOnly, originalFile } from '../lib/archive.mjs';
+import { authorLabel, formatNumber, textOnly, originalFile, readerUnit } from '../lib/archive.mjs';
 
 interface Props {
   entry: any;
@@ -18,7 +18,9 @@ const here = pages[page];
 const chapters = here.chapters;
 const multi = all.length > 1;
 const paged = pages.length > 1;
-const unit = e.category === 'story' ? 'Chapter' : 'Part';
+const unit = readerUnit(e);
+const volumes = multi && unit === 'Volume';
+const unitShort = volumes ? 'Vol' : unit;
 const words = all.reduce((n: number, c: any) => n + c.words, 0);
 const time = (w: number) => {
   const m = Math.max(1, Math.round(w / 230));
@@ -30,6 +32,27 @@ const pageHref = (p: number) => (p === 0 ? `/items/${e.id}/read/` : `/items/${e.
 // Page where each chapter starts (for the chapter list).
 const startPage = new Map<number, number>();
 pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.first && !startPage.has(c.i) && startPage.set(c.i, k)));
+// "Go to" sheet: per part, its headings (doc-wide `sid`, word offset `w`, page) for the list and the slider ticks.
+// Only the top two heading levels of a doc are listed; with more than 150, only the top level.
+const pageOfSid = new Map<number, number>();
+pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.blocks.forEach((b: any) => b.sid && pageOfSid.set(b.sid, k))));
+const levels = [...new Set(all.flatMap((c: any) => c.blocks.filter((b: any) => b.level > 0).map((b: any) => b.level)))].sort();
+let keep = levels.slice(0, 2);
+if (all.reduce((n: number, c: any) => n + c.blocks.filter((b: any) => keep.includes(b.level)).length, 0) > 150) keep = levels.slice(0, 1);
+const outline = all.map((c: any, i: number) => {
+  const end = c.w + c.words;
+  const heads = c.blocks.filter((b: any) => b.sid && keep.includes(b.level));
+  return {
+    i, w: c.w, end, words: c.words,
+    heads: heads.map((b: any, k: number) => ({
+      sid: b.sid, w: b.w, text: b.text, sub: keep.length > 1 && b.level === keep[1],
+      words: (heads[k + 1]?.w ?? end) - b.w, page: pageOfSid.get(b.sid) ?? 0,
+    })),
+  };
+});
+const hasNav = multi || outline[0].heads.length > 0 || words > 2000;
+const sidHref = (sid: number, p: number) => (p === page ? `#s-${sid}` : `${pageHref(p)}#s-${sid}`);
+const chHref = (i: number) => { const p = startPage.get(i) ?? 0; return p === page ? `#ch-${i + 1}` : `${pageHref(p)}#ch-${i + 1}`; };
 const original = textOnly(e) ? null : originalFile(e);
 const hasOriginal = !textOnly(e);
 // Headings from the text sit one level under the chapter heading.
@@ -41,15 +64,16 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
   <meta slot="head" name="robots" content="noindex, follow" />
   <div class="reader" id="reader" data-id={e.id} data-unit={unit} data-page={page + 1} data-pages={pages.length}
     data-before={here.wordsBefore} data-total={words} data-prev={page > 0 ? pageHref(page - 1) : undefined}
-    data-next={page < pages.length - 1 ? pageHref(page + 1) : undefined} data-base={pageHref(0)}>
+    data-next={page < pages.length - 1 ? pageHref(page + 1) : undefined} data-base={pageHref(0)}
+    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort}>
     <div class="r-bar">
       <a class="r-icon" href={itemHref} aria-label="Back to the item page">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
       </a>
       <span class="r-title">{e.title}</span>
       <button type="button" class="r-icon r-aa" id="r-aa" aria-label="Text settings" aria-haspopup="dialog" hidden>Aa</button>
-      {multi && (
-        <button type="button" class="r-icon" id="r-toc" aria-label={`${unit}s`} aria-haspopup="dialog" hidden>
+      {hasNav && (
+        <button type="button" class="r-icon" id="r-toc" aria-label={multi ? `Go to: ${unit.toLowerCase()}s and position` : 'Go to: sections and position'} aria-haspopup="dialog" aria-keyshortcuts="g" hidden>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
         </button>
       )}
@@ -102,7 +126,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
             <div class="r-text">
               {c.blocks.map((b: any) => {
                 const Tag = tagFor(b.level);
-                return b.cont ? <Tag class="r-cont">{b.text}</Tag> : <Tag>{b.text}</Tag>;
+                return b.cont ? <Tag class="r-cont">{b.text}</Tag> : b.sid ? <Tag id={`s-${b.sid}`}>{b.text}</Tag> : <Tag>{b.text}</Tag>;
               })}
             </div>
           </section>
@@ -126,7 +150,15 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
         </button>
       </div>
       <div class="r-track" aria-hidden="true"><i id="r-fill"></i></div>
-      <div class="r-status"><span id="r-where"></span><span id="r-left"></span></div>
+      {hasNav ? (
+        <button type="button" class="r-status r-status-btn" id="r-goto" aria-haspopup="dialog">
+          <span class="visually-hidden">Go to. Now at: </span>
+          <span class="r-where" id="r-where"></span>
+          <span class="r-left"><span id="r-left"></span><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg></span>
+        </button>
+      ) : (
+        <div class="r-status"><span class="r-where" id="r-where"></span><span class="r-left" id="r-left"></span></div>
+      )}
     </div>
   </div>
 
@@ -168,29 +200,54 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
     <button type="button" class="secondary r-done" data-close>Done</button>
   </dialog>
 
-  {multi && (
-    <dialog class="r-sheet r-chapters" id="r-chapters" aria-labelledby="r-chapters-h">
+  {hasNav && (
+    <dialog class="r-sheet r-nav" id="r-nav" aria-labelledby="r-nav-h">
       <div class="r-grab" aria-hidden="true"></div>
       <div class="r-sheet-head">
-        <h2 id="r-chapters-h">{unit}s</h2>
+        <h2 id="r-nav-h">Go to</h2>
         <button type="button" class="r-icon" data-close aria-label="Close">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
       </div>
-      <ol class="r-toc">
-        {all.map((c: any, i: number) => {
-          const p = startPage.get(i) ?? 0;
-          return (
-            <li>
-              <a href={p === page ? `#ch-${i + 1}` : `${pageHref(p)}#ch-${i + 1}`} data-ch={i + 1}>
-                <span class="r-toc-n">{i + 1}</span>
-                <span class="r-toc-t">{c.title || `${unit} ${i + 1}`}</span>
-                <span class="r-toc-m">{Math.max(1, Math.round(c.words / 230))} min</span>
-              </a>
-            </li>
-          );
-        })}
-      </ol>
+      {volumes && (
+        <div class="r-seg r-vols" role="group" aria-label="Volumes">
+          {all.map((c: any, i: number) => (
+            <button type="button" data-vol={i} aria-pressed="false">Volume {i + 1}<small>{time(c.words)}</small></button>
+          ))}
+        </div>
+      )}
+      <div class="r-jump" hidden>
+        <div class="r-jump-top"><label for="r-range" id="r-jump-at">Position</label><span>Drag to jump</span></div>
+        <input type="range" id="r-range" min="0" max="1000" step="1" value="0" />
+        <div class="r-ticks" id="r-ticks" aria-hidden="true"></div>
+      </div>
+      <div class="r-lists">
+        {outline.map((o: any) => (multi || o.heads.length > 0) && (
+          <ol class={`r-toc${multi && !volumes ? ' r-toc-nested' : ''}`} data-vol={o.i} aria-label={multi ? all[o.i].title || `${unit} ${o.i + 1}` : 'Sections'}>
+            {multi && (
+              <li>
+                <a class={volumes ? 'r-toc-part r-toc-s' : 'r-toc-part'} href={chHref(o.i)} data-ch={o.i + 1} data-w={o.w}>
+                  {!volumes && <span class="r-toc-n">{o.i + 1}</span>}
+                  <span class="r-toc-t">{volumes ? `Start of volume ${o.i + 1}` : all[o.i].title || `${unit} ${o.i + 1}`}</span>
+                  <span class="r-toc-m">{time(o.words)}</span>
+                </a>
+              </li>
+            )}
+            {o.heads.map((h: any) => (
+              <li>
+                <a class={h.sub ? 'r-toc-s r-toc-sub' : 'r-toc-s'} href={sidHref(h.sid, h.page)} data-s={h.sid} data-w={h.w}>
+                  <span class="r-toc-t">{h.text}</span>
+                  <span class="r-toc-m">{time(h.words)}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        ))}
+      </div>
+      <div class="r-nav-btns">
+        <a class="button secondary" href={pageHref(0)} id="r-start">Back to start</a>
+        <button type="button" data-close>Done</button>
+      </div>
     </dialog>
   )}
 </Base>

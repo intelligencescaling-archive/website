@@ -585,7 +585,7 @@ function pieces(text) {
  */
 export function readerChapters(entry) {
   const same = (a, b) => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '') === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-  return entry.parts
+  const chapters = entry.parts
     .filter((p) => p.textPath)
     .map((p) => {
       const text = fs.readFileSync(p.textPath, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
@@ -609,9 +609,57 @@ export function readerChapters(entry) {
       }
       flush();
       if (blocks.length > 1 && p.title && same(blocks[0].text, p.title)) blocks.shift();
+      chapterLines(blocks);
       const words = blocks.reduce((n, b) => n + (b.text.match(/\S+/g) || []).length, 0);
       return { n: p.n, title: p.title, blocks, words };
     });
+  // Word offset of every block in the whole doc (`w`), and a doc-wide number for every heading (`sid`):
+  // the reader's "Go to" sheet links to `#s-<sid>` and jumps to a position by word offset across pages.
+  let w = 0;
+  let sid = 0;
+  for (const c of chapters) {
+    c.w = w;
+    for (const b of c.blocks) {
+      b.w = w;
+      if (b.level > 0) b.sid = ++sid;
+      w += (b.text.match(/\S+/g) || []).length;
+    }
+  }
+  return chapters;
+}
+
+// Plain-text chapter lines ("Chapter 4: The Bet", "PROLOGUE", "Part II") on a line of their own become headings,
+// so long stories without "#" headings still get a chapter list. Only when a part has at least two of them.
+const NUM = String.raw`(?:\d+|[ivxlc]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)`;
+const CHAPTER_LINE = new RegExp(String.raw`^(?:(chapter|ch\.|episode)\s*${NUM}\b|(prologue|epilogue|interlude|afterword|foreword)\b|(part|book|volume|vol\.|act|arc)\s+${NUM}\b)`, 'i');
+function chapterLines(blocks) {
+  const found = [];
+  blocks.forEach((b, k) => {
+    if (b.level !== 0 || (k > 0 && blocks[k - 1].cont)) return;
+    // The chapter line is the paragraph, or its first line when the text follows without a blank line.
+    const nl = b.text.indexOf('\n');
+    const t = (nl < 0 ? b.text : b.text.slice(0, nl)).trim();
+    if (t.length > 90) return;
+    const m = CHAPTER_LINE.exec(t);
+    if (!m) return;
+    const rest = t.slice(m[0].length).trim();
+    // "Part 2 of the plan failed, so…" is prose, not a heading.
+    if ((rest.match(/\S+/g) || []).length > 10 || /[,;]$/.test(t) || /^(of|was|is|and|in)\b/i.test(rest)) return;
+    found.push({ k, t, after: nl < 0 ? '' : b.text.slice(nl + 1).trim(), big: Boolean(m[3]) });
+  });
+  if (found.length < 2) return;
+  const nested = found.some((f) => f.big) && found.some((f) => !f.big);
+  for (const f of found.reverse()) {
+    const head = { level: nested && !f.big ? 2 : 1, text: f.t, cont: false };
+    if (f.after) blocks.splice(f.k, 1, head, { ...blocks[f.k], text: f.after });
+    else blocks[f.k] = head;
+  }
+}
+
+/** What the reader calls the parts of a multi-part entry: "Volume" when the part titles say so, else Chapter/Part. */
+export function readerUnit(entry) {
+  if (entry.parts.filter((p) => p.textPath).some((p) => /\bvol(?:ume)?\.?\s*\d/i.test(p.title || ''))) return 'Volume';
+  return entry.category === 'story' ? 'Chapter' : 'Part';
 }
 
 const htmlBytes = (s) => Buffer.byteLength(s) + (s.match(/[&<>"]/g)?.length || 0) * 4 + 12;

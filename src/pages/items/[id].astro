@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import { loadArchive, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, LIBRARIES } from '../../lib/archive.mjs';
+import { loadArchive, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, authorLabel, readerUnit, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
@@ -31,7 +31,7 @@ const dates = e.parts.map((p: any) => p.date).filter(Boolean).sort();
 const savedDate = single ? single.date : dates[dates.length - 1];
 const savedLabel = single?.fromSnapshot ? 'snapshot' : !single || single.status === 'complete' || single.status === 'partial' ? 'saved' : 'tried';
 const stats = [
-  e.parts.length > 1 && { v: formatNumber(e.parts.length), l: 'parts' },
+  e.parts.length > 1 && { v: formatNumber(e.parts.length), l: readerUnit(e) === 'Volume' ? 'volumes' : 'parts' },
   e.pages > 0 && { v: formatNumber(e.pages), l: 'pages' },
   e.words > 0 && { v: formatNumber(e.words), l: 'words' },
   readTime && { v: readTime, l: 'read' },
@@ -61,6 +61,16 @@ const multi = e.parts.length > 1;
 // for the rest the PDF stays the main button and "Read here" is a quieter second one.
 const readHref = hasReader(e) ? `/items/${e.id}/read/` : null;
 const readOnly = readHref && textOnly(e);
+// Multi-part entries: a Read button per part (the reader's chapter n is the n-th part with text). Up to 4 sit side
+// by side at the top ("Read volume 1", "Read volume 2"); with more, one "Read from the start" and a Read button in
+// each part's fold.
+const textParts = e.parts.filter((p: any) => p.textPath);
+const partRead = (p: any) => {
+  const k = textParts.indexOf(p);
+  return readHref && k >= 0 ? (k === 0 ? readHref : `${readHref}#ch-${k + 1}`) : null;
+};
+const partUnit = readerUnit(e).toLowerCase();
+const readChoices = readHref && multi && textParts.length > 1 && textParts.length <= 4;
 // The main (filled) file button of a part: its PDF, else its first other file.
 const mainFile = (p: any) => p.files.find((f: any) => f.format === 'pdf' && !p.images.includes(f)) || p.files.find((f: any) => !p.images.includes(f));
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
@@ -142,11 +152,15 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
   <div class="item-grid">
     <div>
       {readHref && multi && (
-        <div class="downloads read-cta">
-          <a class={`button${readOnly ? '' : ' secondary'}`} href={readHref}>Read {e.category === 'story' ? 'the story' : 'it'} here</a>
+        <div class={`downloads read-cta${readChoices ? ' read-choices' : ''}`}>
+          {readChoices
+            ? textParts.map((p: any, k: number) => (
+                <a class={`button${readOnly ? '' : ' secondary'}`} href={partRead(p)}>Read {partUnit} {k + 1}</a>
+              ))
+            : <a class={`button${readOnly ? '' : ' secondary'}`} href={readHref}>Read {e.category === 'story' ? 'the story' : 'it'} from the start</a>}
         </div>
       )}
-      {multi && <h2>Parts</h2>}
+      {multi && <h2>{partUnit === 'volume' ? 'Volumes' : 'Parts'}</h2>}
       {e.parts.map((p: any) => {
         const Part = multi ? 'details' : 'section';
         return (
@@ -187,6 +201,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
                 ),
               )}
               {readHref && !readOnly && !multi && <a class="button secondary" href={readHref}>Read here</a>}
+              {multi && partRead(p) && <a class="button secondary" href={partRead(p)}>Read here</a>}
             </div>
           )}
           {p.files.length > 0 && p.files.some((f: any) => !f.href) && (
