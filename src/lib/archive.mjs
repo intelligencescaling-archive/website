@@ -355,6 +355,33 @@ function dedupeCredits(list) {
   return list.filter((c) => !seen.has(c.key) && seen.add(c.key));
 }
 
+/**
+ * Reddit accounts that no longer work (data/reddit-accounts.yaml: `{handle, status, checked}`, matched without case).
+ * Filled by loadArchive(). Only `gone` and `suspended` change what pages show: the handle is no longer a link and gets
+ * a small label. `active`, `unknown` or no row: shown as before.
+ */
+const redditAccounts = new Map();
+const ACCOUNT_FLAGS = {
+  gone: { flag: 'deleted', note: 'This Reddit account was deleted or no longer exists', line: 'no longer exists' },
+  suspended: { flag: 'suspended', note: 'This Reddit account is suspended', line: 'is suspended' },
+};
+function readRedditAccounts(file) {
+  redditAccounts.clear();
+  if (!fs.existsSync(file)) return;
+  for (const r of arr(readYaml(file))) {
+    const handle = str(r?.handle).trim().replace(/^u\//i, '');
+    if (!REDDIT_NAME.test(handle) || !ACCOUNT_FLAGS[r?.status]) continue;
+    const checked = /^\d{4}-\d{2}-\d{2}$/.test(str(r.checked)) ? str(r.checked) : '';
+    const f = ACCOUNT_FLAGS[r.status];
+    const when = checked ? ` (checked ${formatDate(checked)})` : '';
+    redditAccounts.set(handle.toLowerCase(), { status: r.status, checked, flag: f.flag, note: f.note + when, tail: `${f.line}${when}.` });
+  }
+}
+/** `{status, checked, flag, note, tail}` when the Reddit account is gone or suspended, else null. */
+export function redditAccount(handle) {
+  return (handle && redditAccounts.get(String(handle).toLowerCase())) || null;
+}
+
 /** "u/Name" for a Reddit handle, else the name. */
 export function sharerName(s) {
   return s.reddit ? `u/${s.reddit}` : s.name;
@@ -561,6 +588,7 @@ export function loadArchive() {
   }
   const reg = { series: new Map(), characters: new Map(), people: readPeople(path.join(ARCHIVE_DIR, 'data', 'authors.yaml')), warnings: [] };
   const tagReg = readTags(path.join(ARCHIVE_DIR, 'data', 'tags.yaml'));
+  readRedditAccounts(path.join(ARCHIVE_DIR, 'data', 'reddit-accounts.yaml'));
   for (const s of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'series.yaml')))) {
     if (s && SLUG.test(str(s.id))) {
       const origin = /^([a-z]{2}|real)$/.test(str(s.origin_language)) ? s.origin_language : null;

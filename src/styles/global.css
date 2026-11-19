@@ -1059,3 +1059,10 @@ a.ct-chip:hover .ct-pf, a.ct-chip:hover::before { color: var(--mark-ink); }
 .by-contact:hover .ct-hint { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
 @media (pointer: coarse) { .by-contact { min-height: 44px; } }
 @media (prefers-reduced-motion: no-preference) { .by-contact .by-name { transition: background-size 0.22s var(--ease), color 0.15s; } }
+
+/* Reddit account that is gone or suspended (data/reddit-accounts.yaml): a small muted label, no dead link. */
+.acct-flag {
+  display: inline-block; font: 600 0.68rem/1 var(--sans); text-transform: uppercase; letter-spacing: 0.05em; vertical-align: 0.12em;
+  padding: 0.18rem 0.35rem; border: 1px dashed var(--rule-2); border-radius: var(--radius); color: var(--ink-3); cursor: help;
+}
+.ct-chip.gone .ct-handle { color: var(--ink-2); }

@@ -1,0 +1,7 @@
+---
+// Small muted label after a Reddit handle whose account is gone or suspended. The full sentence (with the check date)
+// is the tooltip and what screen readers hear.
+interface Props { acct: { flag: string; note: string } }
+const { acct } = Astro.props;
+---
+<span class="acct-flag" title={acct.note}><span aria-hidden="true">{acct.flag}</span><span class="visually-hidden">{acct.note}</span></span>

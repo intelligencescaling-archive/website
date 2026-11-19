@@ -1,9 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
+import RedditHandle from '../components/RedditHandle.astro';
 import { loadArchive, LIBRARIES, formatNumber } from '../lib/archive.mjs';
 const { entries, authors } = loadArchive();
 const counts = Object.fromEntries(Object.keys(LIBRARIES).map((k) => [k, entries.filter((e) => e.foundIn.some((f) => f.library === k)).length]));
-const user = (u: string) => `https://www.reddit.com/user/${u}/`;
 ---
 <Base title="Acknowledgments" section="about" description="The people whose work made this archive possible.">
   <div class="prose">
@@ -17,16 +17,16 @@ const user = (u: string) => `https://www.reddit.com/user/${u}/`;
     <ul>
       <li>
         <strong><a href={LIBRARIES.remastered.url} rel="noopener">{LIBRARIES.remastered.name}</a></strong> by{' '}
-        <a href={user('TheMcBaconX')} rel="noopener">u/TheMcBaconX</a> and <a href={user('BudgetPosition6080')} rel="noopener">u/BudgetPosition6080</a>.
+        <RedditHandle handle="TheMcBaconX" /> and <RedditHandle handle="BudgetPosition6080" />.
         {formatNumber(counts.remastered)} entries.
       </li>
       <li>
         <strong><a href={LIBRARIES.old.url} rel="noopener">{LIBRARIES.old.name}</a></strong>, the original library, by{' '}
-        <a href={user('BudgetPosition6080')} rel="noopener">u/BudgetPosition6080</a>. {formatNumber(counts.old)} entries.
+        <RedditHandle handle="BudgetPosition6080" />. {formatNumber(counts.old)} entries.
       </li>
       <li>
         <strong><a href={LIBRARIES.stories.url} rel="noopener">{LIBRARIES.stories.name}</a></strong> by{' '}
-        <a href={user('ConversationSea1684')} rel="noopener">u/ConversationSea1684</a>. {formatNumber(counts.stories)} entries.
+        <RedditHandle handle="ConversationSea1684" />. {formatNumber(counts.stories)} entries.
       </li>
     </ul>
 

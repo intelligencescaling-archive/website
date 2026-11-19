@@ -1,0 +1,12 @@
+---
+// A Reddit handle: "u/Name" linked to the Reddit profile (or to `href`, e.g. the person's page here). When
+// data/reddit-accounts.yaml says the account is gone or suspended, a profile link is dropped (it would be dead) and a
+// small muted "deleted" / "suspended" label follows. A link to a page on this site stays.
+import { redditAccount } from '../lib/archive.mjs';
+import AccountFlag from './AccountFlag.astro';
+interface Props { handle: string; href?: string; class?: string }
+const { handle, href, class: cls } = Astro.props;
+const acct = redditAccount(handle);
+const link = href || (acct ? null : `https://www.reddit.com/user/${handle}/`);
+---
+{link ? <a class={cls} href={link} rel={href ? undefined : 'noopener nofollow'}>u/{handle}</a> : <span class={cls}>u/{handle}</span>}{acct && <> <AccountFlag acct={acct} /></>}

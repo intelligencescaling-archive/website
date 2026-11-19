@@ -3,7 +3,9 @@ import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
 import TagChip from '../../components/TagChip.astro';
 import RealMark from '../../components/RealMark.astro';
-import { loadArchive, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, bylineText, sharerName, readerUnit, LIBRARIES } from '../../lib/archive.mjs';
+import RedditHandle from '../../components/RedditHandle.astro';
+import AccountFlag from '../../components/AccountFlag.astro';
+import { loadArchive, redditAccount, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, bylineText, sharerName, readerUnit, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
@@ -106,7 +108,7 @@ const ld = {
   url: pageUrl,
   description: desc,
   ...(e.authors.length
-    ? { author: e.authors.map((a: any) => ({ '@type': 'Person', name: a.name, ...(a.reddit ? { url: `https://www.reddit.com/user/${a.reddit}/` } : {}) })) }
+    ? { author: e.authors.map((a: any) => ({ '@type': 'Person', name: a.name, ...(a.reddit && !redditAccount(a.reddit) ? { url: `https://www.reddit.com/user/${a.reddit}/` } : {}) })) }
     : {}),
   ...(e.series.length || e.characters.length
     ? { about: [...e.series.map((s: any) => ({ '@type': 'CreativeWorkSeries', name: s.name })), ...e.characters.slice(0, 10).map((c: any) => ({ '@type': 'Thing', name: c.name }))] }
@@ -136,7 +138,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
           <a class="by-contact" href={`/authors/${a.key}/#contact`} aria-label={`${a.name} (${contactHint(a)}): contact details`}><span class="by-name">{a.name}</span> <span class="ct-hint">{contactHint(a)}</span></a>
         ) : <a href={`/authors/${a.key}/`}>{a.name}</a>}</>)}</>
       ) : e.sharedBy.length ? (
-        <span class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a></>)}</span>
+        <span class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a>{s.reddit && redditAccount(s.reddit) && <> <AccountFlag acct={redditAccount(s.reddit)} /></>}</>)}</span>
       ) : (
         <>
           <span class="muted">Unknown author.</span>
@@ -146,7 +148,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
       )}
     </p>
     {e.authors.length > 0 && e.sharedBy.length > 0 && (
-      <p class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a></>)}</p>
+      <p class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a>{s.reddit && redditAccount(s.reddit) && <> <AccountFlag acct={redditAccount(s.reddit)} /></>}</>)}</p>
     )}
     {stats.length > 0 && (
       <dl class="stats-row">
@@ -320,7 +322,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
               {e.authors.map((a: any) => (
                 <li>
                   <a href={`/authors/${a.key}/`}>{a.name}</a>
-                  {a.reddit && <> <a class="small" href={`https://www.reddit.com/user/${a.reddit}/`} rel="noopener nofollow">u/{a.reddit}</a></>}
+                  {a.reddit && <> <span class="small"><RedditHandle handle={a.reddit} /></span></>}
                 </li>
               ))}
             </ul>
@@ -336,7 +338,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
                 {e.sharedBy.map((s: any) => (
                   <li>
                     <a href={`/authors/${s.key}/`}>{s.name}</a>
-                    {s.reddit && <> <a class="small" href={`https://www.reddit.com/user/${s.reddit}/`} rel="noopener nofollow">u/{s.reddit}</a></>}
+                    {s.reddit && <> <span class="small"><RedditHandle handle={s.reddit} /></span></>}
                   </li>
                 ))}
               </ul>

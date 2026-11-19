@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
 import ContactList from '../../components/ContactList.astro';
-import { CONTACT_PLATFORMS } from '../../lib/archive.mjs';
+import { CONTACT_PLATFORMS, redditAccount } from '../../lib/archive.mjs';
 import { loadArchive } from '../../lib/archive.mjs';
 
 // One page per person (data/authors.yaml in the archive): what they made, and what they only shared.
@@ -14,12 +14,18 @@ const made = a.entries.length;
 const shared = a.shared.length;
 // Contact row: the person's contacts, plus their Reddit handles from the credits (once each).
 const reddit = CONTACT_PLATFORMS.reddit as any;
+// A Reddit account that is gone or suspended: no link (it would be dead), a "deleted" label, and a line under the row.
+const withAccount = (c: any) => {
+  const acct = c.platform === 'reddit' ? redditAccount(c.handle) : null;
+  return acct ? { ...c, label: `u/${c.handle}`, url: null, copy: false, acct } : c;
+};
 const contacts = [
   ...a.contacts,
   ...a.handles
     .filter((h: string) => !a.contacts.some((c: any) => c.platform === 'reddit' && c.handle.toLowerCase() === h.toLowerCase()))
     .map((h: string) => ({ platform: 'reddit', platformName: reddit.name, handle: h, label: `u/${h}`, url: reddit.url(h), copy: false })),
-];
+].map(withAccount);
+const accountLines = contacts.filter((c: any) => c.acct).map((c: any) => `Reddit account u/${c.handle} ${c.acct.tail}`);
 const plural = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
 const desc = made
   ? `${made} archived works by ${a.name}.`
@@ -30,7 +36,7 @@ const desc = made
   <h1>{a.name}</h1>
   {a.aliases.length > 0 && <p class="alt-titles">Also known as: {a.aliases.join(' · ')}</p>}
   <p class="lede">{made > 0 ? plural(made) : `Shared ${plural(shared)}`}.</p>
-  {contacts.length > 0 && <ContactList contacts={contacts} name={a.name} />}
+  {contacts.length > 0 && <ContactList contacts={contacts} name={a.name} notes={accountLines} />}
   {made > 0 && <EntryList entries={a.entries} person={a.key} />}
   {made > 0 && shared > 0 && (
     <>
