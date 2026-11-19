@@ -916,3 +916,95 @@ main:has(> .reader) { padding-block: 0; }
 .r-pager a:not(.button) { display: inline-flex; align-items: center; min-height: 44px; }
 .r-pager-top { margin: 0 0 0.5rem; }
 .r-pager-end { margin: 3rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+
+/* ---------- Tags: glyph chips (tag mockups, option B) ----------
+   One chip look everywhere: a soft tint of the group colour, a small icon, and a dashed edge for meta tags.
+   Colour is never the only signal (icon + dashed edge). Yellow stays for hover, the current page and search matches.
+   Icons are CSS masks (data: SVG), so each chip is one short element and long lists stay light. */
+:root {
+  --k-type: #111111;  --k-type-soft: #f0f0ec;  --k-type-line: #c8c8c1;
+  --k-fic: #0b6b61;   --k-fic-soft: #e3f4f1;   --k-fic-line: #9fd3ca;
+  --k-subj: #1d5296;  --k-subj-soft: #e8f0fb;  --k-subj-line: #a9c3e8;
+  --k-meta: #5c5c56;  --k-meta-soft: #ffffff;  --k-meta-line: #b4b4ac;
+  --k-char: #1d5296;  --k-char-soft: #e8f0fb;  --k-char-line: #a9c3e8;
+  --k-ser: #6b3c9c;   --k-ser-soft: #f2ebf9;   --k-ser-line: #c9b0e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --k-type: #f2f2ee;  --k-type-soft: #232322;  --k-type-line: #4a4a44;
+    --k-fic: #7fd8cb;   --k-fic-soft: #132a27;   --k-fic-line: #2d5c55;
+    --k-subj: #95bdf2;  --k-subj-soft: #16212f;  --k-subj-line: #2f4c72;
+    --k-meta: #a3a39c;  --k-meta-soft: #121212;  --k-meta-line: #5a5a53;
+    --k-char: #95bdf2;  --k-char-soft: #16212f;  --k-char-line: #2f4c72;
+    --k-ser: #cbaef0;   --k-ser-soft: #221b2e;   --k-ser-line: #4c3a69;
+  }
+}
+:root[data-theme='dark'] {
+  --k-type: #f2f2ee;  --k-type-soft: #232322;  --k-type-line: #4a4a44;
+  --k-fic: #7fd8cb;   --k-fic-soft: #132a27;   --k-fic-line: #2d5c55;
+  --k-subj: #95bdf2;  --k-subj-soft: #16212f;  --k-subj-line: #2f4c72;
+  --k-meta: #a3a39c;  --k-meta-soft: #121212;  --k-meta-line: #5a5a53;
+  --k-char: #95bdf2;  --k-char-soft: #16212f;  --k-char-line: #2f4c72;
+  --k-ser: #cbaef0;   --k-ser-soft: #221b2e;   --k-ser-line: #4c3a69;
+}
+.tg, .tgb, .tg-kind {
+  --t: var(--k-type); --ts: var(--k-type-soft); --tl: var(--k-type-line);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M9.5 3.5 7.5 20.5M16.5 3.5l-2 17M4 8.5h16.5M3.5 15.5H20'/%3E%3C/svg%3E");
+}
+.k-fiction {
+  --t: var(--k-fic); --ts: var(--k-fic-soft); --tl: var(--k-fic-line);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 4C11 4 6 9 5.5 18.5M20 4c0 6-3.5 10.5-11 11.5M5.5 18.5 4 20.5M12 9.5h4'/%3E%3C/svg%3E");
+}
+.k-subject, .k-char {
+  --t: var(--k-subj); --ts: var(--k-subj-soft); --tl: var(--k-subj-line);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='3.6'/%3E%3Cpath d='M4.5 20.5c0-4 3.3-6.3 7.5-6.3s7.5 2.3 7.5 6.3'/%3E%3C/svg%3E");
+}
+.k-char { --t: var(--k-char); --ts: var(--k-char-soft); --tl: var(--k-char-line); }
+.k-ser {
+  --t: var(--k-ser); --ts: var(--k-ser-soft); --tl: var(--k-ser-line);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M5 5.5A2.5 2.5 0 0 1 7.5 3H19v14H7.5A2.5 2.5 0 0 0 5 19.5z'/%3E%3Cpath d='M5 19.5A2.5 2.5 0 0 0 7.5 22H19v-5'/%3E%3C/svg%3E");
+}
+.k-meta {
+  --t: var(--k-meta); --ts: var(--k-meta-soft); --tl: var(--k-meta-line);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 11v5.5M12 7.6v.1'/%3E%3C/svg%3E");
+}
+.tg::before, .tgb::before, .tg-kind::before {
+  content: ''; flex: none; width: 15px; height: 15px; background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+}
+/* Chip: a link (item page, tag pages, tags index). 44 px tall on phones, 34 px with a mouse. */
+.tg {
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; padding: 0.3rem 0.75rem;
+  border: 1px solid var(--tl); border-radius: var(--radius); background: var(--ts); color: var(--t);
+  font: 500 0.92rem/1.2 var(--sans); text-decoration: none; overflow-wrap: anywhere;
+}
+.tg.k-meta, .tgb.k-meta { border-style: dashed; }
+a.tg:hover { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+.tg .count { font-size: 0.78rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+a.tg:hover .count { color: var(--mark-ink); }
+.tg[aria-current='page'] { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); font-weight: 600; }
+@media (pointer: fine) and (min-width: 768px) { .tg { min-height: 34px; padding: 0.2rem 0.6rem; font-size: 0.88rem; } }
+@media (prefers-reduced-motion: no-preference) { .tg { transition: background-color 0.15s, border-color 0.15s; } }
+/* "real" mark on characters who are real people (real: true in characters.yaml). */
+.real-mark {
+  font: 700 0.62rem/1 var(--sans); text-transform: uppercase; letter-spacing: 0.06em; padding: 0.18rem 0.3rem;
+  border: 1px solid currentColor; border-radius: 2px; opacity: 0.85;
+}
+h1 .real-mark { font-size: 0.75rem; vertical-align: 0.5em; margin-left: 0.4rem; }
+/* Badge: small and not a link, so a whole row stays one tap target (lists and search results). */
+.tgs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.2rem; }
+.tgb {
+  display: inline-flex; align-items: center; gap: 0.28rem; min-height: 24px; padding: 0.05rem 0.45rem;
+  border: 1px solid var(--tl); border-radius: var(--radius); background: var(--ts); color: var(--t);
+  font: 500 0.78rem/1.2 var(--sans);
+}
+.tgb::before { width: 12px; height: 12px; }
+/* Group label above a tag page title and on the tags index ("DOC TYPE"). */
+.tg-kind { display: inline-flex; align-items: center; gap: 0.35rem; font: 700 0.75rem/1 var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--t); margin-bottom: 0.5rem; }
+.tag-box { margin: 1.5rem 0 0; display: grid; gap: 0.6rem; }
+.tag-box h2 { margin: 0; font-size: 1.1rem; }
+.tag-group-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
+.tag-group-list li { display: grid; gap: 0.3rem; padding: 0.75rem 0.1rem; border-bottom: 1px solid var(--rule); justify-items: start; }
+.tag-group-list p { margin: 0; color: var(--ink-2); font-size: 0.92rem; max-width: 44rem; }
+.tag-index h2 { margin-top: 2rem; }
+.tag-old { font-size: 0.9rem; color: var(--ink-3); }

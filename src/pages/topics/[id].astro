@@ -10,6 +10,7 @@ export function getStaticPaths() {
     .map((t) => ({ params: { id: t.id }, props: { t } }));
 }
 const { t } = Astro.props as { t: any };
+const tagGroup = new Map(loadArchive().tags.map((x: any) => [x.id, x.group]));
 const n = t.entries.length;
 const count = (tag: string) => t.entries.filter((e: any) => e.tags.includes(tag)).length;
 const subs = (t.subs || []).map(([name, tag]: [string, string]) => ({ name, tag, n: count(tag) })).filter((s: any) => s.n > 0);
@@ -49,7 +50,7 @@ const helpUrl =
   {subs.length > 1 && (
     <ul class="chips topic-subs" aria-label="Narrow down">
       {subs.map((s: any) => (
-        <li><a class="chip" href={`/search/?topic=${t.id}&tag=${s.tag}`}>{s.name} <span class="count">{s.n}</span></a></li>
+        <li><a class={`tg k-${tagGroup.get(s.tag) || 'type'}`} href={`/search/?topic=${t.id}&tag=${s.tag}`}>{s.name} <span class="count">{s.n}</span></a></li>
       ))}
     </ul>
   )}

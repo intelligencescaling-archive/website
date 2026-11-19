@@ -1,6 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
+import TagChip from '../../components/TagChip.astro';
+import RealMark from '../../components/RealMark.astro';
 import { loadArchive, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, bylineText, sharerName, readerUnit, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
@@ -227,6 +229,17 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
         );
       })}
 
+      {(e.characters.length > 0 || e.series.length > 0 || e.tagList.length > 0) && (
+        <section class="tag-box" aria-labelledby="h-tags">
+          <h2 id="h-tags">Tags</h2>
+          <ul class="chips">
+            {e.characters.map((c: any) => <li><a class="tg k-char" href={`/characters/${c.id}/`}>{c.name}{c.real && <RealMark />}</a></li>)}
+            {e.series.map((s: any) => <li><a class="tg k-ser" href={`/series/${s.id}/`}>{s.name}</a></li>)}
+            {e.tagList.map((t: any) => <li><TagChip tag={t} /></li>)}
+          </ul>
+        </section>
+      )}
+
       {!preview && e.status === 'complete' && e.parts.some((p: any) => p.files.length > 0) && (
         <p class="small muted mt">This doc is mostly images, so there is no text preview and full-text search can't look inside it. Open the PDF to read it.</p>
       )}
@@ -325,32 +338,14 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
             </dd>
           </>
         )}
-        {e.series.length > 0 && (
-          <>
-            <dt>Series</dt>
-            <dd><ul>{e.series.map((s: any) => <li><a href={`/series/${s.id}/`}>{s.name}</a></li>)}</ul></dd>
-          </>
-        )}
         {e.topics.length > 0 && (
           <>
             <dt>{e.topics.length > 1 ? 'Topics' : 'Topic'}</dt>
             <dd><ul>{e.topics.map((t: any) => <li><a href={`/topics/${t.id}/`}>{t.name}</a></li>)}</ul></dd>
           </>
         )}
-        {e.characters.length > 0 && (
-          <>
-            <dt>{e.characters.length > 1 ? 'Characters' : 'Character'}</dt>
-            <dd><ul>{e.characters.map((c: any) => <li><a href={`/characters/${c.id}/`}>{c.name}</a></li>)}</ul></dd>
-          </>
-        )}
         {e.variant && (<><dt>Version</dt><dd>{e.variant}</dd></>)}
         {altTitles.length > 0 && (<><dt>Also listed as</dt><dd><ul>{altTitles.map((t: string) => <li>{t}</li>)}</ul></dd></>)}
-        {e.tags.length > 0 && (
-          <>
-            <dt>Tags</dt>
-            <dd><ul class="chips">{e.tags.map((t: string) => <li><a class="chip" href={`/tags/${t}/`}>{t}</a></li>)}</ul></dd>
-          </>
-        )}
         <dt>Language</dt>
         <dd>{e.languageName}</dd>
         {completion && (<><dt>Status</dt><dd>{completion}</dd></>)}

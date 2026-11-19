@@ -1,9 +1,9 @@
-// Names of characters, series, topics and people (authors and sharers), for the search page's "top result" and grouped
+// Names of characters, series, topics, tags and people (authors and sharers), for the search page's "top result" and grouped
 // matches. Fetched by src/scripts/search.js; inserted there with textContent only.
 import { loadArchive } from '../lib/archive.mjs';
 
 export function GET() {
-  const { characters, series, topics, people } = loadArchive();
+  const { characters, series, topics, people, tags } = loadArchive();
   const out = {
     c: characters.map((c) => [c.name, c.id, c.entries.length, c.seriesName || '', c.aliases || []]),
     s: series.map((s) => [s.name, s.id, s.entries.length, '', s.aliases || []]),
@@ -15,6 +15,8 @@ export function GET() {
         ? [a.name, a.key, a.entries.length, a.reddit ? `u/${a.reddit}` : '', a.match]
         : [a.name, a.key, a.shared.length, a.reddit ? `u/${a.reddit}` : '', a.match, 'Shared docs'],
     ),
+    // Tags: old tag names (aliases) find the new tag too.
+    g: tags.filter((t) => t.entries.length).map((t) => [t.name, t.id, t.entries.length, '', [t.id, ...t.aliases.map((x) => x.replaceAll('-', ' '))]]),
   };
   return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json; charset=utf-8' } });
 }

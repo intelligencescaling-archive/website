@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
+import RealMark from '../../components/RealMark.astro';
 import { loadArchive } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
@@ -11,11 +12,14 @@ export function getStaticPaths() {
   }));
 }
 const { s, chars } = Astro.props as { s: any; chars: any[] };
+// On a series of only real people (History) the mark would be on every chip, so it is left out there.
+const allReal = chars.length > 0 && chars.every((c) => c.real);
 const countIn = (c: any) => c.entries.filter((e: any) => e.series.some((x: any) => x.id === s.id)).length;
 const aliases = s.aliases.map((a: string) => a.replace(/:\s*$/, '')).filter((a: string) => a.toLowerCase() !== s.name.toLowerCase());
 ---
 <Base title={s.name} section="series" description={`${s.entries.length} archived docs and stories about ${s.name}.`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/series/">Series</a></nav>
+  <span class="tg-kind k-ser">Series</span>
   <h1>{s.name}</h1>
   {s.originLabel && <p class="alt-titles">Original: {s.originLabel}</p>}
   {aliases.length > 0 && <p class="alt-titles">Also known as: {aliases.join(' · ')}</p>}
@@ -24,7 +28,7 @@ const aliases = s.aliases.map((a: string) => a.replace(/:\s*$/, '')).filter((a: 
     <>
       <h2>Characters</h2>
       <ul class="chips">
-        {chars.map((c) => <li><a class="chip" href={`/characters/${c.id}/`}>{c.name} <span class="count">{countIn(c)}</span></a></li>)}
+        {chars.map((c) => <li><a class="tg k-char" href={`/characters/${c.id}/`}>{c.name}{c.real && !allReal && <RealMark />} <span class="count">{countIn(c)}</span></a></li>)}
       </ul>
     </>
   )}

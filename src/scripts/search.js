@@ -52,6 +52,7 @@ const KINDS = [
   ['s', 'Series', 'Series', '/series/'],
   ['t', 'Topics', 'Topic', '/topics/'],
   ['a', 'Authors', 'Author', '/authors/'],
+  ['g', 'Tags', 'Tag', '/tags/'],
 ];
 const norm = (x) => x.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
@@ -91,6 +92,16 @@ function el(tag, props = {}, ...children) {
   Object.assign(node, props);
   node.append(...children.filter((c) => c !== null && c !== undefined && c !== ''));
   return node;
+}
+
+/** Tag badges of a result row, from the index's "group:Name|group:Name" (text only, group kept to a-z). */
+function tagBadges(tg) {
+  const badges = tg.split('|').map((x) => {
+    const i = x.indexOf(':');
+    const group = x.slice(0, i).replace(/[^a-z-]/g, '') || 'type';
+    return el('span', { className: `tgb k-${group}`, textContent: x.slice(i + 1) });
+  });
+  return el('div', { className: 'tgs' }, ...badges);
 }
 
 export async function initSearch() {
@@ -281,6 +292,7 @@ export async function initSearch() {
             meta.series ? el('span', { textContent: meta.series }) : null,
             meta.words && meta.words !== '0' ? el('span', { className: 'num', textContent: `${Number(meta.words).toLocaleString('en-US')} words` }) : null,
           ),
+          meta.tg ? tagBadges(meta.tg) : null,
           hasExcerpt ? excerpt : null,
         ),
       );

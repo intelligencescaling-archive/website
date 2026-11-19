@@ -1,13 +1,30 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { loadArchive } from '../../lib/archive.mjs';
+import TagChip from '../../components/TagChip.astro';
+import { loadArchive, TAG_GROUPS } from '../../lib/archive.mjs';
 const { tags } = loadArchive();
-const sorted = [...tags].sort((a, b) => b.entries.length - a.entries.length);
+// Groups in display order; a group the website doesn't name yet is listed under its id at the end.
+const known = new Set(TAG_GROUPS.map((g) => g.id));
+const extra = [...new Set(tags.map((t) => t.group).filter((g) => !known.has(g)))].map((id) => ({ id, name: id, desc: '' }));
+const groups = [...TAG_GROUPS, ...extra].map((g) => ({ ...g, tags: tags.filter((t) => t.group === g.id) })).filter((g) => g.tags.length);
 ---
-<Base title="Tags" description="Archive entries grouped by tag: feats, analysis, strategy, debunks and more.">
-  <h1>Tags</h1>
-  <p class="lede">What kind of content an entry is. Tags are filled in from the community libraries and still being reviewed.</p>
-  <ul class="chips">
-    {sorted.map((t) => <li><a class="chip" href={`/tags/${t.id}/`}>{t.name} <span class="count">{t.entries.length}</span></a></li>)}
-  </ul>
+<Base title="Tags" description="Archive entries grouped by tag: feats, analysis, matchups, debunks, stories and more.">
+  <div class="tag-index">
+    <h1>Tags</h1>
+    <p class="lede">What kind of doc an entry is. Each entry has one to three tags, plus notes about the saved file. Tap a tag to see its docs.</p>
+    {groups.map((g) => (
+      <section aria-labelledby={`g-${g.id}`}>
+        <h2 id={`g-${g.id}`}><span class={`tg-kind k-${g.id}`}>{g.name}</span></h2>
+        {g.desc && <p class="small muted">{g.desc}</p>}
+        <ul class="tag-group-list">
+          {g.tags.map((t: any) => (
+            <li>
+              <TagChip tag={t} count={t.entries.length} />
+              {t.definition && <p>{t.definition}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
 </Base>

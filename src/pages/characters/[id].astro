@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
+import RealMark from '../../components/RealMark.astro';
 import { loadArchive } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
@@ -13,7 +14,8 @@ const { c } = Astro.props as { c: any };
     <a href="/characters/">Characters</a>
     {c.seriesId && <> / <a href={`/series/${c.seriesId}/`}>{c.seriesName}</a></>}
   </nav>
-  <h1>{c.name}</h1>
+  <span class="tg-kind k-char">{c.real ? 'Character · real person' : 'Character'}</span>
+  <h1>{c.name}{c.real && <RealMark />}</h1>
   {c.aliases.length > 0 && <p class="alt-titles">Also known as: {c.aliases.join(' · ')}</p>}
   <p class="lede">{c.entries.length} {c.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/search/?character=${c.id}`}>Filter these further</a>.</p>
   <EntryList entries={c.entries} />

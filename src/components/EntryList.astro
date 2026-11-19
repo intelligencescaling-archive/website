@@ -24,6 +24,9 @@ const inAll = (pick: (e: any) => any[]) =>
 const commonSeries = inAll((e) => e.series);
 const commonChars = inAll((e) => e.characters);
 const oneCategory = many && entries.every((e) => e.category === entries[0].category);
+const commonTags = inAll((e) => e.tagList);
+// The old status badge is left out when a meta tag already says it ("Original gone", "Text only").
+const statusShown = (e: any) => e.status !== 'complete' && !(e.status === 'dead' || e.status === 'private' || (e.parts[0]?.recovered && e.tags.includes('text-only')));
 ---
 <ul class="entries" id={id}>
   {entries.map((e) => {
@@ -48,7 +51,7 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
       <div class="entry-title">
         <a href={`/items/${e.id}/`}>{e.title}</a>
         {e.category !== 'doc' && !oneCategory && <> <span class="badge cat">{e.categoryName}</span></>}
-        {e.status !== 'complete' && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
+        {statusShown(e) && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
       </div>
       <div class="entry-meta">
         {authorsShown.length > 0 && <span class="by">{authorsShown.map((a: any) => a.name).join(', ')}</span>}
@@ -63,6 +66,9 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
         )}
         {e.words > 0 && <span class="num">{formatNumber(e.words)} words</span>}
       </div>
+      {e.tagList.some((t: any) => !commonTags.has(t.id)) && (
+        <div class="tgs">{e.tagList.filter((t: any) => !commonTags.has(t.id)).map((t: any) => <span class={`tgb k-${t.group}`}>{t.name}</span>)}</div>
+      )}
     </li>
     );
   })}

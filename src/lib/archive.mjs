@@ -44,20 +44,18 @@ export const TOPICS = [
   {
     id: 'scd-theory',
     name: 'SCD theory & guides',
-    desc: 'Category systems, scaling methods and how-to guides.',
-    tags: ['scd-categories', 'scaling-system', 'scd-theory', 'guide', 'writing-categories', 'composite'],
+    desc: 'Category systems, scaling methods, how-to guides and templates.',
+    tags: ['guide', 'template', 'composite'],
     subs: [
-      ['Categories', 'scd-categories'],
       ['Guides', 'guide'],
-      ['Scaling systems', 'scaling-system'],
-      ['Writing', 'writing-categories'],
+      ['Templates', 'template'],
     ],
   },
   {
     id: 'stories-and-ocs',
     name: 'Stories & original characters',
     desc: 'Original fiction, OC docs and crossover fights.',
-    tags: ['oc', 'fanfiction'],
+    tags: ['oc', 'fanfiction', 'story'],
     stories: true,
   },
   { id: 'community-games', name: 'Community games & events', desc: 'Rulebooks and tournaments run on the sub.', tags: ['game'] },
@@ -65,7 +63,7 @@ export const TOPICS = [
     id: 'libraries-and-history',
     name: 'Libraries & community history',
     desc: 'Doc collections and the story of SCD.',
-    tags: ['library', 'history', 'list', 'collection'],
+    tags: ['community'],
     title: /\blibrar(?:y|ies)\b/i,
   },
   {
@@ -84,6 +82,76 @@ function topicsFor(e, charSeries) {
   if (out.length) return out;
   if (e.characters.length && e.characters.every((c) => !charSeries.get(c.id))) return ['series-unknown'];
   return ['needs-sorting'];
+}
+
+/**
+ * Tag groups, in the order chips are shown. Tags come from the archive's data/tags.yaml (the registry);
+ * a group the website doesn't know yet is shown like `type`.
+ */
+export const TAG_GROUPS = [
+  { id: 'type', name: 'Doc type', desc: 'What the doc is.' },
+  { id: 'fiction', name: 'Fiction', desc: 'Stories and fanfiction.' },
+  { id: 'subject', name: 'Subject', desc: 'Who the doc is about.' },
+  { id: 'meta', name: 'About the file', desc: 'Notes about the saved copy itself.' },
+];
+const groupRank = (g) => {
+  const i = TAG_GROUPS.findIndex((x) => x.id === g);
+  return i < 0 ? 0 : i;
+};
+
+/**
+ * Meta tags the website works out from the data (they are not stored in meta.yaml).
+ * `test` gets the normalized entry.
+ */
+const DERIVED_TAGS = [
+  {
+    id: 'in-progress',
+    name: 'In progress',
+    definition: 'The author marked it as not finished yet (more parts or chapters may come).',
+    test: (e) => e.completion === 'in-progress',
+  },
+  {
+    id: 'text-only',
+    name: 'Text only',
+    definition: 'Only the plain text was saved, with no PDF (the owner blocked downloads, or the text came from a Wayback snapshot or a Reddit post).',
+    test: (e) => e.words > 0 && e.parts.some((p) => p.textPath) && !e.parts.some((p) => p.files.some((f) => f.format === 'pdf')),
+  },
+  {
+    id: 'original-gone',
+    name: 'Original gone',
+    definition: 'The original doc was deleted or made private. The copy here may be the only one left.',
+    // capture.status dead/private, or the text was recovered from a Wayback snapshot because the original was gone.
+    test: (e) => e.parts.some((p) => p.status === 'dead' || p.status === 'private' || p.fromSnapshot),
+  },
+  {
+    id: 'multi-part',
+    name: 'Multi-part',
+    definition: 'The entry has more than one part (chapters, volumes or several docs).',
+    test: (e) => e.parts.length > 1,
+  },
+];
+
+/** The tag registry (data/tags.yaml): id -> { id, name, group, definition, aliases, implies, order }. */
+function readTags(file) {
+  const tags = new Map();
+  if (!fs.existsSync(file)) return tags;
+  arr(readYaml(file)).forEach((t, i) => {
+    if (!t || !SLUG.test(str(t.id))) return;
+    tags.set(t.id, {
+      id: t.id,
+      name: str(t.name).trim() || t.id,
+      group: SLUG.test(str(t.group)) ? t.group : 'type',
+      definition: str(t.definition).trim(),
+      aliases: arr(t.aliases).map(str).filter(Boolean),
+      order: i,
+      derived: false,
+    });
+  });
+  // Derived meta tags come after the registry's own tags (a registry tag with the same id wins).
+  DERIVED_TAGS.forEach((d, i) => {
+    if (!tags.has(d.id)) tags.set(d.id, { id: d.id, name: d.name, group: 'meta', definition: d.definition, aliases: [], order: 1000 + i, derived: true });
+  });
+  return tags;
 }
 
 export const CATEGORY_NAMES = { doc: 'Doc', story: 'Story', misc: 'Misc' };
@@ -346,7 +414,7 @@ function normalizeEntry(raw, metaFile, reg) {
   const characters = arr(raw.characters).map((cid) => {
     const c = reg.characters.get(cid);
     if (!c) reg.warnings.push(`${where}: unknown character "${cid}"`);
-    return { id: str(cid), name: c ? c.name : str(cid), known: !!c };
+    return { id: str(cid), name: c ? c.name : str(cid), known: !!c, real: !!c?.real };
   });
 
   const dir = path.dirname(metaFile);
@@ -460,6 +528,7 @@ export function loadArchive() {
     throw new Error(`Archive not found at ${ARCHIVE_DIR}. Set ARCHIVE_DIR to a checkout of the archive repo.`);
   }
   const reg = { series: new Map(), characters: new Map(), people: readPeople(path.join(ARCHIVE_DIR, 'data', 'authors.yaml')), warnings: [] };
+  const tagReg = readTags(path.join(ARCHIVE_DIR, 'data', 'tags.yaml'));
   for (const s of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'series.yaml')))) {
     if (s && SLUG.test(str(s.id))) {
       const origin = /^([a-z]{2}|real)$/.test(str(s.origin_language)) ? s.origin_language : null;
@@ -469,7 +538,7 @@ export function loadArchive() {
   }
   for (const c of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'characters.yaml')))) {
     if (c && SLUG.test(str(c.id)))
-      reg.characters.set(c.id, { id: c.id, name: str(c.name) || c.id, seriesId: c.series ? str(c.series) : null, aliases: arr(c.aliases).map(str) });
+      reg.characters.set(c.id, { id: c.id, name: str(c.name) || c.id, seriesId: c.series ? str(c.series) : null, aliases: arr(c.aliases).map(str), real: c.real === true });
   }
 
   const entries = [];
@@ -511,7 +580,7 @@ export function loadArchive() {
     (id, c) => {
       const r = reg.characters.get(id);
       const sid = r?.seriesId || null;
-      return { id, name: c.name, aliases: r?.aliases || [], seriesId: sid, seriesName: sid ? reg.series.get(sid)?.name || sid : null };
+      return { id, name: c.name, aliases: r?.aliases || [], seriesId: sid, seriesName: sid ? reg.series.get(sid)?.name || sid : null, real: !!r?.real };
     },
   );
   // People: one page per person, with the entries they made (`entries`) and the ones they only shared (`shared`).
@@ -547,10 +616,26 @@ export function loadArchive() {
     delete p.names;
   }
   const authors = people.filter((p) => p.entries.length);
-  const tags = group(
-    (e) => e.tags.map((t) => [t, t]),
-    (id) => ({ id, name: id }),
-  );
+  // Each entry's tags as chips: stored tags (from the registry) plus the derived meta tags, in group order.
+  // A stored tag the registry doesn't know (an archive made before the registry) shows its id as the name.
+  const unknownTag = (id) => ({ id, name: id, group: 'type', definition: '', aliases: [], order: 999, derived: false });
+  for (const e of entries) {
+    const list = e.tags.map((t) => {
+      if (!tagReg.has(t)) {
+        if (tagReg.size > DERIVED_TAGS.length) reg.warnings.push(`${e.repoPath}: tag "${t}" is not in data/tags.yaml`);
+        tagReg.set(t, unknownTag(t));
+      }
+      return tagReg.get(t);
+    });
+    for (const d of DERIVED_TAGS) if (d.test(e) && !list.some((t) => t.id === d.id)) list.push(tagReg.get(d.id));
+    e.tagList = [...new Set(list)].sort((a, b) => groupRank(a.group) - groupRank(b.group) || a.order - b.order);
+    e.tags = e.tagList.map((t) => t.id);
+  }
+  // Tag pages: every registry tag (even one no entry uses yet), in group order, with its entries.
+  const tags = [...tagReg.values()]
+    .map((t) => ({ ...t, entries: entries.filter((e) => e.tags.includes(t.id)) }))
+    .filter((t) => t.entries.length || !t.derived)
+    .sort((a, b) => groupRank(a.group) - groupRank(b.group) || a.order - b.order);
   const languages = group(
     (e) => [[e.language || 'unknown', e.language]],
     (code, lang) => ({ id: code, name: languageName(lang) }),

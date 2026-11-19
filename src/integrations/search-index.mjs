@@ -17,7 +17,9 @@ export default function searchIndex() {
     hooks: {
       'astro:build:done': async ({ dir, logger }) => {
         const out = path.join(fileURLToPath(dir), 'pagefind');
-        const { entries, warnings, series, characters, people } = loadArchive();
+        const { entries, warnings, series, characters, people, tags } = loadArchive();
+        // Old tag names ("strategy", "q-and-a") stay hidden search words, so old searches still find these entries.
+        const tagWords = new Map(tags.map((t) => [t.id, [t.name, ...t.aliases.map((a) => a.replaceAll('-', ' '))]]));
         const personNames = new Map(people.map((p) => [p.key, p.match]));
         // Other spellings ("Ayanokouji" for "Ayanokoji") so a search finds the entry either way.
         const aliasesOf = new Map([...series, ...characters].map((x) => [x.id, x.aliases || []]));
@@ -38,7 +40,7 @@ export default function searchIndex() {
             e.characters.map((c) => c.name).join(', '),
             [...e.series, ...e.characters].flatMap((x) => aliasesOf.get(x.id) || []).join(', '),
             e.variant,
-            e.tags.join(' '),
+            e.tags.flatMap((t) => tagWords.get(t) || [t]).join(', '),
           ].filter(Boolean);
           const text = entryText(e);
           chars += text.length;
@@ -54,6 +56,8 @@ export default function searchIndex() {
               ...(e.sharedBy.length ? { sh: e.sharedBy.map(sharerName).join(', ') } : {}),
               series: (e.series.length ? e.series : e.topics.filter((t) => t.id !== 'needs-sorting' && t.id !== 'series-unknown')).map((s) => s.name).join(', '),
               words: String(e.words),
+              // Tag badges for the result row: "group:Name|group:Name" (shown with textContent).
+              ...(e.tagList.length ? { tg: e.tagList.map((t) => `${t.group}:${t.name}`).join('|') } : {}),
               // How many words of metadata follow the doc text, so the search page can show an
               // excerpt from the doc itself rather than from this list.
               hw: String(head.join('. ').split(/\s+/).length),
