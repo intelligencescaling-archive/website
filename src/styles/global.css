@@ -928,7 +928,7 @@ main:has(> .reader) { padding-block: 0; }
 :root {
   --k-type: #111111;  --k-type-soft: #f0f0ec;  --k-type-line: #c8c8c1;
   --k-fic: #0b6b61;   --k-fic-soft: #e3f4f1;   --k-fic-line: #9fd3ca;
-  --k-subj: #1d5296;  --k-subj-soft: #e8f0fb;  --k-subj-line: #a9c3e8;
+  --k-subj: #8a4500;  --k-subj-soft: #fdf0e3;  --k-subj-line: #ecc49a;
   --k-meta: #5c5c56;  --k-meta-soft: #ffffff;  --k-meta-line: #b4b4ac;
   --k-char: #1d5296;  --k-char-soft: #e8f0fb;  --k-char-line: #a9c3e8;
   --k-ser: #6b3c9c;   --k-ser-soft: #f2ebf9;   --k-ser-line: #c9b0e6;
@@ -937,7 +937,7 @@ main:has(> .reader) { padding-block: 0; }
   :root:not([data-theme='light']) {
     --k-type: #f2f2ee;  --k-type-soft: #232322;  --k-type-line: #4a4a44;
     --k-fic: #7fd8cb;   --k-fic-soft: #132a27;   --k-fic-line: #2d5c55;
-    --k-subj: #95bdf2;  --k-subj-soft: #16212f;  --k-subj-line: #2f4c72;
+    --k-subj: #f5b97a;  --k-subj-soft: #2c1d10;  --k-subj-line: #6b4524;
     --k-meta: #a3a39c;  --k-meta-soft: #121212;  --k-meta-line: #5a5a53;
     --k-char: #95bdf2;  --k-char-soft: #16212f;  --k-char-line: #2f4c72;
     --k-ser: #cbaef0;   --k-ser-soft: #221b2e;   --k-ser-line: #4c3a69;
@@ -946,7 +946,7 @@ main:has(> .reader) { padding-block: 0; }
 :root[data-theme='dark'] {
   --k-type: #f2f2ee;  --k-type-soft: #232322;  --k-type-line: #4a4a44;
   --k-fic: #7fd8cb;   --k-fic-soft: #132a27;   --k-fic-line: #2d5c55;
-  --k-subj: #95bdf2;  --k-subj-soft: #16212f;  --k-subj-line: #2f4c72;
+  --k-subj: #f5b97a;  --k-subj-soft: #2c1d10;  --k-subj-line: #6b4524;
   --k-meta: #a3a39c;  --k-meta-soft: #121212;  --k-meta-line: #5a5a53;
   --k-char: #95bdf2;  --k-char-soft: #16212f;  --k-char-line: #2f4c72;
   --k-ser: #cbaef0;   --k-ser-soft: #221b2e;   --k-ser-line: #4c3a69;
@@ -959,8 +959,12 @@ main:has(> .reader) { padding-block: 0; }
   --t: var(--k-fic); --ts: var(--k-fic-soft); --tl: var(--k-fic-line);
   --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 4C11 4 6 9 5.5 18.5M20 4c0 6-3.5 10.5-11 11.5M5.5 18.5 4 20.5M12 9.5h4'/%3E%3C/svg%3E");
 }
-.k-subject, .k-char {
+.k-subject {
+  /* Subject tags (OC, Power scaling…): own colour and a star, so they don't read as a character called "OC". */
   --t: var(--k-subj); --ts: var(--k-subj-soft); --tl: var(--k-subj-line);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z'/%3E%3C/svg%3E");
+}
+.k-char {
   --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='3.6'/%3E%3Cpath d='M4.5 20.5c0-4 3.3-6.3 7.5-6.3s7.5 2.3 7.5 6.3'/%3E%3C/svg%3E");
 }
 .k-char { --t: var(--k-char); --ts: var(--k-char-soft); --tl: var(--k-char-line); }
