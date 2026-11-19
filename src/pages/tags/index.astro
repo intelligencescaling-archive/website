@@ -11,14 +11,21 @@ const groups = [...TAG_GROUPS, ...extra].map((g) => ({ ...g, tags: tags.filter((
 <Base title="Tags" description="Archive entries grouped by tag: feats, analysis, matchups, debunks, stories and more.">
   <div class="tag-index">
     <h1>Tags</h1>
-    <p class="lede">What kind of doc an entry is. Each entry has one to three tags, plus notes about the saved file. Tap a tag to see its docs.</p>
+    <p class="lede">What kind of doc it is. Each doc has one to three tags, plus notes about the saved file.</p>
+    <nav class="tag-jump" aria-label="All tags">
+      <ul class="chips">
+        {groups.flatMap((g) => g.tags.filter((t: any) => t.entries.length)).map((t: any) => (
+          <li><a class={`tg sm k-${t.group}`} href={`#t-${t.id}`}>{t.name} <span class="count">{t.entries.length}</span></a></li>
+        ))}
+      </ul>
+    </nav>
     {groups.map((g) => (
       <section aria-labelledby={`g-${g.id}`}>
         <h2 id={`g-${g.id}`}><span class={`tg-kind k-${g.id}`}>{g.name}</span></h2>
         {g.desc && <p class="small muted">{g.desc}</p>}
         <ul class="tag-group-list">
           {g.tags.map((t: any) => (
-            <li>
+            <li id={`t-${t.id}`}>
               <TagChip tag={t} count={t.entries.length} />
               {t.definition && <p>{t.definition}</p>}
             </li>
