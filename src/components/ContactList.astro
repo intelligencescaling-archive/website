@@ -27,7 +27,6 @@ const { contacts, notes = [] } = Astro.props;
   </ul>
   <div class="end"></div>
   {notes.map((n) => <p class="note-l">{n}</p>)}
-  <p class="note-l">The archive can't pass on messages.</p>
   <p class="visually-hidden" role="status" aria-live="polite" data-copy-status></p>
 </section>
 
