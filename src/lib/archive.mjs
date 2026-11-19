@@ -381,10 +381,12 @@ function readContacts(list) {
     const def = CONTACT_PLATFORMS[platform];
     // Handles are shown as text; strip a leading @ or u/ (the page adds the platform's own prefix).
     const handle = str(c?.handle).trim().replace(/^(@|u\/)/, '');
-    if (!def || !handle || handle.length > 64 || /[\s<>]/.test(handle)) continue;
+    // Channel names can have spaces ("Hour Reach"): kept, shown without a link.
+    if (!def || !handle || handle.length > 64 || /[<>\p{Cc}]/u.test(handle)) continue;
     if (out.some((x) => x.platform === platform && x.handle.toLowerCase() === handle.toLowerCase())) continue;
     const url = def.url && def.re.test(handle) ? safeUrl(def.url(handle)) : null;
-    out.push({ platform, platformName: def.name, handle, label: (def.prefix || '') + handle, url, copy: !!def.copy });
+    // A name with no profile link gets a Copy button, so it can be pasted into the app's search.
+    out.push({ platform, platformName: def.name, handle, label: (url ? def.prefix || '' : '') + handle, url, copy: !!def.copy || !url });
   }
   return out;
 }
