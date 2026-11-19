@@ -5,6 +5,7 @@
 // Everything from the index is inserted as text (textContent); the only markup kept from an excerpt
 // is the <mark> around matched words, rebuilt node by node.
 import { initSheet } from './sheet.js';
+import { createCounter } from './search-counter.js';
 
 const PAGE = 10;
 const SORTS = { title: { title: 'asc' }, long: { words: 'desc' }, short: { words: 'asc' } };
@@ -368,6 +369,7 @@ export async function initSearch() {
     }
     const counts = res.filters || {};
     setCounts((s, o) => (counts[s.dataset.group] || {})[o.dataset.pf] || 0);
+    counter.shown(q, n, activeSelects().map((s) => `${s.dataset.group}=${s.selectedOptions[0].dataset.label}`));
     return true;
   }
 
@@ -397,6 +399,8 @@ export async function initSearch() {
     document.documentElement.classList.remove('search-pending');
   }
 
+  // Anonymous search counter: one beacon per settled search (see search-counter.js).
+  const counter = createCounter();
   let typing;
   function runSoon(ms) {
     clearTimeout(typing);
@@ -405,11 +409,13 @@ export async function initSearch() {
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     clearTimeout(typing);
+    counter.submitted();
     input.blur(); // closes the phone keyboard so the results are visible
     run();
   });
   // Search about 200 ms after the last keystroke, so typing never waits on a search.
   input.addEventListener('input', (ev) => {
+    counter.typing();
     if (!ev.isComposing) runSoon(200);
   });
   input.addEventListener('compositionend', () => runSoon(200));
@@ -426,6 +432,10 @@ export async function initSearch() {
   document.getElementById('clear-filters').addEventListener('click', clearAll);
   document.getElementById('clear-2').addEventListener('click', clearAll);
   moreBtn.addEventListener('click', renderMore);
+  // Clicking a result (or a top-result link) or leaving the page counts the search on screen now.
+  for (const box of [results, matchesBox]) box.addEventListener('click', (ev) => ev.target.closest?.('a') && counter.flush());
+  addEventListener('pagehide', counter.flush);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && counter.flush());
   addEventListener('keydown', (ev) => {
     const a = document.activeElement;
     if (ev.key === '/' && !(a instanceof HTMLInputElement) && !(a instanceof HTMLSelectElement)) {

@@ -55,6 +55,24 @@ Functions quota. Without `TURNSTILE_SITE_KEY` at build time the page says the fo
 secrets the function answers 503. `/archived-ids.json` (built from the archive) lets the form say "already
 archived" before sending. Approved issues are imported by the maintainer's local script.
 
+### Search counter
+
+The Search page counts what visitors search for, anonymously, so we can see what is missing (zero-result
+searches) and what needs an alias. After a search has stayed on screen for about 2 seconds (or the visitor
+presses Enter, clicks a result or leaves), `src/scripts/search-counter.js` sends one `sendBeacon` to
+`functions/api/q.js` with `{ q, b, f }`: the normalized query, a result bucket (`0`, `1-5`, `6+`) and the active
+filter names. Queries under 2 characters, or containing `@`, 6+ digits in a row or a link, are never sent (and are
+dropped again on the server by the shared `src/scripts/query-clean.js`). The function stores **daily counts**
+`(day, query, bucket, filters, n)` in a Cloudflare D1 database, with no IP, user agent, cookie, ID, referrer or time
+finer than the UTC day, caps a day at 4,000 distinct rows, and deletes rows older than 180 days. Without the D1
+binding the function does nothing.
+
+Setup (once): create D1 database `intelscaling-search`, run `migrations/0001_search_counter.sql` in its Console,
+and bind it to the Pages project as `SEARCH_DB` for Production and Preview (Settings > Bindings). Read it with
+`npm run search-report -- --days 30` (needs `npx wrangler login` once). `npm run test:counter` checks the privacy
+rules. There is no `wrangler.toml` on purpose: a config file would make it the source of truth for the project's
+variables and bindings.
+
 The site also rebuilds once a day (`.github/workflows/rebuild.yml`) through a Cloudflare Pages **deploy hook**,
 stored as the `CF_DEPLOY_HOOK` secret in this repo, so archive changes show up within a day. It can also be started by
 hand from the Actions tab.

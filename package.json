@@ -9,6 +9,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "test:escaping": "node scripts/test-escaping.mjs",
+    "test:counter": "node scripts/test-search-counter.mjs",
+    "search-report": "node scripts/search-report.mjs",
     "build:cloudflare": "node scripts/fetch-archive.mjs && astro build"
   },
   "dependencies": {
