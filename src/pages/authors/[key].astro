@@ -1,6 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
+import ContactList from '../../components/ContactList.astro';
+import { CONTACT_PLATFORMS } from '../../lib/archive.mjs';
 import { loadArchive } from '../../lib/archive.mjs';
 
 // One page per person (data/authors.yaml in the archive): what they made, and what they only shared.
@@ -10,6 +12,14 @@ export function getStaticPaths() {
 const { a } = Astro.props as { a: any };
 const made = a.entries.length;
 const shared = a.shared.length;
+// Contact row: the person's contacts, plus their Reddit handles from the credits (once each).
+const reddit = CONTACT_PLATFORMS.reddit as any;
+const contacts = [
+  ...a.contacts,
+  ...a.handles
+    .filter((h: string) => !a.contacts.some((c: any) => c.platform === 'reddit' && c.handle.toLowerCase() === h.toLowerCase()))
+    .map((h: string) => ({ platform: 'reddit', platformName: reddit.name, handle: h, label: `u/${h}`, url: reddit.url(h), copy: false })),
+];
 const plural = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
 const desc = made
   ? `${made} archived works by ${a.name}.`
@@ -19,12 +29,8 @@ const desc = made
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/authors/">Authors</a></nav>
   <h1>{a.name}</h1>
   {a.aliases.length > 0 && <p class="alt-titles">Also known as: {a.aliases.join(' · ')}</p>}
-  <p class="lede">
-    {made > 0 ? plural(made) : `Shared ${plural(shared)}`}.
-    {a.handles.length > 0 && (
-      <> Reddit: {a.handles.map((h: string, i: number) => <>{i > 0 && ', '}<a href={`https://www.reddit.com/user/${h}/`} rel="noopener nofollow">u/{h}</a></>)}.</>
-    )}
-  </p>
+  <p class="lede">{made > 0 ? plural(made) : `Shared ${plural(shared)}`}.</p>
+  {contacts.length > 0 && <ContactList contacts={contacts} name={a.name} />}
   {made > 0 && <EntryList entries={a.entries} person={a.key} />}
   {made > 0 && shared > 0 && (
     <>

@@ -1,0 +1,68 @@
+---
+// A person's contact handles as small platform chips: a link for platforms with profile pages, a Copy button for
+// names people type into an app (Discord, Telegram). Handles are untrusted text: rendered with Astro expressions only.
+interface Contact { platform: string; platformName: string; handle: string; label: string; url: string | null; copy: boolean }
+interface Props { contacts: Contact[]; name: string }
+const { contacts, name } = Astro.props;
+---
+<section class="contact" id="contact" aria-labelledby="contact-h">
+  <h2 id="contact-h" class="contact-h">Contact</h2>
+  <ul class="contact-list">
+    {contacts.map((c) => (
+      <li class={`ct p-${c.platform}`}>
+        {c.url ? (
+          <a class="ct-chip" href={c.url} rel="noopener nofollow ugc">
+            <span class="ct-pf">{c.platformName}</span><span class="ct-handle">{c.label}</span>
+          </a>
+        ) : (
+          <span class="ct-chip">
+            <span class="ct-pf">{c.platformName}</span><span class="ct-handle">{c.label}</span>
+          </span>
+        )}
+        {c.copy && (
+          <button type="button" class="ct-copy" data-copy={c.handle} aria-label={`Copy ${c.platformName} name ${c.label}`}>
+            <span class="ct-copy-txt">Copy</span>
+          </button>
+        )}
+      </li>
+    ))}
+  </ul>
+  <p class="small muted contact-note">Where to find {name}, as given in their docs or posts. The archive can't pass on messages.</p>
+  <p class="visually-hidden" role="status" aria-live="polite" data-copy-status></p>
+</section>
+
+<script>
+  // Copy buttons: copies the handle, shows "Copied" for 2 s and tells screen readers. Without the Clipboard API
+  // (old browsers, http) it selects the handle so it can be copied by hand.
+  const status = document.querySelector<HTMLElement>('[data-copy-status]');
+  for (const b of document.querySelectorAll<HTMLButtonElement>('button[data-copy]')) {
+    const txt = b.querySelector<HTMLElement>('.ct-copy-txt');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    b.addEventListener('click', async () => {
+      const value = b.dataset.copy || '';
+      let ok = false;
+      try {
+        // Some browsers never settle the promise without permission: give up after 1.5 s and select instead.
+        await Promise.race([navigator.clipboard.writeText(value), new Promise((_, no) => setTimeout(no, 1500))]);
+        ok = true;
+      } catch {
+        const handle = b.parentElement?.querySelector('.ct-handle');
+        const sel = getSelection();
+        if (handle && sel) {
+          const r = document.createRange();
+          r.selectNodeContents(handle);
+          sel.removeAllRanges();
+          sel.addRange(r);
+        }
+      }
+      if (txt) txt.textContent = ok ? 'Copied' : 'Selected';
+      b.classList.toggle('done', ok);
+      if (status) status.textContent = ok ? `Copied ${value}` : `Selected ${value}. Copy it from your browser's menu.`;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (txt) txt.textContent = 'Copy';
+        b.classList.remove('done');
+      }, 2000);
+    });
+  }
+</script>

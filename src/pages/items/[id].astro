@@ -75,6 +75,9 @@ const partUnit = readerUnit(e).toLowerCase();
 const readChoices = readHref && multi && textParts.length > 1 && textParts.length <= 4;
 // The main (filled) file button of a part: its PDF, else its first other file.
 const mainFile = (p: any) => p.files.find((f: any) => f.format === 'pdf' && !p.images.includes(f)) || p.files.find((f: any) => !p.images.includes(f));
+// Makers known only by a handle on an app (no Reddit account): a small "Discord" hint after the name, linking to
+// the Contact row on their page.
+const contactHint = (a: any) => (!a.reddit && a.contacts?.length ? a.contacts[0].platformName : null);
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
 // The Submit form, with this entry filled in (no account needed). Public GitHub issues are linked from there.
 const correctionUrl = `/submit/?fix=${e.id}`;
@@ -129,7 +132,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
     <h1>{e.title}</h1>
     <p class="byline">
       {e.authors.length ? (
-        <>by {e.authors.map((a: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${a.key}/`}>{a.name}</a></>)}</>
+        <>by {e.authors.map((a: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${a.key}/`}>{a.name}</a>{contactHint(a) && <> <a class="ct-hint" href={`/authors/${a.key}/#contact`} aria-label={`${a.name} on ${contactHint(a)}: contact details`}>{contactHint(a)}</a></>}</>)}</>
       ) : e.sharedBy.length ? (
         <span class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a></>)}</span>
       ) : (

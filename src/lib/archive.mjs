@@ -360,6 +360,35 @@ export function sharerName(s) {
   return s.reddit ? `u/${s.reddit}` : s.name;
 }
 
+/**
+ * Contact handles of a person (data/authors.yaml `contacts: [{platform, handle}]`), so readers know which name to
+ * use to reach the maker. `url` is set only for platforms with profile pages and only when the handle looks valid
+ * for that platform; `copy` marks handles people type into an app (Discord, Telegram, other).
+ */
+export const CONTACT_PLATFORMS = {
+  discord: { name: 'Discord', copy: true },
+  telegram: { name: 'Telegram', copy: true, re: /^[A-Za-z0-9_]{5,32}$/, url: (h) => `https://t.me/${h}` },
+  reddit: { name: 'Reddit', prefix: 'u/', re: REDDIT_NAME, url: (h) => `https://www.reddit.com/user/${h}/` },
+  twitter: { name: 'X (Twitter)', prefix: '@', re: /^[A-Za-z0-9_]{1,15}$/, url: (h) => `https://x.com/${h}` },
+  youtube: { name: 'YouTube', prefix: '@', re: /^[A-Za-z0-9._-]{3,30}$/, url: (h) => `https://www.youtube.com/@${h}` },
+  tiktok: { name: 'TikTok', prefix: '@', re: /^[A-Za-z0-9._]{2,24}$/, url: (h) => `https://www.tiktok.com/@${h}` },
+  other: { name: 'Other', copy: true },
+};
+function readContacts(list) {
+  const out = [];
+  for (const c of arr(list)) {
+    const platform = str(c?.platform).toLowerCase();
+    const def = CONTACT_PLATFORMS[platform];
+    // Handles are shown as text; strip a leading @ or u/ (the page adds the platform's own prefix).
+    const handle = str(c?.handle).trim().replace(/^(@|u\/)/, '');
+    if (!def || !handle || handle.length > 64 || /[\s<>]/.test(handle)) continue;
+    if (out.some((x) => x.platform === platform && x.handle.toLowerCase() === handle.toLowerCase())) continue;
+    const url = def.url && def.re.test(handle) ? safeUrl(def.url(handle)) : null;
+    out.push({ platform, platformName: def.name, handle, label: (def.prefix || '') + handle, url, copy: !!def.copy });
+  }
+  return out;
+}
+
 /** Person registry (data/authors.yaml): id -> { id, name, aliases, reddit[] }. Empty for archives made before it. */
 function readPeople(file) {
   const people = new Map();
@@ -371,6 +400,7 @@ function readPeople(file) {
       name: str(p.name).trim(),
       aliases: arr(p.aliases).map(str).filter(Boolean),
       reddit: arr(p.reddit).map(str).filter((r) => REDDIT_NAME.test(r)),
+      contacts: readContacts(p.contacts),
     });
   }
   return people;
@@ -398,7 +428,7 @@ function normalizeEntry(raw, metaFile, reg) {
           const pid = SLUG.test(str(a.id)) ? a.id : null;
           const p = pid ? reg.people.get(pid) : null;
           if (pid && !p && reg.people.size) reg.warnings.push(`${where}: unknown person "${pid}" in ${field}`);
-          if (p) return { name: p.name, credited, reddit: ownReddit || p.reddit[0] || null, source: str(a.source), key: p.id };
+          if (p) return { name: p.name, credited, reddit: ownReddit || p.reddit[0] || null, source: str(a.source), key: p.id, contacts: p.contacts };
           return { name: credited, credited, reddit: ownReddit, source: str(a.source), key: slugify(ownReddit || credited) };
         }),
     );
@@ -589,7 +619,7 @@ export function loadArchive() {
   const personOf = (c) => {
     if (!peopleMap.has(c.key)) {
       const r = reg.people.get(c.key);
-      peopleMap.set(c.key, { key: c.key, name: c.name, names: [...(r?.aliases || [])], handles: [...(r?.reddit || [])], entries: [], shared: [] });
+      peopleMap.set(c.key, { key: c.key, name: c.name, names: [...(r?.aliases || [])], handles: [...(r?.reddit || [])], contacts: r?.contacts || [], entries: [], shared: [] });
     }
     return peopleMap.get(c.key);
   };
