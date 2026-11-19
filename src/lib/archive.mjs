@@ -371,7 +371,9 @@ function readRedditAccounts(file) {
   for (const r of arr(readYaml(file))) {
     const handle = str(r?.handle).trim().replace(/^u\//i, '');
     if (!REDDIT_NAME.test(handle) || !ACCOUNT_FLAGS[r?.status]) continue;
-    const checked = /^\d{4}-\d{2}-\d{2}$/.test(str(r.checked)) ? str(r.checked) : '';
+    // `checked` is an unquoted date: a string with this YAML parser, a Date with others. Both work.
+    const day = r.checked instanceof Date && !isNaN(r.checked) ? r.checked.toISOString().slice(0, 10) : str(r.checked);
+    const checked = /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '';
     const f = ACCOUNT_FLAGS[r.status];
     const when = checked ? ` (checked ${formatDate(checked)})` : '';
     redditAccounts.set(handle.toLowerCase(), { status: r.status, checked, flag: f.flag, note: f.note + when, tail: `${f.line}${when}.` });
