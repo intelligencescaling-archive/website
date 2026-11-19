@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
 import ContactList from '../../components/ContactList.astro';
-import { CONTACT_PLATFORMS, redditAccount } from '../../lib/archive.mjs';
+import { CONTACT_PLATFORMS, redditAccount, docsLabel } from '../../lib/archive.mjs';
 import { loadArchive } from '../../lib/archive.mjs';
 
 // One page per person (data/authors.yaml in the archive): what they made, and what they only shared.
@@ -26,7 +26,7 @@ const contacts = [
     .map((h: string) => ({ platform: 'reddit', platformName: reddit.name, handle: h, label: `u/${h}`, url: reddit.url(h), copy: false })),
 ].map(withAccount);
 const accountLines = contacts.filter((c: any) => c.acct).map((c: any) => `Reddit account u/${c.handle} ${c.acct.tail}`);
-const plural = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+const plural = docsLabel;
 const desc = made
   ? `${made} archived works by ${a.name}.`
   : `${shared} archived ${shared === 1 ? 'doc' : 'docs'} shared by ${a.reddit ? `u/${a.reddit}` : a.name}.`;

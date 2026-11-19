@@ -1,5 +1,5 @@
 ---
-import { formatNumber, sharerName } from '../lib/archive.mjs';
+import { formatNumber, sharerName, docsLabel } from '../lib/archive.mjs';
 
 interface Props {
   entries: any[];
@@ -10,8 +10,12 @@ interface Props {
   sort?: 'long' | 'none';
   /** On a person's page: their key. They are left out of each row's authors and sharers (co-authors stay). */
   person?: string;
+  /** Long lists: render only the first `limit` rows (what's common to all rows is still worked out from all of them). */
+  limit?: number;
+  /** With `limit`: where the whole list is ("Show all N docs" link under the rows). */
+  moreHref?: string;
 }
-const { filterable = false, id, sort = 'long', person } = Astro.props;
+const { filterable = false, id, sort = 'long', person, limit, moreHref } = Astro.props;
 // Position in A-Z order (the order loadArchive returns), so the Search page can switch back to A-Z.
 const titleRank = new Map(Astro.props.entries.map((e: any, i: number) => [e, i]));
 const entries = sort === 'long' ? [...Astro.props.entries].sort((a: any, b: any) => b.words - a.words || titleRank.get(a)! - titleRank.get(b)!) : Astro.props.entries;
@@ -28,8 +32,8 @@ const commonTags = inAll((e) => e.tagList);
 // The old status badge is left out when a meta tag already says it ("Original gone", "Text only").
 const statusShown = (e: any) => e.status !== 'complete' && !(e.status === 'dead' || e.status === 'private' || (e.parts[0]?.recovered && e.tags.includes('text-only')));
 ---
-<ul class="entries" id={id}>
-  {entries.map((e) => {
+<ul class="entries" id={id} data-total={filterable ? String(entries.length) : undefined}>
+  {(limit ? entries.slice(0, limit) : entries).map((e) => {
     const seriesShown = e.series.filter((s: any) => !commonSeries.has(s.id));
     const charsShown = e.characters.filter((c: any) => !commonChars.has(c.id));
     const authorsShown = e.authors.filter((a: any) => a.key !== person);
@@ -73,3 +77,6 @@ const statusShown = (e: any) => e.status !== 'complete' && !(e.status === 'dead'
     );
   })}
 </ul>
+{limit && moreHref && entries.length > limit && (
+  <p class="list-more"><a class="button secondary" href={moreHref}>Show all {docsLabel(entries.length)}</a></p>
+)}

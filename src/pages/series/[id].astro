@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
 import RealMark from '../../components/RealMark.astro';
-import { loadArchive } from '../../lib/archive.mjs';
+import { loadArchive, docsLabel, distinctAliases } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
   const { series, characters } = loadArchive();
@@ -15,15 +15,15 @@ const { s, chars } = Astro.props as { s: any; chars: any[] };
 // On a series of only real people (History) the mark would be on every chip, so it is left out there.
 const allReal = chars.length > 0 && chars.every((c) => c.real);
 const countIn = (c: any) => c.entries.filter((e: any) => e.series.some((x: any) => x.id === s.id)).length;
-const aliases = s.aliases.map((a: string) => a.replace(/:\s*$/, '')).filter((a: string) => a.toLowerCase() !== s.name.toLowerCase());
+const aliases = distinctAliases(s.name, s.aliases);
 ---
-<Base title={s.name} section="series" description={`${s.entries.length} archived docs and stories about ${s.name}.`}>
+<Base title={s.name} section="series" description={`${docsLabel(s.entries.length)} about ${s.name}.`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/series/">Series</a></nav>
   <span class="tg-kind k-ser">Series</span>
   <h1>{s.name}</h1>
   {s.originLabel && <p class="alt-titles">Original: {s.originLabel}</p>}
   {aliases.length > 0 && <p class="alt-titles">Also known as: {aliases.join(' · ')}</p>}
-  <p class="lede">{s.entries.length} {s.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/search/?series=${s.id}`}>Filter these further</a>.</p>
+  <p class="lede">{docsLabel(s.entries.length)} · <a href={`/search/?series=${s.id}`}>Filter</a></p>
   {chars.length > 0 && (
     <>
       <h2>Characters</h2>
@@ -33,5 +33,5 @@ const aliases = s.aliases.map((a: string) => a.replace(/:\s*$/, '')).filter((a: 
     </>
   )}
   <h2>Entries</h2>
-  <EntryList entries={s.entries} />
+  <EntryList entries={s.entries} limit={s.entries.length > 100 ? 50 : undefined} moreHref={`/search/?series=${s.id}`} />
 </Base>

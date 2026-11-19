@@ -16,7 +16,7 @@ const popular = [...characters].sort((a, b) => b.entries.length - a.entries.leng
     <h1>Every r/<wbr />IntelligenceScaling doc, <span class="mark">saved and searchable.</span></h1>
     <form class="search-form" action="/search/" method="get" role="search">
       <label for="home-q" class="visually-hidden">Search the archive</label>
-      <input type="search" id="home-q" name="q" placeholder="A character, a doc, a word inside a doc" enterkeyhint="search" />
+      <input type="search" id="home-q" name="q" placeholder="Character, doc or any word" enterkeyhint="search" />
       <button type="submit">Search</button>
       <a class="button secondary" href="/search/" data-random>Random doc</a>
     </form>
@@ -27,9 +27,8 @@ const popular = [...characters].sort((a, b) => b.entries.length - a.entries.leng
       </ul>
     </div>
     <p class="stats-line">
-      {formatNumber(entries.length)} docs and stories · {formatNumber(characters.length)} characters · {formatNumber(series.length)} series · {(words / 1e6).toFixed(1)}M words
+      {formatNumber(entries.length)} docs · {formatNumber(characters.length)} characters · {formatNumber(series.length)} series · {(words / 1e6).toFixed(1)}M words
     </p>
-    <p class="submit-line">Know a doc that's missing? <a href="/submit/">Submit it</a></p>
   </section>
   {recent.length > 0 && (
     <section class="recent">

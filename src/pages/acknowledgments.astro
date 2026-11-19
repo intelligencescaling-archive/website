@@ -18,15 +18,15 @@ const counts = Object.fromEntries(Object.keys(LIBRARIES).map((k) => [k, entries.
       <li>
         <strong><a href={LIBRARIES.remastered.url} rel="noopener">{LIBRARIES.remastered.name}</a></strong> by{' '}
         <RedditHandle handle="TheMcBaconX" /> and <RedditHandle handle="BudgetPosition6080" />.
-        {formatNumber(counts.remastered)} entries.
+        {formatNumber(counts.remastered)} docs.
       </li>
       <li>
         <strong><a href={LIBRARIES.old.url} rel="noopener">{LIBRARIES.old.name}</a></strong>, the original library, by{' '}
-        <RedditHandle handle="BudgetPosition6080" />. {formatNumber(counts.old)} entries.
+        <RedditHandle handle="BudgetPosition6080" />. {formatNumber(counts.old)} docs.
       </li>
       <li>
         <strong><a href={LIBRARIES.stories.url} rel="noopener">{LIBRARIES.stories.name}</a></strong> by{' '}
-        <RedditHandle handle="ConversationSea1684" />. {formatNumber(counts.stories)} entries.
+        <RedditHandle handle="ConversationSea1684" />. {formatNumber(counts.stories)} docs.
       </li>
     </ul>
 

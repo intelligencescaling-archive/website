@@ -1,0 +1,14 @@
+---
+// Every doc on one page, longest first. The no-JavaScript route to the full list, and where the Search page's script
+// gets the rest of the rows (with their filter data) when someone filters, sorts or asks for more.
+import Base from '../../layouts/Base.astro';
+import EntryList from '../../components/EntryList.astro';
+import { loadArchive, docsLabel } from '../../lib/archive.mjs';
+const { entries } = loadArchive();
+---
+<Base title="All docs" section="search" description={`All ${docsLabel(entries.length)} in the archive on one page, longest first.`}>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/search/">Search</a></nav>
+  <h1>All docs</h1>
+  <p class="lede">{docsLabel(entries.length)}, longest first. <a href="/search/">Search and filter them</a>.</p>
+  <EntryList entries={entries} filterable id="list" />
+</Base>

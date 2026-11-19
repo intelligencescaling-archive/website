@@ -39,10 +39,11 @@ const stats = [
   e.pages > 0 && { v: formatNumber(e.pages), l: 'pages' },
   e.words > 0 && { v: formatNumber(e.words), l: 'words' },
   readTime && { v: readTime, l: 'read' },
-  savedDate && { v: formatDate(savedDate), l: savedLabel, iso: savedDate },
 ].filter(Boolean);
 if (stats.length > 4) stats.splice(stats.findIndex((s: any) => s.l === 'pages'), 1);
-const statusLabel = single && single.status !== 'complete' && single.status !== 'export-blocked' ? single : null;
+// The status badge under the header, unless a meta tag chip already says it ("Text only", "Original gone").
+const saidByChip = (p: any) => (p.recovered && e.tags.includes('text-only')) || ((p.status === 'dead' || p.status === 'private' || p.fromSnapshot) && e.tags.includes('original-gone'));
+const statusLabel = single && single.status !== 'complete' && single.status !== 'export-blocked' && !saidByChip(single) ? single : null;
 const topic = e.topics[0] || null;
 const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
 const relatedTitle = e.characters[0]
@@ -281,6 +282,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
               </li>
             ))}
           </ul>
+          {altTitles.length > 0 && <p class="small muted">Also listed as: {altTitles.join(' · ')}</p>}
         </details>
       )}
 
@@ -315,21 +317,6 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
       <details class="fold aside-fold">
       <summary><h2>Details</h2></summary>
       <dl class="facts">
-        <dt>Author</dt>
-        <dd>
-          {e.authors.length ? (
-            <ul>
-              {e.authors.map((a: any) => (
-                <li>
-                  <a href={`/authors/${a.key}/`}>{a.name}</a>
-                  {a.reddit && <> <span class="small"><RedditHandle handle={a.reddit} /></span></>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <span class="muted">Unknown</span>
-          )}
-        </dd>
         {e.sharedBy.length > 0 && (
           <>
             <dt>Shared by</dt>
@@ -352,16 +339,14 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
           </>
         )}
         {e.variant && (<><dt>Version</dt><dd>{e.variant}</dd></>)}
-        {altTitles.length > 0 && (<><dt>Also listed as</dt><dd><ul>{altTitles.map((t: string) => <li>{t}</li>)}</ul></dd></>)}
+        {altTitles.length > 0 && e.foundIn.length === 0 && (<><dt>Also listed as</dt><dd><ul>{altTitles.map((t: string) => <li>{t}</li>)}</ul></dd></>)}
         <dt>Language</dt>
         <dd>{e.languageName}</dd>
         {completion && (<><dt>Status</dt><dd>{completion}</dd></>)}
-        {e.words > 0 && (<><dt>Length</dt><dd>{formatNumber(e.words)} words{e.pages > 0 && `, ${formatNumber(e.pages)} pages`}</dd></>)}
-        <dt>Source</dt>
-        <dd><a href={`${ARCHIVE_REPO_URL}/tree/main/${e.repoPath}`} rel="noopener">Metadata on GitHub</a></dd>
+        {savedDate && (<><dt>{savedLabel === 'snapshot' ? 'Snapshot' : savedLabel === 'tried' ? 'Tried' : 'Saved'}</dt><dd><time datetime={savedDate}>{formatDate(savedDate)}</time></dd></>)}
       </dl>
       </details>
-      <details class="fold aside-fold">
+      <details class="fold aside-fold fold-shut">
         <summary><h2>Corrections and removal</h2></summary>
         <div>
           {sortTopic && <p class="small">Not sorted yet. <a href={correctionUrl} rel="noopener">Help sort it</a>.</p>}
@@ -372,6 +357,7 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
             </p>
           )}
           <p class="small"><a href={correctionUrl} rel="noopener">Suggest a correction</a></p>
+          <p class="small"><a href={`${ARCHIVE_REPO_URL}/tree/main/${e.repoPath}`} rel="noopener">Metadata on GitHub</a></p>
         </div>
         <p class="small muted mt">
           Are you the author? You can <a href={`/removal/?item=${e.id}`}>ask for this to be removed</a> or credited differently.

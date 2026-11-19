@@ -269,6 +269,18 @@ export function recentlyAdded(entries, n) {
   return newestEntries(entries.filter((e) => e.added > first), n);
 }
 
+/** "1 doc", "1,274 docs": the one noun for archive entries (stories included). */
+export function docsLabel(n) {
+  return `${formatNumber(n)} ${n === 1 ? 'doc' : 'docs'}`;
+}
+
+/** Aliases to show: without the name itself and without copies that differ only in case or spacing. */
+export function distinctAliases(name, aliases) {
+  const key = (x) => String(x).toLowerCase().replace(/\s+/g, ' ').trim();
+  const seen = new Set([key(name)]);
+  return aliases.map((a) => String(a).replace(/:\s*$/, '').trim()).filter((a) => a && !seen.has(key(a)) && seen.add(key(a)));
+}
+
 export function formatNumber(n) {
   return Number.isFinite(n) ? n.toLocaleString('en-US') : '';
 }

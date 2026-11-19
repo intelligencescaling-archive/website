@@ -5,7 +5,8 @@
   function set() {
     var open = !wide || wide.matches;
     var d = document.querySelectorAll('details.fold');
-    for (var i = 0; i < d.length; i++) d[i].open = open;
+    // .fold-shut stays closed on every screen size (e.g. "Corrections and removal").
+    for (var i = 0; i < d.length; i++) d[i].open = open && !d[i].classList.contains('fold-shut');
   }
   set();
   if (wide && wide.addEventListener) wide.addEventListener('change', set);

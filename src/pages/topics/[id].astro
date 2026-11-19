@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import { loadArchive } from '../../lib/archive.mjs';
+import { loadArchive, docsLabel } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
@@ -31,10 +31,10 @@ const helpUrl =
     ? issueUrl('Series for characters', 'Character:\nSeries it is from:\n')
     : issueUrl('Help sort entries', 'Entry (title or link):\nWhat it is about (series, characters, or a topic like SCD theory):\n');
 ---
-<Base title={t.name} section="topics" description={`${n} archived ${n === 1 ? 'entry' : 'entries'} in ${t.name}. ${t.desc}`}>
+<Base title={t.name} section="topics" description={`${docsLabel(n)} in ${t.name}. ${t.desc}`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/topics/">Topics</a></nav>
   <h1>{t.name}</h1>
-  <p class="lede">{n} {n === 1 ? 'entry' : 'entries'}. {t.desc} <a href={`/search/?topic=${t.id}`}>Filter these further</a>.</p>
+  <p class="lede">{docsLabel(n)}. {t.desc} <a href={`/search/?topic=${t.id}`}>Filter</a></p>
 
   {t.help && (
     <div class="note">
@@ -65,5 +65,5 @@ const helpUrl =
   )}
 
   <h2>Entries</h2>
-  <EntryList entries={t.entries} />
+  <EntryList entries={t.entries} limit={t.entries.length > 100 ? 50 : undefined} moreHref={`/search/?topic=${t.id}`} />
 </Base>

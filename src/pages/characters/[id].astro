@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
 import RealMark from '../../components/RealMark.astro';
-import { loadArchive } from '../../lib/archive.mjs';
+import { loadArchive, docsLabel, distinctAliases } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
   return loadArchive().characters.map((c) => ({ params: { id: c.id }, props: { c } }));
@@ -16,7 +16,7 @@ const { c } = Astro.props as { c: any };
   </nav>
   <span class="tg-kind k-char">{c.real ? 'Character · real person' : 'Character'}</span>
   <h1>{c.name}{c.real && <RealMark />}</h1>
-  {c.aliases.length > 0 && <p class="alt-titles">Also known as: {c.aliases.join(' · ')}</p>}
-  <p class="lede">{c.entries.length} {c.entries.length === 1 ? 'entry' : 'entries'}. <a href={`/search/?character=${c.id}`}>Filter these further</a>.</p>
-  <EntryList entries={c.entries} />
+  {distinctAliases(c.name, c.aliases).length > 0 && <p class="alt-titles">Also known as: {distinctAliases(c.name, c.aliases).join(' · ')}</p>}
+  <p class="lede">{docsLabel(c.entries.length)} · <a href={`/search/?character=${c.id}`}>Filter</a></p>
+  <EntryList entries={c.entries} limit={c.entries.length > 100 ? 50 : undefined} moreHref={`/search/?character=${c.id}`} />
 </Base>

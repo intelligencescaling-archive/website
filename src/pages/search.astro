@@ -4,9 +4,14 @@
 // /browse/ redirects here (public/_redirects), with the same query parameters.
 import Base from '../layouts/Base.astro';
 import EntryList from '../components/EntryList.astro';
-import { loadArchive, CATEGORY_PLURAL } from '../lib/archive.mjs';
+import { loadArchive, CATEGORY_PLURAL, docsLabel } from '../lib/archive.mjs';
 
 const { entries, series, characters, authors, tags, languages, origins, topics } = loadArchive();
+// Shown when a search finds nothing: the most-documented characters, as a way back in.
+const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length || a.name.localeCompare(b.name)).slice(0, 8);
+// The page ships the first FIRST rows of the list (longest first); the rest is on /search/all/, fetched only when
+// someone filters, sorts or asks for more. Without JavaScript, /search/all/ is the full list.
+const FIRST = 50;
 const cats = Object.keys(CATEGORY_PLURAL).filter((c) => entries.some((e) => e.category === c));
 // value = what goes in the URL (same as the old /browse/ links), pf = the Pagefind filter value.
 const facets = [
@@ -25,10 +30,10 @@ const facets = [
 
   <form class="search-box" id="search-form" role="search" action="/search/" method="get">
     <label for="q" class="visually-hidden">Search titles, authors, characters and the text of every doc</label>
-    <input type="search" id="q" name="q" autocomplete="off" enterkeyhint="search" placeholder="A character, a doc, a word inside a doc" />
+    <input type="search" id="q" name="q" autocomplete="off" enterkeyhint="search" placeholder="Character, doc or any word" />
     <button type="submit">Search</button>
   </form>
-  <noscript><p class="note">Searching needs JavaScript. The full list is below, and you can also go by <a href="/series/">series</a>, <a href="/characters/">character</a> or <a href="/authors/">author</a>.</p></noscript>
+  <noscript><p class="note">Searching needs JavaScript. Below are the {FIRST} longest docs; <a href="/search/all/">all {docsLabel(entries.length)} are on one page here</a>. You can also go by <a href="/series/">series</a>, <a href="/characters/">character</a> or <a href="/authors/">author</a>.</p></noscript>
 
   <div class="browse">
     <form class="filters" id="filters" aria-label="Filters" hidden>
@@ -52,7 +57,7 @@ const facets = [
     <div class="results-col">
       <div class="matches" id="matches" aria-live="polite" hidden></div>
       <div class="results-bar">
-        <p class="results-count" id="status" aria-live="polite">{entries.length.toLocaleString('en-US')} entries</p>
+        <p class="results-count" id="status" aria-live="polite">{entries.length.toLocaleString('en-US')} docs</p>
         <div class="results-tools" id="tools" hidden>
           <label for="sort" class="visually-hidden">Order</label>
           <select id="sort">
@@ -66,8 +71,15 @@ const facets = [
       </div>
       <ul class="chips active-filters" id="active" aria-label="Active filters" hidden></ul>
       <ol class="results" id="results" hidden></ol>
-      <button type="button" class="secondary more" id="more" hidden>Show more results</button>
-      <EntryList entries={entries} filterable id="list" />
+      <div class="no-results" id="no-results" hidden>
+        <p class="no-results-h">Nothing found for <q id="no-results-q"></q>.</p>
+        <p class="small muted">Try a character or series name, fewer words, or another spelling. Popular characters:</p>
+        <ul class="chips">
+          {popular.map((c) => <li><a class="tg k-char" href={`/characters/${c.id}/`}>{c.name}</a></li>)}
+        </ul>
+      </div>
+      <EntryList entries={entries} filterable id="list" limit={FIRST} />
+      <button type="button" class="secondary more" id="more" hidden>Show more</button>
       <p class="empty" id="empty" hidden>Nothing matches. <button type="button" class="linklike" id="clear-2">Clear all filters</button></p>
       <p class="small muted mt" id="dev-note" hidden>
         The search index only exists after a build. Run <code>npm run build</code> and <code>npm run preview</code>.

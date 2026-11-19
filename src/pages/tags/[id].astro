@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import { loadArchive, TAG_GROUPS } from '../../lib/archive.mjs';
+import { loadArchive, TAG_GROUPS, docsLabel } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
   return loadArchive().tags.map((t) => ({ params: { id: t.id }, props: { t } }));
@@ -11,16 +11,15 @@ const n = t.entries.length;
 const group = TAG_GROUPS.find((g) => g.id === t.group) || TAG_GROUPS[0];
 const oldNames = t.aliases.filter((a: string) => a.toLowerCase() !== t.name.toLowerCase());
 ---
-<Base title={`${t.name} (tag)`} description={`${n} archived ${n === 1 ? 'entry' : 'entries'} tagged ${t.name}.${t.definition ? ` ${t.definition}` : ''}`}>
+<Base title={`${t.name} (tag)`} description={`${docsLabel(n)} tagged ${t.name}.${t.definition ? ` ${t.definition}` : ''}`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/tags/">Tags</a></nav>
   <span class={`tg-kind k-${t.group}`}>{group.name}</span>
   <h1>{t.name}</h1>
   {t.definition && <p class="lede">{t.definition}</p>}
   {oldNames.length > 0 && <p class="tag-old">Old tag {oldNames.length === 1 ? 'name' : 'names'}: {oldNames.join(', ')}</p>}
   <p>
-    <b>{n.toLocaleString('en-US')} {n === 1 ? 'entry' : 'entries'}</b>.
-    {n > 0 && <a href={`/search/?tag=${t.id}`}>Filter these further</a>}
-    {n === 0 && 'Nothing has this tag yet.'}
+    <b>{docsLabel(n)}</b>
+    {n > 0 ? <> · <a href={`/search/?tag=${t.id}`}>Filter</a></> : '. Nothing has this tag yet.'}
   </p>
-  {n > 0 && <EntryList entries={t.entries} />}
+  {n > 0 && <EntryList entries={t.entries} limit={n > 100 ? 50 : undefined} moreHref={`/search/?tag=${t.id}`} />}
 </Base>

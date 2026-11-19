@@ -18,10 +18,38 @@ const isRule = (w) => /^[\p{Pd}_=~*•·─━.]{3,}$/u.test(w) || /^[\p{Pd}_=~*
  * appended after it). Returns false when the words only match the title, author or other metadata:
  * then no excerpt is shown, since it would only repeat the title and author.
  */
+// Links in doc text ("https://youtu.be/…", "{https://ibb.co/…}") are noise in an excerpt: shown as "(link)".
+const isUrl = (w) => /https?:\/\/|www\.|\.(?:com|org|net|io|gg|be|ly|co)\/|\.(?:com|org|net)\b/i.test(w);
+
+/**
+ * True when a result really contains the searched words. Pagefind also returns loose matches (for "qxjvbzqk" it
+ * finds "Qx4" and bits of URLs); a matched word counts only when it is not part of a link and shares most of its
+ * start with a search word ("gamble" for "gambling" and "Ayanokoji" for "ayanokouji" count, "Qx4" doesn't).
+ * Search words shorter than 4 letters are trusted as they are.
+ */
+function strongMatch(d, query) {
+  const terms = norm(query).split(' ').filter((t) => t.length >= 4);
+  if (!terms.length) return true;
+  const words = (d.content || '').split(/\s+/);
+  for (const l of d.locations || []) {
+    const w = words[l] || '';
+    if (isUrl(w)) continue;
+    const nw = norm(w).replace(/ /g, '');
+    for (const t of terms) {
+      if (nw.includes(t)) return true;
+      const need = Math.min(t.length, Math.max(4, Math.ceil(t.length * 0.6)));
+      let k = 0;
+      while (k < t.length && k < nw.length && t[k] === nw[k]) k++;
+      if (k >= need) return true;
+    }
+  }
+  return false;
+}
+
 function appendDocExcerpt(target, d, query) {
   const words = (d.content || '').split(/\s+/);
   const limit = words.length - Number(d.meta?.hw || 0) - 2;
-  const loc = (d.locations || []).find((l) => l < limit);
+  const loc = (d.locations || []).find((l) => l < limit && !isUrl(words[l]));
   if (loc === undefined || limit < 1) return false;
   const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
   const end = Math.min(limit, loc + 28);
@@ -29,6 +57,11 @@ function appendDocExcerpt(target, d, query) {
   let lastRule = false;
   for (let i = loc; i < end; i++) {
     const w = words[i];
+    if (isUrl(w)) {
+      if (!lastRule) target.append('(link) ');
+      lastRule = true;
+      continue;
+    }
     if (isRule(w)) {
       if (!lastRule) target.append('— ');
       lastRule = true;
@@ -118,6 +151,8 @@ export async function initSearch() {
   const active = document.getElementById('active');
   const empty = document.getElementById('empty');
   const matchesBox = document.getElementById('matches');
+  const noResults = document.getElementById('no-results');
+  const noResultsQ = document.getElementById('no-results-q');
   const doneBtn = document.getElementById('sheet-done');
   const sheet = initSheet({
     form: filtersForm,
@@ -128,11 +163,41 @@ export async function initSearch() {
 
   // Rows of the full list, for filtering without a search.
   const facetKeys = selects.map((s) => s.dataset.facet);
-  const rows = [...list.children].map((li, i) => {
+  // The page ships only the first rows of the list (longest first). The rest, with the same filter data, is on
+  // /search/all/ and is fetched once, the first time someone filters, sorts or asks for more.
+  const total = Number(list.dataset.total) || list.children.length;
+  const toRows = (lis) => lis.map((li, i) => {
     const sets = {};
     for (const k of facetKeys) sets[k] = new Set((li.dataset[k] || '').split(' ').filter(Boolean));
     return { li, i, sets, words: Number(li.dataset.words) || 0, rank: Number(li.dataset.rank) || 0 };
   });
+  let rows = toRows([...list.children]);
+  let allLoaded = rows.length >= total;
+  let allPromise = null;
+  function loadAll() {
+    if (allLoaded) return Promise.resolve(true);
+    if (!allPromise) {
+      allPromise = fetch('/search/all/')
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+        .then((html) => {
+          // Our own build output (Astro escapes all archive text); only the list's rows are taken over.
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const all = doc.getElementById('list');
+          if (!all) throw new Error('no list');
+          const lis = [...all.children].map((li) => document.adoptNode(li));
+          list.replaceChildren(...lis);
+          rows = toRows(lis);
+          allLoaded = true;
+          lastSort = 'long';
+          return true;
+        })
+        .catch(() => {
+          allPromise = null;
+          return false;
+        });
+    }
+    return allPromise;
+  }
 
   // Restore state from the URL. Values can be ids (?series=death-note, as old /browse/ links) or
   // names (?series=Death Note, as old /search/ links).
@@ -233,36 +298,46 @@ export async function initSearch() {
 
   // ----- Without a search: filter and sort the full list -----
   let lastSort = 'long'; // the HTML list comes longest first
+  const BROWSE_PAGE = 50;
+  let browseLimit = BROWSE_PAGE; // rows shown; "Show more" adds BROWSE_PAGE
+  /** True when nothing is chosen: the rows in the HTML are already the right ones. */
+  const isDefaultView = () => !activeSelects().length && setSortChoices(false) === 'long';
   function browse() {
     const chosen = Object.fromEntries(selects.map((s) => [s.dataset.facet, s.value]));
     const facetOk = (r, k) => !chosen[k] || r.sets[k].has(chosen[k]);
     const counts = Object.fromEntries(facetKeys.map((k) => [k, new Map()]));
     let shown = 0;
+    const sort = setSortChoices(false);
+    if (sort !== lastSort && allLoaded) {
+      lastSort = sort;
+      const sorted = [...rows].sort((a, b) =>
+        sort === 'title' ? a.rank - b.rank : sort === 'short' ? a.words - b.words || a.rank - b.rank : a.i - b.i,
+      );
+      list.append(...sorted.map((r) => r.li));
+      rows = sorted;
+    }
     for (const r of rows) {
       const fails = facetKeys.filter((k) => !facetOk(r, k));
-      r.li.hidden = fails.length > 0;
-      if (!r.li.hidden) shown++;
+      // Matching rows past the limit stay hidden until "Show more".
+      r.li.hidden = fails.length > 0 || shown >= browseLimit;
+      if (fails.length === 0) shown++;
       for (const k of facetKeys) {
         if (fails.length === 0 || (fails.length === 1 && fails[0] === k)) {
           for (const v of r.sets[k]) counts[k].set(v, (counts[k].get(v) || 0) + 1);
         }
       }
     }
-    setCounts((s, o) => counts[s.dataset.facet].get(o.value) || 0);
-    const sort = setSortChoices(false);
-    if (sort !== lastSort) {
-      lastSort = sort;
-      const sorted = [...rows].sort((a, b) =>
-        sort === 'title' ? a.rank - b.rank : sort === 'short' ? a.words - b.words || a.rank - b.rank : a.i - b.i,
-      );
-      list.append(...sorted.map((r) => r.li));
-    }
+    // Option counts need every row; with only the first rows on the page they wait until the rest is loaded.
+    if (allLoaded) setCounts((s, o) => counts[s.dataset.facet].get(o.value) || 0);
+    if (!allLoaded) shown = total;
     list.classList.toggle('one-category', !!chosen.cat);
-    showCount(shown, 'entry', 'entries');
+    showCount(shown, 'doc', 'docs');
     empty.hidden = shown > 0;
+    noResults.hidden = true;
     list.hidden = false;
     results.hidden = true;
-    moreBtn.hidden = true;
+    moreBtn.disabled = false;
+    moreBtn.hidden = shown <= browseLimit;
     matchesBox.hidden = true;
   }
 
@@ -270,9 +345,14 @@ export async function initSearch() {
   let current = null; // { res, q }: the search whose results are on screen
   let shown = 0;
 
-  /** Result rows for a batch of Pagefind results, as one fragment (nothing touches the page yet). */
-  async function buildRows(batch, q) {
+  /** Loads a batch of Pagefind results and keeps the real matches (see strongMatch). */
+  async function strongData(batch, q) {
     const data = await Promise.all(batch.map((r) => r.data()));
+    return data.filter((d) => strongMatch(d, q));
+  }
+
+  /** Result rows for loaded results, as one fragment (nothing touches the page yet). */
+  function buildRows(data, q) {
     const frag = document.createDocumentFragment();
     for (const d of data) {
       const meta = d.meta || {};
@@ -306,7 +386,7 @@ export async function initSearch() {
     const batch = res.results.slice(shown, shown + PAGE);
     shown += batch.length;
     moreBtn.disabled = true;
-    const frag = await buildRows(batch, q);
+    const frag = buildRows(await strongData(batch, q), q);
     if (current?.res !== res) return; // a newer search replaced these results meanwhile
     results.append(frag);
     moreBtn.disabled = false;
@@ -324,7 +404,7 @@ export async function initSearch() {
     }
     const [top, ...rest] = found;
     const kindOf = (k) => KINDS.find((x) => x[0] === k);
-    const subLine = (m) => [m.role || kindOf(m.k)[2], m.sub, plural(m.count, 'entry', 'entries')].filter(Boolean).join(' · ');
+    const subLine = (m) => [m.role || kindOf(m.k)[2], m.sub, plural(m.count, 'doc', 'docs')].filter(Boolean).join(' · ');
     const parts = [
       el('h2', { className: 'match-h', textContent: 'Top result' }),
       el('a', { className: 'top-result', href: top.href }, el('span', { className: 'top-name', textContent: top.name }), el('span', { className: 'top-sub', textContent: subLine(top) })),
@@ -348,7 +428,7 @@ export async function initSearch() {
         ),
       );
     }
-    parts.push(el('h2', { className: 'match-h docs-h', textContent: 'Docs and stories' }));
+    parts.push(el('h2', { className: 'match-h docs-h', textContent: 'Docs' }));
     matchesBox.replaceChildren(...parts);
     matchesBox.hidden = false;
   }
@@ -362,22 +442,27 @@ export async function initSearch() {
     if (!pf) return true; // no index (dev): leave the list as it is
     const res = await pf.search(q, { filters, sort: SORTS[sort] });
     if (isStale()) return false;
-    const n = res.results.length;
-    const frag = n ? await buildRows(res.results.slice(0, PAGE), q) : null;
+    const first = res.results.length ? await strongData(res.results.slice(0, PAGE), q) : [];
     if (isStale()) return false;
+    // No real match on the first page: Pagefind only found loose bits (see strongMatch), so it's "nothing found".
+    // When every result fits on the first page, the count is the real matches.
+    const n = !first.length ? 0 : res.results.length <= PAGE ? first.length : res.results.length;
+    const frag = n ? buildRows(first, q) : null;
     // Commit: everything below changes together, so the page only shifts once.
     current = { res, q };
-    shown = frag ? Math.min(PAGE, n) : 0;
+    shown = frag ? Math.min(PAGE, res.results.length) : 0;
     list.hidden = true;
     empty.hidden = true;
+    noResults.hidden = n > 0;
+    noResultsQ.textContent = q;
     renderMatches(q);
     results.replaceChildren(...(frag ? [frag] : []));
     results.hidden = false;
     moreBtn.disabled = false;
-    moreBtn.hidden = shown >= n;
-    if (n) showCount(n, 'result', 'results');
+    moreBtn.hidden = !n || shown >= res.results.length;
+    if (n) showCount(n, 'doc', 'docs');
     else {
-      status.textContent = 'No results. Try other words, another spelling, or fewer filters.';
+      status.textContent = activeSelects().length ? 'No docs. Try fewer filters.' : 'No docs';
       doneBtn.textContent = 'Show results';
     }
     const counts = res.filters || {};
@@ -407,6 +492,12 @@ export async function initSearch() {
       if ((await search(q, () => id !== runId)) === false) return;
     } else {
       current = null;
+      browseLimit = BROWSE_PAGE; // a new filter or sort starts from the top again
+      if (!isDefaultView() && !allLoaded) {
+        status.textContent = 'Loading…';
+        await loadAll();
+        if (id !== runId) return;
+      }
       browse();
     }
     document.documentElement.classList.remove('search-pending');
@@ -444,7 +535,20 @@ export async function initSearch() {
   };
   document.getElementById('clear-filters').addEventListener('click', clearAll);
   document.getElementById('clear-2').addEventListener('click', clearAll);
-  moreBtn.addEventListener('click', renderMore);
+  // "Show more": the next page of search results, or (no search) the next rows of the list.
+  moreBtn.addEventListener('click', async () => {
+    if (current) return renderMore();
+    moreBtn.disabled = true;
+    moreBtn.textContent = 'Loading…';
+    const ok = await loadAll();
+    moreBtn.textContent = 'Show more';
+    if (!ok) {
+      location.href = '/search/all/';
+      return;
+    }
+    browseLimit += BROWSE_PAGE;
+    browse();
+  });
   // Clicking a result (or a top-result link) or leaving the page counts the search on screen now.
   for (const box of [results, matchesBox]) box.addEventListener('click', (ev) => ev.target.closest?.('a') && counter.flush());
   addEventListener('pagehide', counter.flush);
