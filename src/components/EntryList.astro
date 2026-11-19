@@ -54,7 +54,7 @@ const statusShown = (e: any) => e.status !== 'complete' && !(e.status === 'dead'
     >
       <div class="entry-title">
         <a href={`/items/${e.id}/`}>{e.title}</a>
-        {e.category !== 'doc' && !oneCategory && <> <span class="badge cat">{e.categoryName}</span></>}
+        {e.category !== 'doc' && !oneCategory && !e.tags.includes(e.category) && <> <span class="badge cat">{e.categoryName}</span></>}
         {statusShown(e) && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
         {e.tagList.filter((t: any) => t.group === 'meta' && !commonTags.has(t.id)).map((t: any) => <> <span class="stat-l">{t.name}</span></>)}
       </div>
