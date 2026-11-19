@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import EntryList from '../../components/EntryList.astro';
+import DocList from '../../components/DocList.astro';
 import { loadArchive, TAG_GROUPS, docsLabel } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
@@ -12,14 +12,13 @@ const group = TAG_GROUPS.find((g) => g.id === t.group) || TAG_GROUPS[0];
 const oldNames = t.aliases.filter((a: string) => a.toLowerCase() !== t.name.toLowerCase());
 ---
 <Base section="tags" title={`${t.name} (tag)`} description={`${docsLabel(n)} tagged ${t.name}.${t.definition ? ` ${t.definition}` : ''}`}>
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/tags/">Tags</a></nav>
-  <span class={`tg-kind k-${t.group}`}>{group.name}</span>
-  <h1>{t.name}</h1>
-  {t.definition && <p class="lede">{t.definition}</p>}
-  {oldNames.length > 0 && <p class="tag-old">Old tag {oldNames.length === 1 ? 'name' : 'names'}: {oldNames.join(', ')}</p>}
-  <p>
-    <b>{docsLabel(n)}</b>
-    {n > 0 ? <> · <a href={`/search/?tag=${t.id}`}>Filter</a></> : '. Nothing has this tag yet.'}
-  </p>
-  {n > 0 && <EntryList entries={t.entries} limit={n > 100 ? 50 : undefined} moreHref={`/search/?tag=${t.id}`} />}
+  <div class="main">
+    <h1>{t.name}</h1>
+    <p class="m1"><a class="il" href="/tags/">{group.name}</a> · {docsLabel(n)}</p>
+    {oldNames.length > 0 && <p class="m1">Also: {oldNames.join(', ')}</p>}
+    {t.definition && <p class="desc">{t.definition}</p>}
+    {n > 0 ? (
+      <DocList label="Docs" entries={t.entries} skipTag={t.id} limit={n > 100 ? 50 : undefined} moreHref={`/search/?tag=${t.id}`} />
+    ) : <p class="zero">No docs yet.</p>}
+  </div>
 </Base>

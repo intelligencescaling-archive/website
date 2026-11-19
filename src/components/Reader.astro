@@ -135,7 +135,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
       {page < pages.length - 1 ? (
         <nav class="r-pager r-pager-end" aria-label="Pages">
           <span>Page {page + 1} of {pages.length}</span>
-          <a class="button" href={pageHref(page + 1)} rel="next">Next page ({time(pages[page + 1].words)}) →</a>
+          <a class="btn" href={pageHref(page + 1)} rel="next">Next page ({time(pages[page + 1].words)}) →</a>
         </nav>
       ) : (
         <p class="r-end"><a href={itemHref}>Back to {e.title}</a></p>
@@ -197,7 +197,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
         <button type="button" data-w="wide" aria-pressed="false">Wide</button>
       </div>
     </div>
-    <button type="button" class="secondary r-done" data-close>Done</button>
+    <button type="button" class="r-done" data-close>Done</button>
   </dialog>
 
   {hasNav && (
@@ -245,7 +245,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
         ))}
       </div>
       <div class="r-nav-btns">
-        <a class="button secondary" href={pageHref(0)} id="r-start">Back to start</a>
+        <a class="tbtn" href={pageHref(0)} id="r-start">Back to start</a>
         <button type="button" data-close>Done</button>
       </div>
     </dialog>

@@ -1,8 +1,12 @@
 ---
+// Series page (rules.md 3.1, AniList overview): title + one meta line, the series' own cast (8 + "All"), its docs
+// (10 + "All", sort), then crossover characters and authors (folds on phones, the side column on desktop).
 import Base from '../../layouts/Base.astro';
-import EntryList from '../../components/EntryList.astro';
-import RealMark from '../../components/RealMark.astro';
+import DocList from '../../components/DocList.astro';
+import NameList from '../../components/NameList.astro';
+import Blk from '../../components/Blk.astro';
 import { loadArchive, docsLabel, distinctAliases } from '../../lib/archive.mjs';
+import { shortAlias } from '../../lib/ui.mjs';
 
 export function getStaticPaths() {
   const { series, characters } = loadArchive();
@@ -12,26 +16,50 @@ export function getStaticPaths() {
   }));
 }
 const { s, chars } = Astro.props as { s: any; chars: any[] };
-// On a series of only real people (History) the mark would be on every chip, so it is left out there.
-const allReal = chars.length > 0 && chars.every((c) => c.real);
 const countIn = (c: any) => c.entries.filter((e: any) => e.series.some((x: any) => x.id === s.id)).length;
-const aliases = distinctAliases(s.name, s.aliases);
+const byCount = (a: any, b: any) => b.count - a.count || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+// The series' own cast; characters from other series who appear in its docs are "Crossovers".
+const allReal = chars.length > 0 && chars.every((c) => c.real);
+const own = chars.filter((c) => c.seriesId === s.id || !c.seriesId);
+const cast = own.map((c) => ({ href: `/characters/${c.id}/`, name: c.name, sub: c.real && !allReal ? 'real person' : null, count: countIn(c) })).sort(byCount);
+const others = chars.filter((c) => !own.includes(c)).map((c) => ({ href: `/characters/${c.id}/`, name: c.name, sub: c.seriesName, count: countIn(c) })).sort(byCount);
+const auMap = new Map<string, any>();
+for (const e of s.entries) for (const a of e.authors) {
+  const x = auMap.get(a.key) || { href: `/authors/${a.key}/`, name: a.name, count: 0 };
+  x.count++;
+  auMap.set(a.key, x);
+}
+const authors = [...auMap.values()].sort(byCount);
+const alias = shortAlias(s.name, s.aliases);
+const aliases = distinctAliases(s.name, s.aliases).filter((a: string) => a !== alias);
+// A series about one character: no roster, the character is a link in the meta line.
+const single = cast.length === 1 && others.length === 0;
 ---
 <Base title={s.name} section="series" description={`${docsLabel(s.entries.length)} about ${s.name}.`}>
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/series/">Series</a></nav>
-  <span class="tg-kind k-ser">Series</span>
-  <h1>{s.name}</h1>
-  {s.originLabel && <p class="alt-titles">Original: {s.originLabel}</p>}
-  {aliases.length > 0 && <p class="alt-titles">Also known as: {aliases.join(' · ')}</p>}
-  <p class="lede">{docsLabel(s.entries.length)} · <a href={`/search/?series=${s.id}`}>Filter</a></p>
-  {chars.length > 0 && (
-    <>
-      <h2>Characters</h2>
-      <ul class="chips">
-        {chars.map((c) => <li><a class="tg k-char" href={`/characters/${c.id}/`}>{c.name}{c.real && !allReal && <RealMark />} <span class="count">{countIn(c)}</span></a></li>)}
-      </ul>
-    </>
-  )}
-  <h2>Entries</h2>
-  <EntryList entries={s.entries} limit={s.entries.length > 100 ? 50 : undefined} moreHref={`/search/?series=${s.id}`} />
+  <div class="cols reorder">
+    <div class="main">
+      <div class="o1">
+        <h1>{s.name}</h1>
+        <p class="m1">
+          {[alias, s.originLabel, docsLabel(s.entries.length)].filter(Boolean).join(' · ')}
+          {single && <> · <a class="il" href={cast[0].href}>{cast[0].name}</a></>}
+        </p>
+        {aliases.length > 0 && <p class="m1">Also: {aliases.join(', ')}</p>}
+      </div>
+      <DocList class="o3" label="Docs" entries={s.entries} known={single ? own[0].id : s.id} />
+    </div>
+    <div class="side">
+      {!single && cast.length > 0 && <NameList class="o2" label={cast.length === 1 ? 'Character' : 'Characters'} items={cast} cap={8} noun="characters" />}
+      {others.length > 0 && (
+        <Blk class="o4" label={others.length === 1 ? 'Crossover' : 'Crossovers'} count={others.length} right="Docs">
+          <NameList bare items={others} cap={5} noun="crossovers" />
+        </Blk>
+      )}
+      {authors.length > 0 && (
+        <Blk class="o4" label={authors.length === 1 ? 'Author' : 'Authors'} count={authors.length} right="Docs" single={authors.length === 1}>
+          <NameList bare items={authors} cap={5} noun="authors" />
+        </Blk>
+      )}
+    </div>
+  </div>
 </Base>

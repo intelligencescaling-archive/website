@@ -5,10 +5,13 @@ import { loadArchive } from '../../lib/archive.mjs';
 const { characters } = loadArchive();
 ---
 <Base title="Characters" section="characters" description="Every character with archived docs.">
-  <h1>Characters</h1>
-  <p class="lede">{characters.length} characters.</p>
-  <IndexList
-    noun="characters"
-    items={characters.map((c) => ({ href: `/characters/${c.id}/`, name: c.name, count: c.entries.length, sub: c.seriesName, match: c.aliases }))}
-  />
+  <div class="main">
+    <h1>Characters</h1>
+    <p class="m1">{characters.length} characters</p>
+    <IndexList
+      label="Characters"
+      noun="characters"
+      items={characters.map((c) => ({ href: `/characters/${c.id}/`, name: c.name, count: c.entries.length, sub: c.seriesName, match: c.aliases }))}
+    />
+  </div>
 </Base>

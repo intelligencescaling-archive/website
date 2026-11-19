@@ -1,91 +1,110 @@
 ---
-// One page for finding things. Empty box: the full list, with filters and sort (works without
-// JavaScript as a plain list). Typed words: full-text search with the same filters.
-// /browse/ redirects here (public/_redirects), with the same query parameters.
+// One page for finding things (rules.md 3.3, Raycast store search). Empty box: the full list (longest first) with
+// filters and sort; works without JavaScript as a plain list. Typed words: name matches in groups (characters,
+// series, authors, tags) and full-text doc results, with scope tabs. /browse/ redirects here with the same parameters.
 import Base from '../layouts/Base.astro';
-import EntryList from '../components/EntryList.astro';
-import { loadArchive, CATEGORY_PLURAL, docsLabel } from '../lib/archive.mjs';
+import Icon from '../components/Icon.astro';
+import DocList from '../components/DocList.astro';
+import { loadArchive, CATEGORY_PLURAL, TAG_GROUPS, docsLabel } from '../lib/archive.mjs';
+import { LENGTHS, lengthBucket } from '../lib/length.mjs';
 
-const { entries, series, characters, authors, tags, languages, origins, topics } = loadArchive();
-// Shown when a search finds nothing: the most-documented characters, as a way back in.
-const popular = [...characters].sort((a, b) => b.entries.length - a.entries.length || a.name.localeCompare(b.name)).slice(0, 8);
-// The page ships the first FIRST rows of the list (longest first); the rest is on /search/all/, fetched only when
-// someone filters, sorts or asks for more. Without JavaScript, /search/all/ is the full list.
+const { entries, tags, languages, origins, topics } = loadArchive();
+// The page ships the first FIRST rows of the list; the rest is on /search/all/, fetched only when someone filters,
+// sorts or asks for more. Without JavaScript, /search/all/ is the full list.
 const FIRST = 50;
-const cats = Object.keys(CATEGORY_PLURAL).filter((c) => entries.some((e) => e.category === c));
-// value = what goes in the URL (same as the old /browse/ links), pf = the Pagefind filter value.
-const facets = [
-  { key: 'cat', param: 'category', group: 'Category', label: 'Category', hide: true, options: cats.map((c) => { const n = CATEGORY_PLURAL[c as keyof typeof CATEGORY_PLURAL]; return { v: c, n, pf: n }; }) },
-  { key: 'origin', param: 'source', group: 'Source language', label: 'Original language', options: origins.filter((o) => o.entries.length).map((o) => ({ v: o.id, n: o.name, pf: o.name })) },
-  { key: 'series', param: 'series', group: 'Series', label: 'Series', options: [...series.map((s) => ({ v: s.id, n: s.name, pf: s.name })), { v: '_none', n: '(No series)', pf: '(No series)' }] },
-  { key: 'topics', param: 'topic', group: 'Topic', label: 'Topic', hide: true, options: topics.filter((t) => t.entries.length).map((t) => ({ v: t.id, n: t.name, pf: t.name })) },
-  { key: 'chars', param: 'character', group: 'Character', label: 'Character', hide: true, options: characters.map((c) => ({ v: c.id, n: c.name, pf: c.name })) },
-  { key: 'authors', param: 'author', group: 'Author', label: 'Author', hide: true, options: [{ v: '_unknown', n: 'Unknown author', pf: 'Unknown author' }, ...authors.map((a) => ({ v: a.key, n: a.name, pf: a.name }))] },
-  { key: 'tags', param: 'tag', group: 'Tag', label: 'Tag', options: tags.map((t) => ({ v: t.id, n: t.name, pf: t.id })) },
-  { key: 'lang', param: 'language', group: 'Language', label: 'Written in', options: languages.map((l) => ({ v: l.id, n: l.name, pf: l.name })) },
+const count = (pred: (e: any) => boolean) => entries.filter(pred).length;
+// Checkbox filters (several values per group = any of them). key = the row's data-* set, param = URL, group = Pagefind.
+const tagOrder = TAG_GROUPS.map((g) => g.id);
+const groups = [
+  {
+    key: 'tags', param: 'tag', group: 'Tag', label: 'Kind',
+    options: tags.filter((t) => t.entries.length).sort((a, b) => tagOrder.indexOf(a.group) - tagOrder.indexOf(b.group) || b.entries.length - a.entries.length)
+      .map((t) => ({ v: t.id, n: t.name, pf: t.id, c: t.entries.length, alias: t.aliases.join('|') })),
+  },
+  { key: 'len', param: 'length', group: 'Length', label: 'Length', options: LENGTHS.map((l) => ({ v: l.id, n: l.name, pf: l.id, c: count((e) => lengthBucket(e.words) === l.id), alias: '' })) },
+  { key: 'lang', param: 'language', group: 'Language', label: 'Written in', options: languages.map((l) => ({ v: l.id, n: l.name, pf: l.name, c: l.entries.length, alias: '' })) },
+  { key: 'origin', param: 'source', group: 'Source language', label: 'Original language', options: origins.filter((o) => o.entries.length).map((o) => ({ v: o.id, n: o.name, pf: o.name, c: o.entries.length, alias: '' })) },
 ];
+// Filters set only by links (?series=, ?character=, ?author=, ?topic=, ?category=): one value each, shown as a chip.
+// Names of characters, series and authors come from /names.json; topics and categories are small enough to inline.
+const linkFacets = {
+  topic: topics.filter((t) => t.entries.length).map((t) => [t.id, t.name]),
+  category: Object.keys(CATEGORY_PLURAL).filter((c) => entries.some((e) => e.category === c)).map((c) => [c, CATEGORY_PLURAL[c as keyof typeof CATEGORY_PLURAL]]),
+};
+const facetJson = JSON.stringify(linkFacets).replace(/</g, '\\u003c');
 ---
-<Base title="Search" section="search" description="Search inside every archived doc and story, or list them all and filter by series, character, author, tag and length.">
-  <h1 class="search-h1">Search</h1>
-
-  <form class="search-box" id="search-form" role="search" action="/search/" method="get">
-    <label for="q" class="visually-hidden">Search titles, authors, characters and the text of every doc</label>
-    <input type="search" id="q" name="q" autocomplete="off" enterkeyhint="search" placeholder="Character, doc or any word" />
-    <button type="submit">Search</button>
-  </form>
-  <noscript><p class="note">Searching needs JavaScript. Below are the {FIRST} longest docs; <a href="/search/all/">all {docsLabel(entries.length)} are on one page here</a>. You can also go by <a href="/series/">series</a>, <a href="/characters/">character</a> or <a href="/authors/">author</a>.</p></noscript>
-
-  <div class="browse">
-    <form class="filters" id="filters" aria-label="Filters" hidden>
-      <div class="filters-head">
-        <h2>Filters</h2>
-        <button type="button" class="linklike" id="clear-filters">Clear all</button>
-      </div>
-      {facets.map((f: any) => (
-        // Hidden facets have no dropdown in the sheet (typing a name finds characters and authors as Top result), but
-        // links like /search/?character=… still filter by them and show a removable chip.
-        <div hidden={f.hide}>
-          <label for={`f-${f.key}`}>{f.label}</label>
-          <select id={`f-${f.key}`} name={f.param} data-facet={f.key} data-group={f.group}>
-            <option value="" data-label="Any">Any</option>
-            {f.options.map((o) => <option value={o.v} data-label={o.n} data-pf={o.pf}>{o.n}</option>)}
-          </select>
+<Base title="Search" section="search" tight description="Search inside every archived doc and story, or list them all and filter by series, character, author, tag and length.">
+  <script type="application/json" id="facet-data" set:html={facetJson} />
+  <div class="cols">
+    <div class="main">
+      <form class="srow" id="search-form" role="search" action="/search/" method="get">
+        <div class="sbox">
+          <Icon name="search" class="ic" />
+          <label for="q" class="visually-hidden">Search titles, authors, characters and the text of every doc</label>
+          <input type="search" id="q" name="q" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Character, doc or any word" />
+          <button class="clr" type="button" id="clear-q" aria-label="Clear" hidden><Icon name="x" /></button>
         </div>
-      ))}
-      <div class="filters-foot"><button type="button" id="sheet-done">Show results</button></div>
-    </form>
-    <div class="sheet-backdrop" id="sheet-backdrop"></div>
+        <button type="button" class="fbtn js-only" id="filter-toggle" aria-controls="filters" aria-expanded="false" aria-label="Filters"><Icon name="sliders" /><span class="n" id="fcount"></span></button>
+      </form>
+      <noscript><p class="zero">Searching needs JavaScript. Below are the {FIRST} longest docs; <a class="il" href="/search/all/">all {docsLabel(entries.length)} are on one page here</a>.</p></noscript>
 
-    <div class="results-col">
-      <div class="matches" id="matches" aria-live="polite" hidden></div>
-      <div class="results-bar">
-        <p class="results-count" id="status" aria-live="polite">{entries.length.toLocaleString('en-US')} docs</p>
-        <div class="results-tools" id="tools" hidden>
-          <label for="sort" class="visually-hidden">Order</label>
-          <select id="sort">
-            <option value="best">Best match</option>
-            <option value="long">Longest</option>
-            <option value="title">A–Z</option>
-            <option value="short">Shortest</option>
-          </select>
-          <button type="button" class="secondary filter-toggle" id="filter-toggle" aria-controls="filters" aria-expanded="false">Filters</button>
+      <div class="res">
+        <ul class="chips" id="active" aria-label="Active filters" hidden></ul>
+        <div class="tabw scope" id="scope-w" hidden><div class="tabs" role="tablist" aria-label="Scope" id="scope" data-fit></div></div>
+        <div id="groups" aria-live="polite"></div>
+        <section class="grp" id="docs-sec">
+          <div class="lh">
+            <h2 class="sl" id="status" aria-live="polite">{entries.length.toLocaleString('en-US')} docs</h2>
+            <button class="sort js-only" type="button" id="sort-btn" aria-haspopup="menu" aria-expanded="false" data-sort-btn><span>Most words</span><Icon name="down" /></button>
+            <div class="pop" role="menu" hidden data-sort-pop id="sort-pop">
+              <button type="button" role="menuitemradio" aria-checked="false" data-ssort="best" hidden>Best match</button>
+              <button type="button" role="menuitemradio" aria-checked="true" data-ssort="long">Most words</button>
+              <button type="button" role="menuitemradio" aria-checked="false" data-ssort="title">A–Z</button>
+            </div>
+          </div>
+          <ol class="ls" id="results" hidden></ol>
+          <DocList entries={entries} filterable id="list" limit={FIRST} cap={0} />
+          <button type="button" class="more" id="more" hidden><span class="lbl">Show more</span><Icon name="down" class="chev" /></button>
+          <div class="end" id="docs-end"></div>
+        </section>
+        <div id="no-results" hidden>
+          <p class="zero">No results for “<span id="no-results-q"></span>”</p>
+          <section class="grp" id="dym" hidden>
+            <div class="sh"><h2 class="sl">Did you mean</h2><span class="sl">Docs</span></div>
+            <ul id="dym-list"></ul>
+          </section>
         </div>
+        <p class="zero" id="empty" hidden>No docs match these filters.</p>
+        <p class="zero" id="dev-note" hidden>The search index only exists after a build. Run <code>npm run build</code> and <code>npm run preview</code>.</p>
       </div>
-      <ul class="chips active-filters" id="active" aria-label="Active filters" hidden></ul>
-      <ol class="results" id="results" hidden></ol>
-      <div class="no-results" id="no-results" hidden>
-        <p class="no-results-h">Nothing found for <q id="no-results-q"></q>.</p>
-        <p class="small muted">Try a character or series name, fewer words, or another spelling. Popular characters:</p>
-        <ul class="chips">
-          {popular.map((c) => <li><a class="tg k-char" href={`/characters/${c.id}/`}>{c.name}</a></li>)}
-        </ul>
-      </div>
-      <EntryList entries={entries} filterable id="list" limit={FIRST} />
-      <button type="button" class="secondary more" id="more" hidden>Show more</button>
-      <p class="empty" id="empty" hidden>Nothing matches. <button type="button" class="linklike" id="clear-2">Clear all filters</button></p>
-      <p class="small muted mt" id="dev-note" hidden>
-        The search index only exists after a build. Run <code>npm run build</code> and <code>npm run preview</code>.
-      </p>
+    </div>
+
+    <div class="side">
+      <form class="filters" id="filters" aria-label="Filters" role="dialog" hidden>
+        <div class="sheet-h f-head"><h2 class="sheet-t">Filters</h2><button class="tbtn" type="button" id="filters-done">Done</button></div>
+        {groups.map((g, gi) => (
+          <section class={gi === 0 ? 'sec first' : 'sec'}>
+            <div class="sh"><h2 class="sl">{g.label}</h2>{gi === 0 && <button type="button" class="sort" id="clear-filters" hidden>Clear</button>}</div>
+            <ul>
+              {g.options.map((o) => (
+                <li>
+                  <label class="r1 ck">
+                    <input type="checkbox" name={g.param} value={o.v} data-facet={g.key} data-group={g.group} data-pf={o.pf} data-label={o.n} data-alias={o.alias || undefined} />
+                    <span class="chk"><Icon name="tick" /></span>
+                    <span class="nm">{o.n}</span>
+                    <span class="n" data-count>{o.c.toLocaleString('en-US')}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div class="end"></div>
+          </section>
+        ))}
+        <div class="acts filters-acts">
+          <button type="button" class="btn" id="sheet-done">Show {docsLabel(entries.length)}</button>
+          <button type="button" class="tbtn" id="clear-2">Clear</button>
+        </div>
+      </form>
     </div>
   </div>
 </Base>

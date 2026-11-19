@@ -1,0 +1,42 @@
+---
+// One-line rows (44px): name (with a muted " · sub"), count right-aligned. The first `cap` rows show, then
+// "All N …" opens the rest in place (src/scripts/site.js). Used for rosters, authors, crossovers, index pages.
+import Icon from './Icon.astro';
+
+interface Item { href: string; name: string; sub?: string | null; count?: number | null; match?: string }
+interface Props {
+  items: Item[];
+  /** Section label; without it (or with `bare`) the rows come without a section and head. */
+  label?: string;
+  /** Right-hand column label in the head. */
+  right?: string;
+  cap?: number;
+  noun: string;
+  class?: string;
+  /** Rows only (inside a fold or block that has its own head and end line). */
+  bare?: boolean;
+  id?: string;
+  /** The whole list is on another page: "All {total} …" links there instead of opening in place. */
+  moreHref?: string;
+  total?: number;
+}
+const { items, label, right = 'Docs', cap = 8, noun, class: cls, bare = false, id, moreHref, total } = Astro.props;
+const show = !cap || items.length <= cap + 1 ? items.length : cap;
+const expand = items.length > show;
+---
+<div class={bare ? 'nl' : ['sec', cls].filter(Boolean).join(' ')}>
+  {!bare && label && <div class="sh"><h2 class="sl">{label}</h2>{right && <span class="sl">{right}</span>}</div>}
+  <ul class="ls" data-list data-cap={cap || undefined} id={id}>
+    {items.map((it, i) => (
+      <li class={i >= show ? 'cut' : undefined} data-name={it.match}>
+        <a class="r1" href={it.href}>
+          <span class="nm">{it.name}{it.sub && <span class="sx"> · {it.sub}</span>}</span>
+          {it.count != null ? <span class="n">{it.count.toLocaleString('en-US')}</span> : <Icon name="go" class="chev" />}
+        </a>
+      </li>
+    ))}
+  </ul>
+  {moreHref && <a class="more" href={moreHref}><span class="lbl">All {(total ?? items.length).toLocaleString('en-US')} {noun}</span><Icon name="go" class="chev" /></a>}
+  {expand && <button class="more js-only" type="button" data-expand data-noun={noun}><span class="lbl">All {items.length} {noun}</span><Icon name="down" class="chev" /></button>}
+  {!bare && <div class="end" hidden={expand || !!moreHref}></div>}
+</div>

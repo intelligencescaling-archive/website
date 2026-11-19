@@ -4,6 +4,8 @@
 (function () {
   var KEY = 'theme';
   var root = document.documentElement;
+  // Lets the CSS hide script-only controls (sort, "All N" buttons) when JavaScript is off.
+  root.classList.add('js');
   var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function saved() {
@@ -23,13 +25,13 @@
   function sync() {
     var dark = current() === 'dark';
     var metas = document.querySelectorAll('meta[name="theme-color"]');
-    for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', dark ? '#121212' : '#ffffff');
-    var b = document.getElementById('theme-toggle');
-    if (b) {
-      var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
-      b.setAttribute('aria-label', label);
-      b.title = label;
-    }
+    for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', dark ? '#0e0e10' : '#fcfcfc');
+    var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+    var bs = document.querySelectorAll('[data-toggle-theme]');
+    for (var j = 0; j < bs.length; j++) { bs[j].setAttribute('aria-label', label); bs[j].title = label; }
+    // The phone menu's Dark / Light tabs.
+    var ts = document.querySelectorAll('[data-theme-set]');
+    for (var k = 0; k < ts.length; k++) ts[k].setAttribute('aria-pressed', String(ts[k].getAttribute('data-theme-set') === current()));
   }
   function apply(t) {
     if (t) root.setAttribute('data-theme', t);
@@ -42,29 +44,23 @@
   // For the reader view's theme picker (src/scripts/reader.js): same rules as the toggle.
   window.siteTheme = {
     current: current,
-    set: function (t) {
-      var keep = t === system() ? null : t;
-      try {
-        if (keep) localStorage.setItem(KEY, keep);
-        else localStorage.removeItem(KEY);
-      } catch (e) {}
-      apply(keep);
-    },
+    set: function (t) { choose(t); },
   };
 
+  function choose(next) {
+    var keep = next === system() ? null : next;
+    try {
+      if (keep) localStorage.setItem(KEY, keep);
+      else localStorage.removeItem(KEY);
+    } catch (e) {}
+    apply(keep);
+  }
   document.addEventListener('DOMContentLoaded', function () {
-    var b = document.getElementById('theme-toggle');
-    if (!b) return;
-    b.hidden = false;
     sync();
-    b.addEventListener('click', function () {
-      var next = current() === 'dark' ? 'light' : 'dark';
-      var keep = next === system() ? null : next;
-      try {
-        if (keep) localStorage.setItem(KEY, keep);
-        else localStorage.removeItem(KEY);
-      } catch (e) {}
-      apply(keep);
+    document.addEventListener('click', function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest('[data-toggle-theme], [data-theme-set]') : null;
+      if (!t) return;
+      choose(t.hasAttribute('data-theme-set') ? t.getAttribute('data-theme-set') : current() === 'dark' ? 'light' : 'dark');
     });
   });
 })();

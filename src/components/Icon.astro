@@ -1,0 +1,25 @@
+---
+// Line icons from the calm mockup (24px grid, currentColor). Decorative: aria-hidden.
+interface Props { name: string; size?: number; class?: string }
+const { name, size, class: cls } = Astro.props;
+const P: Record<string, [number, number, string]> = {
+  search: [20, 1.6, '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>'],
+  search16: [16, 1.8, '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>'],
+  menu: [20, 1.6, '<path d="M4 7h16M4 12h16M4 17h16"/>'],
+  x: [20, 1.6, '<path d="m7 7 10 10M17 7 7 17"/>'],
+  moon: [20, 1.6, '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>'],
+  sun: [20, 1.6, '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>'],
+  go: [16, 1.8, '<path d="m9 6 6 6-6 6"/>'],
+  down: [16, 1.8, '<path d="m6 9 6 6 6-6"/>'],
+  char: [20, 1.5, '<circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.5c.9-3.4 3.4-5 6.5-5s5.6 1.6 6.5 5"/>'],
+  series: [20, 1.5, '<path d="M5 4.5h10.5a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2z"/><path d="M5 17.5a2 2 0 0 1 2-2h10.5"/>'],
+  author: [20, 1.5, '<path d="M14.5 5.5l4 4L9 19H5v-4z"/><path d="m12.5 7.5 4 4"/>'],
+  doc: [20, 1.5, '<path d="M6.5 3.5h7.5l4 4v13h-11.5z"/><path d="M14 3.5v4h4"/>'],
+  tag: [20, 1.5, '<path d="M9 4.5 7.5 19.5M16.5 4.5 15 19.5M5 9h14.5M4.5 15H19"/>'],
+  sliders: [20, 1.6, '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'],
+  tick: [12, 2.4, '<path d="m5 12.5 4.5 4.5L19 7.5"/>'],
+};
+const [w, sw, body] = P[name] || P.go;
+const px = size || w;
+---
+<svg class={cls} width={px} height={px} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={sw} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={body} />

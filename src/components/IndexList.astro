@@ -1,5 +1,7 @@
 ---
-// A long alphabetical list (series, characters, authors) with a type-to-filter box and an A–Z / Most docs sort.
+// A long alphabetical list (series, characters, authors): a type-to-filter box, an A–Z / Most docs sort and one
+// 44px row per item. Sorting reuses the list code in src/scripts/site.js (data-w = docs, data-r = A–Z position).
+import Icon from './Icon.astro';
 interface Item {
   href: string;
   name: string;
@@ -11,69 +13,65 @@ interface Item {
 interface Props {
   items: Item[];
   noun: string;
+  label: string;
 }
-const { items, noun } = Astro.props;
+const { items, noun, label } = Astro.props;
 ---
-<div class="index-tools" data-index-filter hidden>
-  <div class="index-filter">
-    <label for="index-q">Filter {noun}</label>
-    <input type="search" id="index-q" autocomplete="off" />
-  </div>
-  <fieldset class="index-sort">
-    <legend>Sort</legend>
-    <div class="seg-toggle">
-      <input type="radio" name="index-sort" id="sort-az" value="az" checked /><label for="sort-az">A–Z</label>
-      <input type="radio" name="index-sort" id="sort-docs" value="docs" /><label for="sort-docs">Most docs</label>
-    </div>
-  </fieldset>
+<div class="sbox noclr js-only ixf">
+  <Icon name="search" class="ic" />
+  <label for="index-q" class="visually-hidden">Filter {noun}</label>
+  <input type="search" id="index-q" autocomplete="off" spellcheck="false" placeholder={`Filter ${noun}`} />
 </div>
-<ul class="index-list" data-index-list>
-  {items.map((it) => (
-    <li data-name={[it.name, it.sub || '', ...(it.match || [])].join(' | ').toLowerCase()} data-count={it.count}>
-      <span>
-        <a href={it.href}>{it.name}</a>
-        {it.sub && <span class="sub">{it.sub}</span>}
-      </span>
-      <span class="count">{it.count}</span>
-    </li>
-  ))}
-</ul>
-<p class="empty" data-index-empty hidden>Nothing matches.</p>
+<section class="sec lhs">
+  <div class="lh">
+    <h2 class="sl">{label}</h2>
+    <button class="sort js-only" type="button" aria-haspopup="menu" aria-expanded="false" data-sort-btn><span>A–Z · Docs</span><Icon name="down" /></button>
+    <div class="pop" role="menu" hidden data-sort-pop>
+      <button type="button" role="menuitemradio" aria-checked="false" data-sort="w" data-label="Most docs">Most docs</button>
+      <button type="button" role="menuitemradio" aria-checked="true" data-sort="az" data-label="A–Z · Docs">A–Z</button>
+    </div>
+  </div>
+  <ul class="ls" data-list data-sort="az" data-sorted="az" id="index-list">
+    {items.map((it, i) => (
+      <li data-name={[it.name, it.sub || '', ...(it.match || [])].join(' | ').toLowerCase()} data-w={it.count} data-r={i}>
+        <a class="r1" href={it.href}>
+          <span class="nm">{it.name}{it.sub && <span class="sx"> · {it.sub}</span>}</span>
+          <span class="n">{it.count.toLocaleString('en-US')}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+  <div class="end"></div>
+  <p class="zero" data-index-empty hidden>Nothing matches.</p>
+</section>
 
 <script>
-  const box = document.querySelector<HTMLElement>('[data-index-filter]');
+  import { relist } from '../scripts/site.js';
   const input = document.getElementById('index-q') as HTMLInputElement | null;
-  const rows = [...document.querySelectorAll<HTMLElement>('[data-index-list] > li')];
+  const list = document.getElementById('index-list') as HTMLElement | null;
   const empty = document.querySelector<HTMLElement>('[data-index-empty]');
-  const list = document.querySelector<HTMLElement>('[data-index-list]');
-  // Sort: A–Z (the built order) or most docs first (ties stay A–Z). Kept in the URL as ?sort=docs so it can be shared.
-  const radios = [...document.querySelectorAll<HTMLInputElement>('input[name="index-sort"]')];
-  const byDocs = [...rows].sort((a, b) => Number(b.dataset.count) - Number(a.dataset.count));
-  function applySort(v: string) {
-    if (!list) return;
-    list.append(...(v === 'docs' ? byDocs : rows));
-    const url = new URL(location.href);
-    if (v === 'docs') url.searchParams.set('sort', 'docs');
-    else url.searchParams.delete('sort');
-    history.replaceState(null, '', url);
-  }
-  for (const r of radios) r.addEventListener('change', () => r.checked && applySort(r.value));
-  if (new URLSearchParams(location.search).get('sort') === 'docs') {
-    const d = radios.find((r) => r.value === 'docs');
-    if (d) d.checked = true;
-    applySort('docs');
-  }
-  if (box && input && empty) {
-    box.hidden = false;
-    input.addEventListener('input', () => {
+  if (list) {
+    const rows = [...list.children] as HTMLElement[];
+    // ?sort=docs (shareable): most docs first.
+    if (new URLSearchParams(location.search).get('sort') === 'docs') {
+      document.querySelector<HTMLElement>('[data-sort="w"]')?.click();
+    }
+    list.addEventListener('listsort', () => {
+      const url = new URL(location.href);
+      if (list.dataset.sort === 'w') url.searchParams.set('sort', 'docs');
+      else url.searchParams.delete('sort');
+      history.replaceState(null, '', url);
+    });
+    input?.addEventListener('input', () => {
       const terms = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
       let shown = 0;
       for (const r of rows) {
-        const name = r.dataset.name || '';
-        r.hidden = !terms.every((t) => name.includes(t));
-        if (!r.hidden) shown++;
+        const hit = terms.every((t) => (r.dataset.name || '').includes(t));
+        r.classList.toggle('nomatch', !hit);
+        if (hit) shown++;
       }
-      empty.hidden = shown > 0;
+      if (empty) empty.hidden = shown > 0;
     });
+    relist(list);
   }
 </script>

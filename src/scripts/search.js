@@ -1,123 +1,96 @@
-// The Search page: one place to find things.
-// - Empty search box: the full list from the HTML, filtered, counted and sorted here (this only
-//   hides, shows and reorders rows; it never builds HTML from data).
-// - Words typed: full-text search with Pagefind, using the same filters.
-// Everything from the index is inserted as text (textContent); the only markup kept from an excerpt
-// is the <mark> around matched words, rebuilt node by node.
-import { initSheet } from './sheet.js';
+// The Search page (rules.md 3.3): one place to find things.
+// - Empty box: the full list from the HTML, filtered, counted and sorted here (rows are only hidden, shown and
+//   reordered; no HTML is built from data).
+// - Words typed: name matches (characters, series, authors, tags) in groups, then full-text doc results from
+//   Pagefind, with scope tabs. Everything from the index or names.json is inserted as text (textContent); the only
+//   markup is the <mark> around matched words, built node by node.
 import { createCounter } from './search-counter.js';
+import { fitStrip, closePops } from './tabs.js';
+import { shortNum } from '../lib/ui.mjs';
+import { lengthBucket } from '../lib/length.mjs';
 
 const PAGE = 10;
-const SORTS = { title: { title: 'asc' }, long: { words: 'desc' }, short: { words: 'asc' } };
+const BROWSE_PAGE = 50;
+const SORTS = { title: { title: 'asc' }, long: { words: 'desc' } };
+const SORT_NAMES = { best: 'Best match', long: 'Most words', title: 'A–Z · Words' };
+// Name groups: [kind, label, singular, base URL, preview cap, glyph]
+const KINDS = [
+  ['c', 'Characters', 'character', '/characters/', 3, 'char'],
+  ['s', 'Series', 'series', '/series/', 2, 'series'],
+  ['a', 'Authors', 'author', '/authors/', 2, 'author'],
+  ['g', 'Tags', 'tag', '/tags/', 2, 'tag'],
+];
+// Filters set only by links: URL param -> [row data key, Pagefind group, names.json kind or inline list].
+const LINK_FACETS = {
+  series: ['series', 'Series', 's'],
+  character: ['chars', 'Character', 'c'],
+  author: ['authors', 'Author', 'a'],
+  topic: ['topics', 'Topic', 'topic'],
+  category: ['cat', 'Category', 'category'],
+};
+const SPECIAL = { series: { _none: '(No series)' }, author: { _unknown: 'Unknown author' } };
 
-// Long rules in docs ("— — — —", "-----", "=====") collapse to one dash in excerpts.
+// ---------- Text helpers ----------
+const norm = (x) => x.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+// Long rules in docs ("— — — —", "-----", "=====") and links are noise in an excerpt.
 const isRule = (w) => /^[\p{Pd}_=~*•·─━.]{3,}$/u.test(w) || /^[\p{Pd}_=~*•·─━]$/u.test(w);
-
-/**
- * Adds a short excerpt that starts at the first match inside the doc text (not the metadata
- * appended after it). Returns false when the words only match the title, author or other metadata:
- * then no excerpt is shown, since it would only repeat the title and author.
- */
-// Links in doc text ("https://youtu.be/…", "{https://ibb.co/…}") are noise in an excerpt: shown as "(link)".
 const isUrl = (w) => /https?:\/\/|www\.|\.(?:com|org|net|io|gg|be|ly|co)\/|\.(?:com|org|net)\b/i.test(w);
+const terms = (q) => norm(q).split(' ').filter((t) => t.length >= 2);
 
-/**
- * True when a result really contains the searched words. Pagefind also returns loose matches (for "qxjvbzqk" it
- * finds "Qx4" and bits of URLs); a matched word counts only when it is not part of a link and shares most of its
- * start with a search word ("gamble" for "gambling" and "Ayanokoji" for "ayanokouji" count, "Qx4" doesn't).
- * Search words shorter than 4 letters are trusted as they are.
- */
-function strongMatch(d, query) {
-  const terms = norm(query).split(' ').filter((t) => t.length >= 4);
-  if (!terms.length) return true;
-  const words = (d.content || '').split(/\s+/);
-  for (const l of d.locations || []) {
-    const w = words[l] || '';
-    if (isUrl(w)) continue;
-    const nw = norm(w).replace(/ /g, '');
-    for (const t of terms) {
-      if (nw.includes(t)) return true;
-      const need = Math.min(t.length, Math.max(4, Math.ceil(t.length * 0.6)));
-      let k = 0;
-      while (k < t.length && k < nw.length && t[k] === nw[k]) k++;
-      if (k >= need) return true;
-    }
+/** True when a word matches a search word: contains it, or shares most of its start ("Ayanokouji" for "ayanokoji"). */
+function wordHit(word, ts) {
+  const nw = norm(word).replace(/ /g, '');
+  if (nw.length < 2) return false;
+  for (const t of ts) {
+    if (nw.includes(t)) return true;
+    if (t.length < 4) continue;
+    const need = Math.min(t.length, Math.max(4, Math.ceil(t.length * 0.6)));
+    let k = 0;
+    while (k < t.length && k < nw.length && t[k] === nw[k]) k++;
+    if (k >= need) return true;
   }
   return false;
 }
 
-function appendDocExcerpt(target, d, query) {
+/**
+ * True when a result really contains the searched words. Pagefind also returns loose matches (for "qxjvbzqk" it
+ * finds "Qx4" and bits of URLs); a matched word counts only when it is not part of a link and shares most of its
+ * start with a search word. Search words shorter than 4 letters are trusted as they are.
+ */
+function strongMatch(d, query) {
+  const ts = terms(query).filter((t) => t.length >= 4);
+  if (!ts.length) return true;
+  const words = (d.content || '').split(/\s+/);
+  return (d.locations || []).some((l) => !isUrl(words[l] || '') && wordHit(words[l] || '', ts));
+}
+
+/** Appends `text` to `target`, with every word that matches the query in a <mark> (the highlighter band). */
+function appendMarked(target, text, ts) {
+  for (const part of String(text).split(/(\s+)/)) {
+    if (part && !/^\s+$/.test(part) && wordHit(part, ts)) {
+      const m = document.createElement('mark');
+      m.textContent = part;
+      target.append(m);
+    } else if (part) target.append(part);
+  }
+}
+
+/** One line of doc text around the first match (a few words before it), or null when only the metadata matched. */
+function excerptOf(d, ts) {
   const words = (d.content || '').split(/\s+/);
   const limit = words.length - Number(d.meta?.hw || 0) - 2;
   const loc = (d.locations || []).find((l) => l < limit && !isUrl(words[l]));
-  if (loc === undefined || limit < 1) return false;
-  const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
-  const end = Math.min(limit, loc + 28);
-  if (loc > 0) target.append('… ');
-  let lastRule = false;
-  for (let i = loc; i < end; i++) {
-    const w = words[i];
-    if (isUrl(w)) {
-      if (!lastRule) target.append('(link) ');
-      lastRule = true;
-      continue;
-    }
-    if (isRule(w)) {
-      if (!lastRule) target.append('— ');
-      lastRule = true;
-      continue;
-    }
-    lastRule = false;
-    const lw = w.toLowerCase();
-    if (terms.some((t) => lw.includes(t))) {
-      const m = document.createElement('mark');
-      m.textContent = w;
-      target.append(m, ' ');
-    } else target.append(w + ' ');
-  }
-  if (end < limit) target.append('…');
-  return true;
-}
-
-// ---------- Top result: characters, series, authors and tags whose name matches ----------
-const KINDS = [
-  ['c', 'Characters', 'Character', '/characters/'],
-  ['s', 'Series', 'Series', '/series/'],
-  ['a', 'Authors', 'Author', '/authors/'],
-  ['g', 'Tags', 'Tag', '/tags/'],
-];
-const norm = (x) => x.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-
-function scoreName(name, q, terms) {
-  const n = norm(name);
-  if (!n) return 0;
-  if (n === q) return 100;
-  if (q.length >= 3 && n.startsWith(q)) return 70;
-  if (q.length >= 3) {
-    const words = n.split(' ');
-    if (terms.every((t) => words.some((w) => w.startsWith(t)))) return 50;
-  }
-  return 0;
-}
-
-/** All name matches for a query, best first: [{k, name, href, count, sub, score}]. */
-function matchNames(names, query) {
-  const q = norm(query);
-  if (!names || !q) return [];
-  const terms = q.split(' ').filter((t) => t.length >= 2);
-  if (!terms.length && q.length < 2) return [];
+  if (loc === undefined || limit < 1) return null;
+  const from = Math.max(0, loc - 3);
   const out = [];
-  for (const [k, , , base] of KINDS) {
-    for (const [name, id, count, sub, aliases, role] of names[k] || []) {
-      let best = 0;
-      for (const n of [name, ...aliases]) best = Math.max(best, scoreName(n, q, terms));
-      if (best) out.push({ k, name, href: `${base}${id}/`, count, sub, role, score: best });
-    }
+  for (let i = from; i < Math.min(limit, loc + 24); i++) {
+    const w = words[i];
+    if (isUrl(w)) out.push('(link)');
+    else if (isRule(w)) out.push('—');
+    else out.push(w);
   }
-  return out.sort((a, b) => b.score - a.score || b.count - a.count);
+  return (from > 0 ? '… ' : '') + out.join(' ');
 }
-
-const plural = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -125,54 +98,145 @@ function el(tag, props = {}, ...children) {
   node.append(...children.filter((c) => c !== null && c !== undefined && c !== ''));
   return node;
 }
+const plural = (n, one, many) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+const SVG = {
+  char: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.5c.9-3.4 3.4-5 6.5-5s5.6 1.6 6.5 5"/>',
+  series: '<path d="M5 4.5h10.5a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2z"/><path d="M5 17.5a2 2 0 0 1 2-2h10.5"/>',
+  author: '<path d="M14.5 5.5l4 4L9 19H5v-4z"/><path d="m12.5 7.5 4 4"/>',
+  doc: '<path d="M6.5 3.5h7.5l4 4v13h-11.5z"/><path d="M14 3.5v4h4"/>',
+  tag: '<path d="M9 4.5 7.5 19.5M16.5 4.5 15 19.5M5 9h14.5M4.5 15H19"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+};
+/** A glyph from the constant set above (never data). */
+function glyph(name, size = 20, cls = 'g') {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  for (const [k, v] of Object.entries({ class: cls, width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': size === 20 ? 1.5 : 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) s.setAttribute(k, String(v));
+  s.innerHTML = SVG[name];
+  return s;
+}
 
-/** Tags of a result row from the index's "group:Name|group:Name" (text only, group kept to a-z): `meta` tags as
- *  small dashed labels after the title, the others as coloured words at the end of the meta line. */
-function tagParts(tg) {
-  const all = (tg || '').split('|').filter(Boolean).map((x) => {
-    const i = x.indexOf(':');
-    return { group: x.slice(0, i).replace(/[^a-z-]/g, '') || 'type', name: x.slice(i + 1) };
-  });
-  return {
-    labels: all.filter((t) => t.group === 'meta').map((t) => el('span', { className: 'stat-l', textContent: t.name })),
-    words: all.filter((t) => t.group !== 'meta').map((t) => el('span', { className: `tgt k-${t.group}`, textContent: t.name })),
-  };
+// ---------- Name matches ----------
+function scoreName(name, q, ts) {
+  const n = norm(name);
+  if (!n) return 0;
+  if (n === q) return 100;
+  if (q.length >= 3 && n.startsWith(q)) return 70;
+  if (q.length >= 3) {
+    const words = n.split(' ');
+    if (ts.every((t) => words.some((w) => w.startsWith(t)))) return 50;
+  }
+  return 0;
+}
+/** All name matches for a query, best first: [{k, name, href, count, sub}]. */
+function matchNames(names, query) {
+  const q = norm(query);
+  if (!names || !q) return [];
+  const ts = q.split(' ').filter((t) => t.length >= 2);
+  if (!ts.length && q.length < 2) return [];
+  const out = [];
+  for (const [k, , , base] of KINDS) {
+    for (const [name, id, count, sub, aliases, role] of names[k] || []) {
+      let best = 0;
+      for (const n of [name, ...(aliases || [])]) best = Math.max(best, scoreName(n, q, ts));
+      if (best) out.push({ k, name, href: `${base}${id}/`, count, sub: role || sub, score: best });
+    }
+  }
+  return out.sort((a, b) => b.score - a.score || b.count - a.count);
+}
+
+function lev(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let low = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      low = Math.min(low, cur[j]);
+    }
+    if (low > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+/** Up to 3 spellings close to the query, from the names of characters, series and authors (and their words). */
+function didYouMean(names, query) {
+  const q = norm(query);
+  if (!names || q.length < 3) return [];
+  const max = Math.max(1, Math.floor(q.length / 4));
+  const best = new Map();
+  for (const k of ['c', 's', 'a']) {
+    for (const [name, , count, , aliases] of names[k] || []) {
+      for (const full of [name, ...(aliases || [])]) {
+        const n = norm(full);
+        const cands = q.includes(' ') ? [n] : [n, ...n.split(' ').filter((w) => w.length >= 4)];
+        for (const c of cands) {
+          if (c === q) continue;
+          const d = lev(q, c, max);
+          if (d > max) continue;
+          const old = best.get(c);
+          if (!old || d < old.d || (d === old.d && count > old.count)) best.set(c, { text: c, d, count: Math.max(count, old?.count || 0) });
+        }
+      }
+    }
+  }
+  return [...best.values()].sort((a, b) => a.d - b.d || b.count - a.count).slice(0, 3);
+}
+/** The suggestion with the letters that differ from the query marked. */
+function markDiff(target, s, q) {
+  let a = 0;
+  while (a < s.length && a < q.length && s[a] === q[a]) a++;
+  let b = 0;
+  while (b < s.length - a && b < q.length - a && s[s.length - 1 - b] === q[q.length - 1 - b]) b++;
+  const mid = s.slice(a, s.length - b);
+  target.append(s.slice(0, a));
+  if (mid) target.append(el('mark', { textContent: mid }));
+  target.append(s.slice(s.length - b));
 }
 
 export async function initSearch() {
   const form = document.getElementById('search-form');
   const input = document.getElementById('q');
+  const clearQ = document.getElementById('clear-q');
   const filtersForm = document.getElementById('filters');
-  const selects = [...filtersForm.querySelectorAll('select[data-facet]')];
-  const sortEl = document.getElementById('sort');
-  const bestOpt = sortEl.querySelector('option[value="best"]');
+  const boxes = [...filtersForm.querySelectorAll('input[type="checkbox"][data-facet]')];
   const status = document.getElementById('status');
   const results = document.getElementById('results');
   const list = document.getElementById('list');
   const moreBtn = document.getElementById('more');
+  const docsEnd = document.getElementById('docs-end');
   const active = document.getElementById('active');
   const empty = document.getElementById('empty');
-  const matchesBox = document.getElementById('matches');
+  const groupsBox = document.getElementById('groups');
+  const scopeW = document.getElementById('scope-w');
+  const scope = document.getElementById('scope');
+  const docsSec = document.getElementById('docs-sec');
   const noResults = document.getElementById('no-results');
   const noResultsQ = document.getElementById('no-results-q');
+  const dym = document.getElementById('dym');
+  const dymList = document.getElementById('dym-list');
+  const toggle = document.getElementById('filter-toggle');
+  const fcount = document.getElementById('fcount');
   const doneBtn = document.getElementById('sheet-done');
-  const sheet = initSheet({
-    form: filtersForm,
-    toggle: document.getElementById('filter-toggle'),
-    backdrop: document.getElementById('sheet-backdrop'),
-    done: doneBtn,
-  });
+  const clearTop = document.getElementById('clear-filters');
+  const sortBtn = document.getElementById('sort-btn');
+  const sortPop = document.getElementById('sort-pop');
+  const sortItems = [...sortPop.querySelectorAll('[data-ssort]')];
+  const facetData = JSON.parse(document.getElementById('facet-data').textContent || '{}');
+  const root = document.documentElement;
 
-  // Rows of the full list, for filtering without a search.
-  const facetKeys = selects.map((s) => s.dataset.facet);
-  // The page ships only the first rows of the list (longest first). The rest, with the same filter data, is on
-  // /search/all/ and is fetched once, the first time someone filters, sorts or asks for more.
+  // ----- Rows of the full list (browse mode) -----
   const total = Number(list.dataset.total) || list.children.length;
-  const toRows = (lis) => lis.map((li, i) => {
-    const sets = {};
-    for (const k of facetKeys) sets[k] = new Set((li.dataset[k] || '').split(' ').filter(Boolean));
-    return { li, i, sets, words: Number(li.dataset.words) || 0, rank: Number(li.dataset.rank) || 0 };
-  });
+  const keys = ['tags', 'lang', 'origin', 'series', 'chars', 'authors', 'topics', 'cat'];
+  const toRows = (lis) =>
+    lis.map((li, i) => {
+      const sets = {};
+      for (const k of keys) sets[k] = new Set((li.dataset[k] || '').split(' ').filter(Boolean));
+      const words = Number(li.dataset.w) || 0;
+      sets.len = new Set([lengthBucket(words)]);
+      return { li, i, sets, words, rank: Number(li.dataset.r) || 0 };
+    });
   let rows = toRows([...list.children]);
   let allLoaded = rows.length >= total;
   let allPromise = null;
@@ -201,20 +265,42 @@ export async function initSearch() {
     return allPromise;
   }
 
-  // Restore state from the URL. Values can be ids (?series=death-note, as old /browse/ links) or
-  // names (?series=Death Note, as old /search/ links).
+  // ----- Names (characters, series, authors, tags) and link-only filters -----
+  let names = null;
+  let namesPromise = null;
+  function loadNames() {
+    namesPromise ??= fetch('/names.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((j) => (names = j));
+    return namesPromise;
+  }
+  /** link facet -> { v: id, label, pf } (label = pf = the name, from names.json or the inline lists). */
+  const links = {};
+  function resolveLink(param, raw) {
+    const [, , src] = LINK_FACETS[param];
+    const v = raw.toLowerCase();
+    const special = SPECIAL[param] && Object.entries(SPECIAL[param]).find(([id, n]) => id === v || n.toLowerCase() === v);
+    if (special) return { v: special[0], label: special[1], pf: special[1] };
+    const list = src.length === 1 ? (names?.[src] || []).map((x) => [x[1], x[0]]) : facetData[src] || [];
+    const hit = list.find(([id, n]) => id.toLowerCase() === v || n.toLowerCase() === v);
+    return hit ? { v: hit[0], label: hit[1], pf: hit[1] } : null;
+  }
+
+  // ----- State from the URL -----
   const params = new URLSearchParams(location.search);
   input.value = params.get('q') || '';
-  for (const s of selects) {
-    const v = (params.get(s.name) || '').toLowerCase();
-    if (!v) continue;
-    const o = [...s.options].find((o) => o.value && (o.value.toLowerCase() === v || o.dataset.label.toLowerCase() === v || o.dataset.pf.toLowerCase() === v));
-    if (o) s.value = o.value;
+  for (const b of boxes) {
+    const vals = params.getAll(b.name).map((x) => x.toLowerCase());
+    const alias = (b.dataset.alias || '').toLowerCase().split('|').filter(Boolean);
+    if (vals.some((x) => x === b.value.toLowerCase() || x === b.dataset.label.toLowerCase() || x === b.dataset.pf.toLowerCase() || alias.includes(x))) b.checked = true;
   }
-  let chosenSort = ['best', 'title', 'long', 'short'].includes(params.get('sort')) ? params.get('sort') : '';
+  const linkParams = Object.keys(LINK_FACETS).filter((p) => params.get(p));
+  let chosenSort = params.get('sort') === 'short' ? 'long' : ['best', 'title', 'long'].includes(params.get('sort')) ? params.get('sort') : '';
+  let scopeKind = 'all';
 
+  // ----- Pagefind -----
   let pagefind = null;
-  let names = null;
   async function loadPagefind() {
     if (pagefind) return pagefind;
     try {
@@ -228,249 +314,280 @@ export async function initSearch() {
     }
     return pagefind;
   }
-  // Resolves to the names index (or null if it can't be loaded). Fetched once.
-  let namesPromise = null;
-  function loadNames() {
-    if (!namesPromise) {
-      namesPromise = fetch('/names.json')
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null)
-        .then((j) => (names = j));
-    }
-    return namesPromise;
+
+  const checked = () => boxes.filter((b) => b.checked);
+  const activeCount = () => checked().length + Object.keys(links).length;
+  function pfFilters() {
+    const f = {};
+    for (const b of checked()) (f[b.dataset.group] ??= { any: [] }).any.push(b.dataset.pf);
+    for (const [p, l] of Object.entries(links)) f[LINK_FACETS[p][1]] = l.pf;
+    return f;
+  }
+  function currentSort(searching) {
+    const s = chosenSort && (searching || chosenSort !== 'best') ? chosenSort : searching ? 'best' : 'long';
+    sortItems.forEach((b) => {
+      b.hidden = b.dataset.ssort === 'best' && !searching;
+      b.setAttribute('aria-checked', String(b.dataset.ssort === s));
+    });
+    sortBtn.querySelector('span').textContent = SORT_NAMES[s];
+    return s;
   }
 
-  const activeSelects = () => selects.filter((s) => s.value);
-  const pfFilters = () => Object.fromEntries(activeSelects().map((s) => [s.dataset.group, s.selectedOptions[0].dataset.pf]));
-
-  function setSortChoices(searching) {
-    bestOpt.hidden = !searching;
-    bestOpt.disabled = !searching;
-    const def = searching ? 'best' : 'long';
-    sortEl.value = chosenSort && (searching || chosenSort !== 'best') ? chosenSort : def;
-    return sortEl.value;
-  }
-
-  // Active filters as removable chips (the only place they're shown outside the panel).
+  // Active filters as removable chips (one scrolling row) and the count on the Filters button.
   function renderActive() {
-    const chips = activeSelects().map((s) => {
-      const name = s.selectedOptions[0].dataset.label;
-      const b = el('button', { type: 'button', className: 'chip on', textContent: `${name} ✕` });
-      b.setAttribute('aria-label', `Remove filter: ${name}`);
+    const chip = (label, remove) => {
+      const b = el('button', { type: 'button', className: 'chip' }, el('span', {}, label, ' ×'));
+      b.setAttribute('aria-label', `Remove filter: ${label}`);
       b.addEventListener('click', () => {
-        s.value = '';
+        remove();
         run();
       });
       return el('li', {}, b);
-    });
+    };
+    const chips = [
+      ...Object.entries(links).map(([p, l]) => chip(l.label, () => delete links[p])),
+      ...checked().map((b) => chip(b.dataset.label, () => (b.checked = false))),
+    ];
     active.replaceChildren(...chips);
     active.hidden = chips.length === 0;
-    sheet.refresh(0);
+    const n = activeCount();
+    fcount.textContent = n ? String(n) : '';
+    toggle.setAttribute('aria-label', n ? `Filters, ${n} on` : 'Filters');
+    clearTop.hidden = n === 0;
   }
 
-  // Option counts ("Series: Naruto (12)") only matter when a dropdown opens, so they are written
-  // when the browser is idle, and only for options whose number changed (1,100+ options).
-  let countsTimer = null;
-  const idle = window.requestIdleCallback ? (f) => requestIdleCallback(f, { timeout: 600 }) : (f) => setTimeout(f, 30);
-  const cancelIdle = window.cancelIdleCallback ? (h) => cancelIdleCallback(h) : (h) => clearTimeout(h);
+  // Option counts: the number of docs each box would give with the other groups as they are.
   function setCounts(countOf) {
-    if (countsTimer !== null) cancelIdle(countsTimer);
-    countsTimer = idle(() => {
-      countsTimer = null;
-      for (const s of selects) {
-        for (const o of s.options) {
-          if (!o.value) continue;
-          const n = countOf(s, o);
-          if (o._n !== n) {
-            o._n = n;
-            o.textContent = `${o.dataset.label} (${n})`;
-          }
-          const off = n === 0 && o.value !== s.value;
-          if (o.disabled !== off) o.disabled = off;
-        }
-      }
-    });
+    for (const b of boxes) {
+      const n = countOf(b);
+      const c = b.closest('label');
+      const span = c.querySelector('[data-count]');
+      if (n === null) continue;
+      span.textContent = n.toLocaleString('en-US');
+      c.classList.toggle('off', n === 0 && !b.checked);
+    }
   }
 
-  function showCount(n, one, many) {
-    const label = plural(n, one, many);
-    status.textContent = label;
-    doneBtn.textContent = `Show ${label}`;
+  function showCount(n) {
+    status.textContent = plural(n, 'doc', 'docs');
+    doneBtn.textContent = `Show ${plural(n, 'doc', 'docs')}`;
   }
 
   // ----- Without a search: filter and sort the full list -----
-  let lastSort = 'long'; // the HTML list comes longest first
-  const BROWSE_PAGE = 50;
-  let browseLimit = BROWSE_PAGE; // rows shown; "Show more" adds BROWSE_PAGE
-  /** True when nothing is chosen: the rows in the HTML are already the right ones. */
-  const isDefaultView = () => !activeSelects().length && setSortChoices(false) === 'long';
+  let lastSort = 'long';
+  let browseLimit = BROWSE_PAGE;
+  const isDefaultView = () => !activeCount() && currentSort(false) === 'long';
   function browse() {
-    const chosen = Object.fromEntries(selects.map((s) => [s.dataset.facet, s.value]));
-    const facetOk = (r, k) => !chosen[k] || r.sets[k].has(chosen[k]);
-    const counts = Object.fromEntries(facetKeys.map((k) => [k, new Map()]));
+    const want = {};
+    for (const b of checked()) (want[b.dataset.facet] ??= new Set()).add(b.value);
+    for (const [p, l] of Object.entries(links)) want[LINK_FACETS[p][0]] = new Set([l.v]);
+    const groups = Object.keys(want);
+    const ok = (r, k) => [...want[k]].some((v) => r.sets[k].has(v));
+    const counts = {};
     let shown = 0;
-    const sort = setSortChoices(false);
+    const sort = currentSort(false);
     if (sort !== lastSort && allLoaded) {
       lastSort = sort;
-      const sorted = [...rows].sort((a, b) =>
-        sort === 'title' ? a.rank - b.rank : sort === 'short' ? a.words - b.words || a.rank - b.rank : a.i - b.i,
-      );
-      list.append(...sorted.map((r) => r.li));
-      rows = sorted;
+      rows = [...rows].sort(sort === 'title' ? (a, b) => a.rank - b.rank : (a, b) => a.i - b.i);
+      list.append(...rows.map((r) => r.li));
     }
     for (const r of rows) {
-      const fails = facetKeys.filter((k) => !facetOk(r, k));
-      // Matching rows past the limit stay hidden until "Show more".
+      const fails = groups.filter((k) => !ok(r, k));
       r.li.hidden = fails.length > 0 || shown >= browseLimit;
-      if (fails.length === 0) shown++;
-      for (const k of facetKeys) {
+      if (!fails.length) shown++;
+      for (const b of boxes) {
+        const k = b.dataset.facet;
         if (fails.length === 0 || (fails.length === 1 && fails[0] === k)) {
-          for (const v of r.sets[k]) counts[k].set(v, (counts[k].get(v) || 0) + 1);
+          if (r.sets[k].has(b.value)) counts[k + ':' + b.value] = (counts[k + ':' + b.value] || 0) + 1;
         }
       }
     }
-    // Option counts need every row; with only the first rows on the page they wait until the rest is loaded.
-    if (allLoaded) setCounts((s, o) => counts[s.dataset.facet].get(o.value) || 0);
+    if (allLoaded) setCounts((b) => counts[b.dataset.facet + ':' + b.value] || 0);
     if (!allLoaded) shown = total;
-    list.classList.toggle('one-category', !!chosen.cat);
-    showCount(shown, 'doc', 'docs');
+    showCount(shown);
     empty.hidden = shown > 0;
     noResults.hidden = true;
+    docsSec.hidden = shown === 0;
     list.hidden = false;
     results.hidden = true;
-    moreBtn.disabled = false;
     moreBtn.hidden = shown <= browseLimit;
-    matchesBox.hidden = true;
+    moreBtn.disabled = false;
+    docsEnd.hidden = !moreBtn.hidden;
+    groupsBox.replaceChildren();
+    scopeW.hidden = true;
+    sortBtn.hidden = false;
   }
 
-  // ----- With a search: Pagefind -----
-  let current = null; // { res, q }: the search whose results are on screen
-  let shown = 0;
+  // ----- With a search -----
+  let current = null; // { res, q, data }: the search on screen
+  let shownDocs = 0;
+  let found = [];
 
-  /** Loads a batch of Pagefind results and keeps the real matches (see strongMatch). */
   async function strongData(batch, q) {
     const data = await Promise.all(batch.map((r) => r.data()));
     return data.filter((d) => strongMatch(d, q));
   }
 
-  /** Result rows for loaded results, as one fragment (nothing touches the page yet). */
-  function buildRows(data, q) {
-    const frag = document.createDocumentFragment();
-    for (const d of data) {
-      const meta = d.meta || {};
-      const excerpt = el('p', { className: 'excerpt' });
-      const hasExcerpt = appendDocExcerpt(excerpt, d, q);
-      const known = meta.by && meta.by !== 'Unknown author';
-      const tags = tagParts(meta.tg);
-      frag.append(
+  function docRow(d, ts, q) {
+    const meta = d.meta || {};
+    const title = el('span', { className: 't' });
+    const titleText = meta.title || d.url;
+    appendMarked(title, titleText, ts);
+    const m = el('span', { className: 'm' });
+    const titleHit = String(titleText).split(/\s+/).some((w) => wordHit(w, ts));
+    const ex = titleHit ? null : excerptOf(d, ts);
+    if (ex) appendMarked(m, ex, ts);
+    else {
+      const chars = (meta.ch || '').split('|').filter(Boolean);
+      const more = chars.find((c) => c.startsWith('+'));
+      const named = chars.filter((c) => !c.startsWith('+'));
+      const subj = named.length
+        ? named[0] + (named.length > 1 || more ? ` +${named.length - 1 + (more ? Number(more.slice(1)) : 0)}` : '')
+        : (meta.series || '').split(', ')[0];
+      const known = subj && norm(subj).split(' ').some((w) => ts.some((t) => w.startsWith(t)));
+      const makers = meta.by && meta.by !== 'Unknown author' ? meta.by.split(', ') : [];
+      const by = makers.length
+        ? makers[0] + (meta.hint ? ` (${meta.hint})` : '') + (makers.length > 1 ? ` +${makers.length - 1}` : '')
+        : meta.sh ? `shared by ${meta.sh.split(', ')[0]}` : 'Unknown author';
+      m.textContent = [known ? '' : subj, by].filter(Boolean).join(' · ');
+    }
+    return el(
+      'li',
+      {},
+      el('a', { className: 'rs', href: d.url }, glyph('doc'), el('span', { className: 'tx' }, title, el('span', { className: 'ml' }, m, el('span', { className: 'n', textContent: shortNum(meta.words) })))),
+    );
+  }
+
+  function nameRow(f, ts) {
+    const t = el('span', { className: 't' });
+    appendMarked(t, f.name, ts);
+    const kind = KINDS.find((k) => k[0] === f.k);
+    return el(
+      'li',
+      {},
+      el('a', { className: 'rs', href: f.href }, glyph(kind[5]), el('span', { className: 'tx' }, t, el('span', { className: 'm', textContent: f.sub || ' ' })), el('span', { className: 'n', textContent: f.count.toLocaleString('en-US') })),
+    );
+  }
+
+  function moreRow(label, onClick) {
+    const b = el('button', { type: 'button', className: 'more' }, el('span', { className: 'lbl', textContent: label }), glyph('down', 16, 'chev'));
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  /** Name groups and scope tabs for the matches in `found`, for the current scope. */
+  function renderGroups(q, nDocs) {
+    const ts = terms(q);
+    const kinds = KINDS.filter(([k]) => found.some((f) => f.k === k));
+    const totalNames = found.length;
+    // Scope tabs, in the order of the groups. Only when there is something besides docs.
+    if (kinds.length) {
+      const tabs = [['all', 'All', totalNames + nDocs], ...kinds.map(([k, label]) => [k, label, found.filter((f) => f.k === k).length]), ...(nDocs ? [['docs', 'Docs', nDocs]] : [])];
+      if (!tabs.some((t) => t[0] === scopeKind)) scopeKind = 'all';
+      scope.replaceChildren(
+        ...tabs.map(([k, label, n]) => {
+          const b = el('button', { type: 'button', className: 'tb' }, label, el('span', { className: 'n', textContent: n.toLocaleString('en-US') }));
+          b.setAttribute('role', 'tab');
+          b.setAttribute('aria-selected', String(k === scopeKind));
+          b.dataset.kind = k;
+          b.dataset.label = label;
+          return b;
+        }),
+      );
+      scopeW.hidden = false;
+      fitStrip(scope);
+    } else {
+      scopeKind = 'all';
+      scopeW.hidden = true;
+    }
+    const sections = [];
+    for (const [k, label, , , cap] of kinds) {
+      if (scopeKind !== 'all' && scopeKind !== k) continue;
+      const all = found.filter((f) => f.k === k);
+      const show = scopeKind === k || all.length <= cap + 1 ? all : all.slice(0, cap);
+      sections.push(
         el(
-          'li',
-          { className: 'result' },
-          el('h3', {}, el('a', { href: d.url, textContent: meta.title || d.url }), ...tags.labels.flatMap((x) => [' ', x])),
-          el(
-            'div',
-            { className: 'meta' },
-            known ? el('span', { className: 'by', textContent: meta.by }) : null,
-            !known && meta.sh ? el('span', { className: 'sharer', textContent: `shared by ${meta.sh}` }) : null,
-            meta.series ? el('span', { textContent: meta.series }) : null,
-            meta.words && meta.words !== '0' ? el('span', { className: 'num', textContent: `${Number(meta.words).toLocaleString('en-US')} words` }) : null,
-            ...tags.words,
-          ),
-          hasExcerpt ? excerpt : null,
+          'section',
+          { className: 'grp' },
+          el('div', { className: 'sh' }, el('h2', { className: 'sl', textContent: label }), el('span', { className: 'sl', textContent: 'Docs' })),
+          el('ul', {}, ...show.slice(0, 50).map((f) => nameRow(f, ts))),
+          show.length < all.length ? moreRow(`All ${all.length} ${label.toLowerCase()}`, () => pickScope(k)) : null,
         ),
       );
     }
-    return frag;
+    groupsBox.replaceChildren(...sections);
+    docsSec.hidden = !(scopeKind === 'all' || scopeKind === 'docs') || !nDocs;
   }
+
+  function pickScope(k) {
+    scopeKind = k;
+    if (current) renderGroups(current.q, current.n);
+    const tab = scope.querySelector(`.tb[data-kind="${k}"]`);
+    tab?.focus({ preventScroll: true });
+  }
+  scope.addEventListener('tabpick', (ev) => pickScope(ev.detail));
 
   async function renderMore() {
     if (!current) return;
     const { res, q } = current;
-    const batch = res.results.slice(shown, shown + PAGE);
-    shown += batch.length;
+    const batch = res.results.slice(shownDocs, shownDocs + PAGE);
+    shownDocs += batch.length;
     moreBtn.disabled = true;
-    const frag = buildRows(await strongData(batch, q), q);
-    if (current?.res !== res) return; // a newer search replaced these results meanwhile
-    results.append(frag);
+    const data = await strongData(batch, q);
+    if (current?.res !== res) return;
+    const ts = terms(q);
+    results.append(...data.map((d) => docRow(d, ts, q)));
     moreBtn.disabled = false;
-    moreBtn.hidden = shown >= res.results.length;
-  }
-
-  // The best-matching character/series/topic/author as a "top result", then up to three more of
-  // each kind. Only for a plain search (no filters set).
-  function renderMatches(q) {
-    const found = q && !activeSelects().length ? matchNames(names, q) : [];
-    if (!found.length) {
-      matchesBox.replaceChildren();
-      matchesBox.hidden = true;
-      return;
-    }
-    const [top, ...rest] = found;
-    const kindOf = (k) => KINDS.find((x) => x[0] === k);
-    const subLine = (m) => [m.role || kindOf(m.k)[2], m.sub, plural(m.count, 'doc', 'docs')].filter(Boolean).join(' · ');
-    const parts = [
-      el('h2', { className: 'match-h', textContent: 'Top result' }),
-      el('a', { className: 'top-result', href: top.href }, el('span', { className: 'top-name', textContent: top.name }), el('span', { className: 'top-sub', textContent: subLine(top) })),
-    ];
-    for (const [k, label] of KINDS) {
-      const group = rest.filter((m) => m.k === k).slice(0, 3);
-      if (!group.length) continue;
-      parts.push(
-        el('h2', { className: 'match-h', textContent: label }),
-        el(
-          'ul',
-          { className: 'match-list' },
-          ...group.map((m) =>
-            el(
-              'li',
-              {},
-              el('a', { href: m.href }, el('span', { className: 'm-name', textContent: m.name }), el('span', { className: 'count', textContent: String(m.count) })),
-              m.sub ? el('span', { className: 'm-sub', textContent: m.sub }) : null,
-            ),
-          ),
-        ),
-      );
-    }
-    parts.push(el('h2', { className: 'match-h docs-h', textContent: 'Docs' }));
-    matchesBox.replaceChildren(...parts);
-    matchesBox.hidden = false;
+    moreBtn.hidden = shownDocs >= res.results.length;
+    docsEnd.hidden = !moreBtn.hidden;
   }
 
   /** Runs one search and shows it in a single DOM update. Returns false if a newer run replaced it. */
   async function search(q, isStale) {
-    const sort = setSortChoices(true);
+    const sort = currentSort(true);
     const filters = pfFilters();
     const [pf] = await Promise.all([loadPagefind(), loadNames()]);
     if (isStale()) return false;
-    if (!pf) return true; // no index (dev): leave the list as it is
+    if (!pf) return true;
     const res = await pf.search(q, { filters, sort: SORTS[sort] });
     if (isStale()) return false;
     const first = res.results.length ? await strongData(res.results.slice(0, PAGE), q) : [];
     if (isStale()) return false;
-    // No real match on the first page: Pagefind only found loose bits (see strongMatch), so it's "nothing found".
-    // When every result fits on the first page, the count is the real matches.
     const n = !first.length ? 0 : res.results.length <= PAGE ? first.length : res.results.length;
-    const frag = n ? buildRows(first, q) : null;
+    found = activeCount() ? [] : matchNames(names, q);
+    const ts = terms(q);
     // Commit: everything below changes together, so the page only shifts once.
-    current = { res, q };
-    shown = frag ? Math.min(PAGE, res.results.length) : 0;
+    current = { res, q, n };
+    shownDocs = n ? Math.min(PAGE, res.results.length) : 0;
     list.hidden = true;
     empty.hidden = true;
-    noResults.hidden = n > 0;
-    noResultsQ.textContent = q;
-    renderMatches(q);
-    results.replaceChildren(...(frag ? [frag] : []));
+    results.replaceChildren(...first.map((d) => docRow(d, ts, q)));
     results.hidden = false;
+    renderGroups(q, n);
     moreBtn.disabled = false;
-    moreBtn.hidden = !n || shown >= res.results.length;
-    if (n) showCount(n, 'doc', 'docs');
+    moreBtn.hidden = !n || shownDocs >= res.results.length;
+    docsEnd.hidden = !moreBtn.hidden;
+    sortBtn.hidden = n < 2;
+    const none = !n && !found.length;
+    noResults.hidden = !none;
+    noResultsQ.textContent = q;
+    const sugg = none && !activeCount() ? didYouMean(names, q) : [];
+    dymList.replaceChildren(
+      ...sugg.map((s) => {
+        const t = el('span', { className: 't' });
+        markDiff(t, s.text, norm(q));
+        return el('li', {}, el('a', { className: 'rs short', href: `/search/?q=${encodeURIComponent(s.text)}` }, glyph('search'), el('span', { className: 'tx' }, t), el('span', { className: 'n', textContent: s.count.toLocaleString('en-US') })));
+      }),
+    );
+    dym.hidden = sugg.length === 0;
+    if (n) showCount(n);
     else {
-      status.textContent = activeSelects().length ? 'No docs. Try fewer filters.' : 'No docs';
+      status.textContent = '0 docs';
       doneBtn.textContent = 'Show results';
     }
     const counts = res.filters || {};
-    setCounts((s, o) => (counts[s.dataset.group] || {})[o.dataset.pf] || 0);
-    counter.shown(q, n, activeSelects().map((s) => `${s.dataset.group}=${s.selectedOptions[0].dataset.label}`));
+    setCounts((b) => (counts[b.dataset.group] || {})[b.dataset.pf] || 0);
+    counter.shown(q, n, [...checked().map((b) => `${b.dataset.group}=${b.dataset.label}`), ...Object.entries(links).map(([p, l]) => `${LINK_FACETS[p][1]}=${l.label}`)]);
     return true;
   }
 
@@ -478,24 +595,27 @@ export async function initSearch() {
     const out = new URLSearchParams();
     const q = input.value.trim();
     if (q) out.set('q', q);
-    for (const s of activeSelects()) out.set(s.name, s.value);
+    for (const b of checked()) out.append(b.name, b.value);
+    for (const [p, l] of Object.entries(links)) out.set(p, l.v);
     if (chosenSort && chosenSort !== (q ? 'best' : 'long')) out.set('sort', chosenSort);
     history.replaceState(null, '', out.toString() ? `?${out}` : location.pathname);
   }
 
-  // Only the newest run may draw: each run takes a number, and a run that finds a higher number
-  // already issued drops its results (Pagefind searches can't be cancelled, only ignored).
+  // Only the newest run may draw (Pagefind searches can't be cancelled, only ignored).
   let runId = 0;
   async function run() {
     const id = ++runId;
     updateUrl();
     renderActive();
+    clearQ.hidden = !input.value;
     const q = input.value.trim();
+    selected = -1;
     if (q) {
       if ((await search(q, () => id !== runId)) === false) return;
     } else {
       current = null;
-      browseLimit = BROWSE_PAGE; // a new filter or sort starts from the top again
+      found = [];
+      browseLimit = BROWSE_PAGE;
       if (!isDefaultView() && !allLoaded) {
         status.textContent = 'Loading…';
         await loadAll();
@@ -503,16 +623,62 @@ export async function initSearch() {
       }
       browse();
     }
-    document.documentElement.classList.remove('search-pending');
+    root.classList.remove('search-pending');
   }
 
-  // Anonymous search counter: one beacon per settled search (see search-counter.js).
+  // ----- Filters sheet (phones and tablets; a side column from 1024px) -----
+  const wide = matchMedia('(min-width: 1024px)');
+  let lastFocus = null;
+  const sheetOpen = () => filtersForm.classList.contains('open');
+  function openSheet() {
+    lastFocus = document.activeElement;
+    filtersForm.classList.add('open');
+    root.classList.add('sheet-open', 'filters-open');
+    toggle.setAttribute('aria-expanded', 'true');
+    filtersForm.querySelector('input, button')?.focus({ preventScroll: true });
+  }
+  function closeSheet() {
+    if (!sheetOpen()) return;
+    filtersForm.classList.remove('open');
+    root.classList.remove('sheet-open', 'filters-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    (lastFocus instanceof HTMLElement ? lastFocus : toggle).focus({ preventScroll: true });
+  }
+  toggle.addEventListener('click', () => (sheetOpen() ? closeSheet() : openSheet()));
+  doneBtn.addEventListener('click', closeSheet);
+  document.getElementById('filters-done').addEventListener('click', closeSheet);
+  filtersForm.addEventListener('keydown', (ev) => ev.key === 'Escape' && closeSheet());
+  wide.addEventListener('change', () => wide.matches && closeSheet());
+
+  // ----- Keyboard: ↑/↓ move through the result rows, Enter opens the selected one -----
+  let selected = -1;
+  const resultRows = () => [...document.querySelectorAll('#groups .rs, #results:not([hidden]) .rs, #dym:not([hidden]) .rs')].filter((r) => r.offsetParent);
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      const rs = resultRows();
+      if (!rs.length) return;
+      ev.preventDefault();
+      rs.forEach((r) => r.classList.remove('sel'));
+      selected = Math.max(0, Math.min(rs.length - 1, selected + (ev.key === 'ArrowDown' ? 1 : -1)));
+      rs[selected].classList.add('sel');
+      rs[selected].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter' && selected >= 0) {
+      const r = resultRows()[selected];
+      if (r) {
+        ev.preventDefault();
+        counter.flush();
+        location.href = r.href;
+      }
+    }
+  });
+
+  // ----- Wiring -----
   const counter = createCounter();
   let typing;
-  function runSoon(ms) {
+  const runSoon = (ms) => {
     clearTimeout(typing);
     typing = setTimeout(run, ms);
-  }
+  };
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     clearTimeout(typing);
@@ -523,28 +689,37 @@ export async function initSearch() {
   // Search about 200 ms after the last keystroke, so typing never waits on a search.
   input.addEventListener('input', (ev) => {
     counter.typing();
+    clearQ.hidden = !input.value;
     if (!ev.isComposing) runSoon(200);
   });
   input.addEventListener('compositionend', () => runSoon(200));
+  clearQ.addEventListener('click', () => {
+    input.value = '';
+    input.focus();
+    run();
+  });
   filtersForm.addEventListener('change', run);
   filtersForm.addEventListener('submit', (ev) => ev.preventDefault());
-  sortEl.addEventListener('change', () => {
-    chosenSort = sortEl.value;
+  sortPop.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-ssort]');
+    if (!b) return;
+    closePops();
+    chosenSort = b.dataset.ssort;
+    sortBtn.focus();
     run();
   });
   const clearAll = () => {
-    for (const s of selects) s.value = '';
+    boxes.forEach((b) => (b.checked = false));
+    for (const k of Object.keys(links)) delete links[k];
     run();
   };
-  document.getElementById('clear-filters').addEventListener('click', clearAll);
+  clearTop.addEventListener('click', clearAll);
   document.getElementById('clear-2').addEventListener('click', clearAll);
   // "Show more": the next page of search results, or (no search) the next rows of the list.
   moreBtn.addEventListener('click', async () => {
     if (current) return renderMore();
     moreBtn.disabled = true;
-    moreBtn.textContent = 'Loading…';
     const ok = await loadAll();
-    moreBtn.textContent = 'Show more';
     if (!ok) {
       location.href = '/search/all/';
       return;
@@ -552,20 +727,27 @@ export async function initSearch() {
     browseLimit += BROWSE_PAGE;
     browse();
   });
-  // Clicking a result (or a top-result link) or leaving the page counts the search on screen now.
-  for (const box of [results, matchesBox]) box.addEventListener('click', (ev) => ev.target.closest?.('a') && counter.flush());
+  // Clicking a result or leaving the page counts the search on screen now.
+  for (const box of [results, groupsBox]) box.addEventListener('click', (ev) => ev.target.closest?.('a') && counter.flush());
   addEventListener('pagehide', counter.flush);
   document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && counter.flush());
   addEventListener('keydown', (ev) => {
     const a = document.activeElement;
-    if (ev.key === '/' && !(a instanceof HTMLInputElement) && !(a instanceof HTMLSelectElement)) {
+    if (ev.key === '/' && !ev.ctrlKey && !ev.metaKey && !(a instanceof HTMLInputElement) && !(a instanceof HTMLSelectElement) && !(a instanceof HTMLTextAreaElement)) {
       ev.preventDefault();
       input.focus();
     }
   });
 
   filtersForm.hidden = false;
-  document.getElementById('tools').hidden = false;
-  if (!input.value && matchMedia('(min-width: 900px)').matches) input.focus({ preventScroll: true });
+  if (wide.matches) input.focus({ preventScroll: true });
+  // Link-only filters need the names list to know what the id means.
+  if (linkParams.length) {
+    await loadNames();
+    for (const p of linkParams) {
+      const l = resolveLink(p, params.get(p));
+      if (l) links[p] = l;
+    }
+  }
   run();
 }

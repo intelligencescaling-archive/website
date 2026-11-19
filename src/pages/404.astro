@@ -1,20 +1,32 @@
 ---
 import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import NameList from '../components/NameList.astro';
 ---
 <Base title="Not found">
   <div class="prose">
     <h1>Page not found</h1>
     <p class="lede">That page isn't here. If it was an archived item, it may have been removed at its author's request.</p>
   </div>
-  <form class="search-form nf-search" action="/search/" method="get" role="search">
-    <label for="nf-q" class="visually-hidden">Search the archive</label>
-    <input type="search" id="nf-q" name="q" placeholder="Character, doc or any word" enterkeyhint="search" />
-    <button type="submit">Search</button>
+  <form class="nf-search" action="/search/" method="get" role="search">
+    <div class="sbox noclr">
+      <Icon name="search" class="ic" />
+      <label for="nf-q" class="visually-hidden">Search the archive</label>
+      <input type="search" id="nf-q" name="q" placeholder="Character, doc or any word" enterkeyhint="search" />
+    </div>
   </form>
-  <div class="prose">
-    <p>
-      Or browse: <a href="/series/">Series</a> · <a href="/characters/">Characters</a> ·{' '}
-      <a href="/library/">Library</a> · <a href="/">Home</a>
-    </p>
+  <div class="main">
+    <NameList
+      label="Browse"
+      right=""
+      cap={0}
+      noun="pages"
+      items={[
+        { href: '/series/', name: 'Series' },
+        { href: '/characters/', name: 'Characters' },
+        { href: '/authors/', name: 'Authors' },
+        { href: '/', name: 'Home' },
+      ]}
+    />
   </div>
 </Base>

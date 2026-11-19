@@ -1,0 +1,48 @@
+---
+// The <ul> of DocList (see there): one two-line row per doc, with the data the lists and the search page need.
+import { shortNum, kindOf, subjectOf, bylineOf } from '../lib/ui.mjs';
+interface Props {
+  rows: any[]; rank: Map<any, number>; show: number; filterable: boolean; total: number;
+  person?: string; known?: string; skipTag?: string; showKind: boolean; id?: string; cap: number;
+}
+const { rows, rank, show, filterable, total, person, known, skipTag, showKind, id, cap } = Astro.props;
+const metaTags = (e: any) => e.tagList.filter((t: any) => t.group !== 'meta').map((t: any) => t.id).join(' ');
+---
+<ul class="ls" id={id} data-list data-cap={cap || undefined} data-total={filterable ? String(total) : undefined}>
+  {rows.map((e: any, i: number) => {
+    const by = bylineOf(e, person);
+    const kind = showKind ? kindOf(e, skipTag) : '';
+    const subj = subjectOf(e, known);
+    return (
+      <li
+        class={i >= show ? 'cut' : undefined}
+        data-w={String(e.words)}
+        data-r={String(rank.get(e))}
+        data-k={metaTags(e) || undefined}
+        data-cat={filterable ? e.category : undefined}
+        data-series={filterable ? (e.series.length ? e.series.map((s: any) => s.id).join(' ') : '_none') : undefined}
+        data-topics={filterable ? e.topics.map((t: any) => t.id).join(' ') : undefined}
+        data-chars={filterable ? e.characters.map((c: any) => c.id).join(' ') : undefined}
+        data-authors={filterable ? (e.authors.length ? e.authors.map((a: any) => a.key).join(' ') : '_unknown') : undefined}
+        data-tags={filterable ? e.tags.join(' ') : undefined}
+        data-lang={filterable ? e.language || 'unknown' : undefined}
+        data-origin={filterable ? e.origins.map((o: any) => o.id).join(' ') : undefined}
+      >
+        <a class="r2" href={`/items/${e.id}/`}>
+          <span class="t">{e.title}</span>
+          <span class="ml">
+            <span class="m">
+              {kind && <span class="k">{kind}</span>}
+              {subj && <span>{subj}</span>}
+              {by.name ? (
+                <span>{by.name}{by.hint && <span> ({by.hint})</span>}{by.more > 0 && ` +${by.more}`}</span>
+              ) : by.text && <span>{by.text}</span>}
+              {!kind && !subj && !by.name && !by.text && <span>&nbsp;</span>}
+            </span>
+            <span class="n">{shortNum(e.words)}</span>
+          </span>
+        </a>
+      </li>
+    );
+  })}
+</ul>

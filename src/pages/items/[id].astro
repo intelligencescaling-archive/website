@@ -1,9 +1,11 @@
 ---
 import Base from '../../layouts/Base.astro';
-import EntryList from '../../components/EntryList.astro';
-import RealMark from '../../components/RealMark.astro';
-import RedditHandle from '../../components/RedditHandle.astro';
+import DocList from '../../components/DocList.astro';
+import Icon from '../../components/Icon.astro';
+import Blk from '../../components/Blk.astro';
+import Fold from '../../components/Fold.astro';
 import AccountFlag from '../../components/AccountFlag.astro';
+import { shortNum, kindOf, contactHint, previewBlocks } from '../../lib/ui.mjs';
 import { loadArchive, redditAccount, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, bylineText, sharerName, readerUnit, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
@@ -21,10 +23,11 @@ export function getStaticPaths() {
     score.delete(e);
     return [...score.entries()].sort((a, b) => b[1] - a[1] || b[0].words - a[0].words).slice(0, 5).map(([x]) => x);
   };
-  return entries.map((entry) => ({ params: { id: entry.id }, props: { entry, related: related(entry) } }));
+  const charSeries = new Map(characters.map((c) => [c.id, c.seriesName]));
+  return entries.map((entry) => ({ params: { id: entry.id }, props: { entry, related: related(entry), charSeries } }));
 }
 
-const { entry: e, related } = Astro.props as { entry: any; related: any[] };
+const { entry: e, related, charSeries } = Astro.props as { entry: any; related: any[]; charSeries: Map<string, string | null> };
 const readMinutes = Math.round(e.words / 230);
 const readTime =
   readMinutes < 1 ? null : readMinutes < 60 ? `${readMinutes} min` : `${readMinutes < 600 ? Math.round(readMinutes / 6) / 10 : Math.round(readMinutes / 60)} h`;
@@ -44,22 +47,12 @@ const statLine = stats.map((s: any) => (s.l === 'read' ? `about ${s.v}` : `${s.v
 // The status badge under the header, unless a meta tag chip already says it ("Text only", "Original gone").
 const saidByChip = (p: any) => (p.recovered && e.tags.includes('text-only')) || ((p.status === 'dead' || p.status === 'private' || p.fromSnapshot) && e.tags.includes('original-gone'));
 const statusLabel = single && single.status !== 'complete' && single.status !== 'export-blocked' && !saidByChip(single) ? single : null;
-const topic = e.topics[0] || null;
 // Breadcrumb: the first series; without a series, the doc's main tag (its first non-meta tag), else the help list
 // it is in ("Needs sorting"). Topics were folded into tags.
 const crumbTag = !e.series.length ? e.tagList.find((t: any) => t.group !== 'meta') || null : null;
 // Chips under the byline: characters, any series after the first (the first is the breadcrumb), then the tags; the
 // tag that is already the breadcrumb is left out.
-const moreSeries = e.series.slice(1);
-const chipTags = e.tagList.filter((t: any) => t !== crumbTag);
 const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
-const relatedTitle = e.characters[0]
-  ? `More about ${e.characters[0].name}`
-  : e.series[0]
-    ? `More from ${e.series[0].name}`
-    : crumbTag
-      ? `More ${crumbTag.name} docs`
-      : 'More like this';
 const relatedMore = e.characters[0]
   ? { href: `/characters/${e.characters[0].id}/`, label: `All docs about ${e.characters[0].name}` }
   : e.series[0]
@@ -67,7 +60,9 @@ const relatedMore = e.characters[0]
     : crumbTag
       ? { href: `/tags/${crumbTag.id}/`, label: `All ${crumbTag.name} docs` }
       : null;
-const preview = textPreview(e, 1500);
+const previewRaw = textPreview(e, 3000);
+const preview = previewBlocks(previewRaw, e.title, e.authors.map((a: any) => a.name));
+const previewCut = previewRaw.endsWith(' …');
 const multi = e.parts.length > 1;
 // Every entry with text has the reader. For text-only entries (no PDF/DOCX to open) it is the main way to read;
 // for the rest the PDF stays the main button and "Read here" is a quieter second one.
@@ -82,12 +77,8 @@ const partRead = (p: any) => {
   return readHref && k >= 0 ? (k === 0 ? readHref : `${readHref}#ch-${k + 1}`) : null;
 };
 const partUnit = readerUnit(e).toLowerCase();
-const readChoices = readHref && multi && textParts.length > 1 && textParts.length <= 4;
 // The main (filled) file button of a part: its PDF, else its first other file.
 const mainFile = (p: any) => p.files.find((f: any) => f.format === 'pdf' && !p.images.includes(f)) || p.files.find((f: any) => !p.images.includes(f));
-// Makers known only by a handle on an app (no Reddit account): name + a small "Discord" label, together one link
-// to the Contact row on their page.
-const contactHint = (a: any) => (!a.reddit && a.contacts?.length ? a.contacts[0].platformName : null);
 const completion = { finished: 'Finished', 'in-progress': 'In progress', unknown: null }[e.completion as string];
 // The Submit form, with this entry filled in (no account needed). Public GitHub issues are linked from there.
 const correctionUrl = `/submit/?fix=${e.id}`;
@@ -129,228 +120,194 @@ const ld = {
   ...(e.originalUrl ? { sameAs: e.originalUrl } : {}),
 };
 const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
+// ---- Calm layout (rules.md 3.4) ----
+const kind = kindOf(e);
+// One meta line: maker(s) · kind · size. Status words go to Details.
+const metaRest = [kind, e.words > 0 ? `${shortNum(e.words)} words` : ''].filter(Boolean);
+// Subject rows: characters (with their series), then series that no character row names.
+const subjRows = [
+  ...e.characters.map((c: any) => ({ href: `/characters/${c.id}/`, name: c.name, sub: charSeries.get(c.id) || '', icon: 'char' })),
+  ...e.series
+    .filter((s: any) => !e.characters.some((c: any) => charSeries.get(c.id) === s.name))
+    .map((s: any) => ({ href: `/series/${s.id}/`, name: s.name, sub: '', icon: 'series' })),
+];
+const SUBJ_CAP = 3;
+const subjShow = subjRows.length <= SUBJ_CAP + 1 ? subjRows.length : SUBJ_CAP;
+// Buttons: one filled (Open PDF, or Read for text-only docs), the other formats and the original as text buttons.
+const shortSource = (p: any) => String(p.sourceLabel || 'Original').replace(/ \(.*\)$/, '');
+const fileLabel = (f: any) => (f.format === 'pdf' ? 'Open PDF' : `Open ${f.formatName}`);
+const otherFiles = (p: any) => p.files.filter((f: any) => !p.images.includes(f) && f !== mainFile(p));
+const notOnline = e.parts.some((p: any) => p.files.some((f: any) => !f.href));
+const sizes = e.parts.flatMap((p: any) => p.files.filter((f: any) => !p.images.includes(f) && f.bytes)).map((f: any) => `${f.formatName} ${formatBytes(f.bytes)}`);
+const originalPost = e.originalUrl && !e.parts.some((p: any) => p.url === e.originalUrl) ? e.originalUrl : null;
+const readLabel = e.pages > 1 ? `Read all ${formatNumber(e.pages)} pages` : 'Read the full text';
+const relatedKnown = e.characters[0]?.id || e.series[0]?.id;
 ---
 <Base title={e.title} description={desc} ogType="article">
   <script type="application/ld+json" slot="head" is:inline set:html={ldJson} />
-  {(e.series[0] || crumbTag || sortTopic) && (
-    <nav class="crumbs" aria-label="Breadcrumb">
-      {e.series[0] ? <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a> : crumbTag ? <a href={`/tags/${crumbTag.id}/`}>{crumbTag.name}</a> : <a href={`/topics/${sortTopic.id}/`}>{sortTopic.name}</a>}
-    </nav>
-  )}
+  <div class="cols">
+    <div class="main">
+      <h1>{e.title}</h1>
+      <p class="m1">
+        {e.authors.length ? (
+          e.authors.map((a: any, i: number) => <>{i > 0 && ', '}{contactHint(a) ? (
+            <a class="il" href={`/authors/${a.key}/#contact`}>{a.name}<span class="sx"> ({contactHint(a)})</span></a>
+          ) : <a class="il" href={`/authors/${a.key}/`}>{a.name}</a>}</>)
+        ) : e.sharedBy.length ? (
+          <>shared by {e.sharedBy.map((x: any, i: number) => <>{i > 0 && ', '}<a class="il" href={`/authors/${x.key}/`}>{sharerName(x)}</a>{x.reddit && redditAccount(x.reddit) && <> <AccountFlag acct={redditAccount(x.reddit)} /></>}</>)}</>
+        ) : 'Unknown author'}
+        {metaRest.map((m) => <> · {m}</>)}
+      </p>
 
-  <header class="item-head">
-    <h1>{e.title}</h1>
-    <p class="byline">
-      {e.authors.length ? (
-        <>by {e.authors.map((a: any, i: number) => <>{i > 0 && ', '}{contactHint(a) ? (
-          <a class="by-contact" href={`/authors/${a.key}/#contact`} aria-label={`${a.name} (${contactHint(a)}): contact details`}><span class="by-name">{a.name}</span> <span class="ct-hint">{contactHint(a)}</span></a>
-        ) : <a href={`/authors/${a.key}/`}>{a.name}</a>}</>)}</>
-      ) : e.sharedBy.length ? (
-        <span class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a>{s.reddit && redditAccount(s.reddit) && <> <AccountFlag acct={redditAccount(s.reddit)} /></>}</>)}</span>
-      ) : (
-        <>
-          <span class="muted">Unknown author.</span>
-          {e.originalUrl && !e.parts.some((p: any) => p.url === e.originalUrl) && <> See the <a href={e.originalUrl} rel="noopener nofollow ugc">{e.hasRedditSource || e.links.some((l: any) => l.type === 'reddit-post') ? 'original post' : 'original'}</a>.</>}
-          {' '}<a href={correctionUrl} rel="noopener">Know who made it?</a>
-        </>
-      )}
-    </p>
-    {e.authors.length > 0 && e.sharedBy.length > 0 && (
-      <p class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a>{s.reddit && redditAccount(s.reddit) && <> <AccountFlag acct={redditAccount(s.reddit)} /></>}</>)}</p>
-    )}
-    {statLine && <p class="statline">{statLine}</p>}
-    {statusLabel && <p class="item-status"><span class={`badge ${statusLabel.tone}`}>{statusLabel.statusLabel}</span></p>}
-    {(e.characters.length > 0 || moreSeries.length > 0 || chipTags.length > 0) && (
-      <ul class="chips about" aria-label="Characters and tags">
-        {e.characters.map((c: any) => <li><a class="tg sm k-char" href={`/characters/${c.id}/`}>{c.name}{c.real && <RealMark />}</a></li>)}
-        {moreSeries.map((x: any) => <li><a class="tg sm k-ser" href={`/series/${x.id}/`}>{x.name}</a></li>)}
-        {chipTags.map((t: any) => <li><a class={`tg sm k-${t.group}`} href={`/tags/${t.id}/`}>{t.name}</a></li>)}
-      </ul>
-    )}
-  </header>
-
-  <div class="item-grid">
-    <div>
-      {readHref && multi && (
-        <div class={`downloads read-cta${readChoices ? ' read-choices' : ''}`}>
-          {readChoices
-            ? textParts.map((p: any, k: number) => (
-                <a class={`button${readOnly ? '' : ' secondary'}`} href={partRead(p)}>Read {partUnit} {k + 1}</a>
-              ))
-            : <a class={`button${readOnly ? '' : ' secondary'}`} href={readHref}>Read {e.category === 'story' ? 'the story' : 'it'} from the start</a>}
-        </div>
-      )}
-      {multi && <h2>{partUnit === 'volume' ? 'Volumes' : 'Parts'}</h2>}
-      {e.parts.map((p: any) => {
-        const Part = multi ? 'details' : 'section';
-        return (
-        <Part class={multi ? 'part fold' : 'files'} aria-label={multi ? undefined : 'Files'}>
-          {multi ? (
-            <summary>
-              <h3>
-                <span>{p.title || `Part ${p.n}`}</span>
-                {p.status !== 'complete' && p.status !== 'export-blocked' && <span class={`badge ${p.tone}`}>{p.statusLabel}</span>}
-                {p.words !== null && <span class="part-words">{formatNumber(p.words)} words</span>}
-              </h3>
-            </summary>
-          ) : null}
-          {p.images.length > 0 && (
-            <div class="post-images">
-              {p.images.map((f: any, k: number) => (
-                <a href={f.href} rel="noopener">
-                  <img src={f.href} loading="lazy" decoding="async" alt={`Image ${k + 1} of ${p.images.length} from ${multi ? (p.title || `part ${p.n}`) : 'the post'}`} />
-                </a>
-              ))}
-            </div>
-          )}
-          {(p.textHref || p.files.some((f: any) => !p.images.includes(f))) && (
-            <div class="downloads">
-              {readOnly && !multi && <a class="button" href={readHref}>Read</a>}
-              {p.textHref && (
-                <a class={`button${readHref ? ' secondary' : ''}`} href={p.textHref} rel="noopener">Download text <span class="size">TXT</span></a>
-              )}
-              {p.files.filter((f: any) => !p.images.includes(f)).map((f: any) =>
-                f.href ? (
-                  <a class={`button${f === mainFile(p) ? '' : ' secondary'}`} href={f.href} rel="noopener">
-                    {f.format === 'pdf' ? 'Open PDF' : `Download ${f.formatName}`} <span class="size">{formatBytes(f.bytes)}</span>
-                  </a>
-                ) : (
-                  <span class="button" aria-disabled="true" title="Downloads are not available yet">
-                    {f.formatName} <span class="size">{formatBytes(f.bytes)}</span>
-                  </span>
-                ),
-              )}
-              {readHref && !readOnly && !multi && <a class="button secondary" href={readHref}>Read here</a>}
-              {multi && partRead(p) && <a class="button secondary" href={partRead(p)}>Read here</a>}
-            </div>
-          )}
-          {p.files.length > 0 && p.files.some((f: any) => !f.href) && (
-            <p class="small muted">Downloads are coming soon. The files are saved, but not online yet.</p>
-          )}
-          {p.status === 'export-blocked' ? (
-            <p class="small muted">
-              The owner turned off downloads for this {p.sourceLabel}, so no copy could be saved yet.
-              {p.url && ' Open the original while it is still online.'}
-            </p>
-          ) : p.missing.length > 0 && (
-            <p class="small muted">{missingSentence(p)}</p>
-          )}
-          {p.url && (
-            <a class="original-link" href={p.url} rel="noopener nofollow ugc">Open the original {p.sourceLabel} <span aria-hidden="true">↗</span></a>
-          )}
-        </Part>
-        );
-      })}
-
-      {!preview && e.status === 'complete' && e.parts.some((p: any) => p.files.length > 0) && (
-        <p class="small muted mt">This doc is mostly images, so there is no text preview and full-text search can't look inside it. Open the PDF to read it.</p>
-      )}
-
-      {preview && (
-        <section class="preview" aria-labelledby="h-preview">
-          <h2 id="h-preview">{multi ? 'Start of the story' : 'Start of the text'}</h2>
-          <div class="preview-text">{preview}</div>
-          <p class="small muted">
-            {e.parts.some((p: any) => p.files.some((f: any) => f.format === 'pdf' || f.format === 'docx'))
-              ? 'The first lines of the plain-text copy. Formatting and images are only in the PDF/DOCX.'
-              : 'The first lines of the saved text.'}
-          </p>
-          {readHref && <p class="read-more"><a class="button secondary" href={readHref}>Read the full text</a></p>}
-        </section>
-      )}
-
-      {e.foundIn.length > 0 && (
-        <details class="fold">
-          <summary><h2>Where it was listed</h2></summary>
-          <ul class="found-in">
-            {e.foundIn.map((f: any) => (
-              <li>
-                <a href={f.libraryUrl} rel="noopener">{f.libraryName}</a>
-                <span class="muted small"> by {LIBRARIES[f.library].by.map((u: string) => `u/${u}`).join(' & ')}</span>
-                <div class="small">
-                  {f.section && <>Section: {f.section}</>}
-                  {f.character && <> · Character: {f.character}</>}
-                  {f.linkText && f.linkText !== e.title && <> · Listed as <q>{f.linkText}</q></>}
-                  {f.note && <> · {readableDates(f.note)}</>}
-                </div>
+      {subjRows.length > 0 && (
+        <div class="subj">
+          <ul class="ls" data-list data-cap={SUBJ_CAP}>
+            {subjRows.map((r, i) => (
+              <li class={i >= subjShow ? 'cut' : undefined}>
+                <a class="r1" href={r.href}><Icon name={r.icon} class="g" /><span class="nm">{r.name}{r.sub && <span class="sx"> · {r.sub}</span>}</span><Icon name="go" class="chev" /></a>
               </li>
             ))}
           </ul>
-          {altTitles.length > 0 && <p class="small muted">Also listed as: {altTitles.join(' · ')}</p>}
-        </details>
+          {subjRows.length > subjShow && <button class="more js-only" type="button" data-expand data-noun={e.characters.length ? 'characters' : 'series'}><span class="lbl">All {subjRows.length} {e.characters.length ? 'characters' : 'series'}</span><Icon name="down" class="chev" /></button>}
+          <div class="end" hidden={subjRows.length > subjShow}></div>
+        </div>
       )}
 
-      {e.links.length > 0 && (
-        <details class="fold">
-          <summary><h2>Links</h2></summary>
-          <ul class="link-list">
-            {e.links.map((l: any) => (
-              <li><a href={l.url} rel="noopener nofollow ugc">{l.label}</a>{l.note && <span class="muted"> · {readableDates(l.note)}</span>}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {e.notes && (
+      {!multi && single && (
         <>
-          <h2>Notes</h2>
-          <p class="prose">{readableDates(e.notes)}</p>
+          <div class="acts">
+            {readOnly && <a class="btn" href={readHref}>Read</a>}
+            {!readOnly && mainFile(single)?.href && <a class="btn" href={mainFile(single).href} rel="noopener">{fileLabel(mainFile(single))}</a>}
+            {otherFiles(single).filter((f: any) => f.href).map((f: any) => <a class="tbtn" href={f.href} rel="noopener">{f.formatName}</a>)}
+            {single.textHref && <a class="tbtn" href={single.textHref} rel="noopener">TXT</a>}
+            {single.url && <a class="tbtn" href={single.url} rel="noopener nofollow ugc">{shortSource(single)}</a>}
+            {originalPost && <a class="tbtn" href={originalPost} rel="noopener nofollow ugc">{e.hasRedditSource || e.links.some((l: any) => l.type === 'reddit-post') ? 'Reddit post' : 'Original'}</a>}
+          </div>
+          {single.status === 'export-blocked' ? (
+            <p class="note-l">The owner turned off downloads for this {single.sourceLabel}, so no copy could be saved yet.{single.url && ' Open the original while it is still online.'}</p>
+          ) : single.missing.length > 0 && <p class="note-l">{missingSentence(single)}</p>}
+          {single.images.length > 0 && (
+            <div class="imgs">
+              {single.images.map((f: any, k: number) => (
+                <a href={f.href} rel="noopener"><img src={f.href} loading="lazy" decoding="async" alt={`Image ${k + 1} of ${single.images.length} from the post`} /></a>
+              ))}
+            </div>
+          )}
         </>
       )}
 
-      {related.length > 0 && (
-        <details class="fold">
-          <summary><h2>{relatedTitle}</h2></summary>
-          <EntryList entries={related} sort="none" />
-          {relatedMore && <p class="more-link"><a href={relatedMore.href}>{relatedMore.label}</a></p>}
-        </details>
+      {multi && (
+        <>
+          {(readHref || originalPost) && (
+            <div class="acts">
+              {readHref && <a class="btn" href={readHref}>Read from the start</a>}
+              {originalPost && <a class="tbtn" href={originalPost} rel="noopener nofollow ugc">Original</a>}
+            </div>
+          )}
+          <section class="parts">
+            <div class="sh"><h2 class="sl">{partUnit === 'volume' ? 'Volumes' : 'Parts'}</h2><span class="sl">Words</span></div>
+            {e.parts.map((p: any) => (
+              <Fold label={p.title || `Part ${p.n}`} count={p.words ? shortNum(p.words) : null}>
+                <div class="part-body">
+                  <div class="acts">
+                    {partRead(p) && <a class="tbtn" href={partRead(p)}>Read</a>}
+                    {p.files.filter((f: any) => !p.images.includes(f) && f.href).map((f: any) => <a class="tbtn" href={f.href} rel="noopener">{f.formatName}</a>)}
+                    {p.textHref && <a class="tbtn" href={p.textHref} rel="noopener">TXT</a>}
+                    {p.url && <a class="tbtn" href={p.url} rel="noopener nofollow ugc">{shortSource(p)}</a>}
+                  </div>
+                  {p.status !== 'complete' && p.status !== 'export-blocked' && <p class="note-l">{p.statusLabel}</p>}
+                  {p.status === 'export-blocked' ? (
+                    <p class="note-l">The owner turned off downloads for this {p.sourceLabel}, so no copy could be saved yet.</p>
+                  ) : p.missing.length > 0 && <p class="note-l">{missingSentence(p)}</p>}
+                  {p.images.length > 0 && (
+                    <div class="imgs">
+                      {p.images.map((f: any, k: number) => (
+                        <a href={f.href} rel="noopener"><img src={f.href} loading="lazy" decoding="async" alt={`Image ${k + 1} of ${p.images.length} from ${p.title || `part ${p.n}`}`} /></a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Fold>
+            ))}
+            <div class="end"></div>
+          </section>
+        </>
+      )}
+      {notOnline && <p class="note-l">Some files are saved but not online yet.</p>}
+
+      {preview.length > 0 ? (
+        <section class="pv" aria-labelledby="h-preview">
+          <div class="sh"><h2 class="sl" id="h-preview">Preview</h2></div>
+          <article class={previewCut ? 'pvt' : 'pvt whole'} lang={e.language || undefined}>
+            {preview.map((b) => (b.h ? <h3>{b.text}</h3> : <p>{b.text}</p>))}
+          </article>
+          {readHref && <a class="more read" href={readHref}><span>{readLabel}</span><Icon name="go" class="chev" /></a>}
+        </section>
+      ) : e.status === 'complete' && e.parts.some((p: any) => p.files.length > 0) && (
+        <p class="note-l">No text preview: this doc is mostly images.</p>
       )}
     </div>
 
-    <aside>
-      <details class="fold aside-fold">
-      <summary><h2>Details</h2></summary>
-      <dl class="facts">
-        {e.sharedBy.length > 0 && (
-          <>
-            <dt>Shared by</dt>
-            <dd>
-              <ul>
-                {e.sharedBy.map((s: any) => (
-                  <li>
-                    <a href={`/authors/${s.key}/`}>{s.name}</a>
-                    {s.reddit && <> <span class="small"><RedditHandle handle={s.reddit} /></span></>}
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        )}
-        {e.variant && (<><dt>Version</dt><dd>{e.variant}</dd></>)}
-        {altTitles.length > 0 && e.foundIn.length === 0 && (<><dt>Also listed as</dt><dd><ul>{altTitles.map((t: string) => <li>{t}</li>)}</ul></dd></>)}
-        <dt>Language</dt>
-        <dd>{e.languageName}</dd>
-        {completion && (<><dt>Status</dt><dd>{completion}</dd></>)}
-        {savedDate && (<><dt>{savedLabel === 'snapshot' ? 'Snapshot' : savedLabel === 'tried' ? 'Tried' : 'Saved'}</dt><dd><time datetime={savedDate}>{formatDate(savedDate)}</time></dd></>)}
-      </dl>
-      </details>
-      <details class="fold aside-fold fold-shut">
-        <summary><h2>Corrections and removal</h2></summary>
-        <div>
-          {sortTopic && <p class="small">Not sorted yet. <a href={correctionUrl} rel="noopener">Help sort it</a>.</p>}
-          {e.review.status === 'auto' && (
-            <p class="small">
-              This entry was filled in automatically
-              {e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.
-            </p>
+    <div class="side">
+      {related.length > 0 && (
+        <Blk label="Related" count={related.length} right="Words">
+          <DocList entries={related} sort="none" cap={0} known={relatedKnown} />
+          {relatedMore && <a class="more" href={relatedMore.href}><span>{relatedMore.label}</span><Icon name="go" class="chev" /></a>}
+        </Blk>
+      )}
+      <Blk label="Details">
+        <dl>
+          {e.authors.length > 0 && e.sharedBy.length > 0 && (
+            <div class="fact"><dt class="k">Shared by</dt><dd class="v">
+              {e.sharedBy.map((x: any, i: number) => <>{i > 0 && ', '}<a class="il" href={`/authors/${x.key}/`}>{sharerName(x)}</a>{x.reddit && redditAccount(x.reddit) && <> <AccountFlag acct={redditAccount(x.reddit)} /></>}</>)}
+            </dd></div>
           )}
-          <p class="small"><a href={correctionUrl} rel="noopener">Suggest a correction</a></p>
-          <p class="small"><a href={`${ARCHIVE_REPO_URL}/tree/main/${e.repoPath}`} rel="noopener">Metadata on GitHub</a></p>
-        </div>
-        <p class="small muted mt">
-          Are you the author? You can <a href={`/removal/?item=${e.id}`}>ask for this to be removed</a> or credited differently.
-        </p>
-      </details>
-    </aside>
+          {e.variant && <div class="fact"><dt class="k">Version</dt><dd class="v">{e.variant}</dd></div>}
+          {altTitles.length > 0 && (
+            <div class="fact"><dt class="k">Also called</dt><dd class="v">{altTitles.slice(0, 3).join(', ')}{altTitles.length > 3 && <span class="sx"> +{altTitles.length - 3}</span>}</dd></div>
+          )}
+          {e.foundIn.length > 0 && (
+            <div class="fact"><dt class="k">Listed in</dt><dd class="v">
+              {e.foundIn.map((f: any) => (
+                <p>
+                  <a class="il" href={f.libraryUrl} rel="noopener">{f.libraryName}</a>
+                  {[f.section && f.section.replace(/:$/, ''), f.character, f.linkText && f.linkText !== e.title && `listed as “${f.linkText}”`, f.note && readableDates(f.note)].filter(Boolean).map((x) => <span class="sx"> · {x}</span>)}
+                </p>
+              ))}
+            </dd></div>
+          )}
+          {e.tagList.length > 0 && (
+            <div class="fact"><dt class="k">Tags</dt><dd class="v">{e.tagList.map((t: any, i: number) => <>{i > 0 && ', '}<a class="il" href={`/tags/${t.id}/`}>{t.name}</a></>)}</dd></div>
+          )}
+          {e.links.length > 0 && (
+            <div class="fact"><dt class="k">Links</dt><dd class="v">
+              {e.links.map((l: any) => <p><a class="il" href={l.url} rel="noopener nofollow ugc">{l.label}</a>{l.note && <span class="sx"> · {readableDates(l.note)}</span>}</p>)}
+            </dd></div>
+          )}
+          {e.notes && <div class="fact"><dt class="k">Notes</dt><dd class="v">{readableDates(e.notes)}</dd></div>}
+          {statLine && <div class="fact"><dt class="k">Length</dt><dd class="v">{statLine}</dd></div>}
+          {sizes.length > 0 && <div class="fact"><dt class="k">Files</dt><dd class="v">{sizes.join(', ')}</dd></div>}
+          <div class="fact"><dt class="k">Language</dt><dd class="v">{e.languageName}</dd></div>
+          {completion && <div class="fact"><dt class="k">Status</dt><dd class="v">{completion}</dd></div>}
+          {statusLabel && <div class="fact"><dt class="k">Copy</dt><dd class="v">{statusLabel.statusLabel}</dd></div>}
+          {savedDate && (
+            <div class="fact"><dt class="k">{savedLabel === 'snapshot' ? 'Snapshot' : savedLabel === 'tried' ? 'Tried' : 'Saved'}</dt><dd class="v"><time datetime={savedDate}>{formatDate(savedDate)}</time></dd></div>
+          )}
+        </dl>
+      </Blk>
+      <div class="corr">
+        <Fold label="Corrections and removal">
+          {e.authors.length === 0 && <a class="more" href={correctionUrl}><span>Know who made it?</span><Icon name="go" class="chev" /></a>}
+          {sortTopic && <a class="more" href={correctionUrl}><span>Help sort it</span><Icon name="go" class="chev" /></a>}
+          <a class="more" href={correctionUrl}><span>Suggest a correction</span><Icon name="go" class="chev" /></a>
+          <a class="more" href={`/removal/?item=${e.id}`}><span>Request removal</span><Icon name="go" class="chev" /></a>
+          <a class="more" href={`${ARCHIVE_REPO_URL}/tree/main/${e.repoPath}`} rel="noopener"><span>Metadata on GitHub</span><Icon name="go" class="chev" /></a>
+          {e.review.status === 'auto' && (
+            <p class="note-l">Filled in automatically{e.review.check.length > 0 && <>; the {e.review.check.map((c: string) => checkNames[c] || c).join(', ')} may be wrong</>}.</p>
+          )}
+        </Fold>
+        <div class="end"></div>
+      </div>
+    </div>
   </div>
 </Base>

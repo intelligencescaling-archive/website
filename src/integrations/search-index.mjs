@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as pagefind from 'pagefind';
 import { loadArchive, entryText, sortTitle, sharerName, CATEGORY_PLURAL } from '../lib/archive.mjs';
+import { lengthBucket } from '../lib/length.mjs';
 
 // Filter values are stored as plain text. The site's own search page (src/scripts/search.js) shows
 // them with textContent. Don't switch to Pagefind's default UI without escaping them: it inserts
@@ -55,6 +56,10 @@ export default function searchIndex() {
               by: e.authors.length ? e.authors.map((a) => a.name).join(', ') : 'Unknown author',
               ...(e.sharedBy.length ? { sh: e.sharedBy.map(sharerName).join(', ') } : {}),
               series: e.series.map((s) => s.name).join(', '),
+              // Characters for the result row's subject ("Horikita +2"), as plain text.
+              ...(e.characters.length ? { ch: e.characters.slice(0, 3).map((c) => c.name).join('|') + (e.characters.length > 3 ? `|+${e.characters.length - 3}` : '') } : {}),
+              // A maker known only by an app handle: its platform, shown as "(Discord)".
+              ...(e.authors[0] && !e.authors[0].reddit && e.authors[0].contacts?.length ? { hint: e.authors[0].contacts[0].platformName } : {}),
               words: String(e.words),
               // Tag badges for the result row: "group:Name|group:Name" (shown with textContent).
               ...(e.tagList.length ? { tg: e.tagList.map((t) => `${t.group}:${t.name}`).join('|') } : {}),
@@ -71,6 +76,7 @@ export default function searchIndex() {
               Tag: e.tags,
               Language: [e.languageName],
               'Source language': e.origins.map((o) => o.name),
+              Length: [lengthBucket(e.words)],
             }),
             sort: { title: (/^\p{N}/u.test(sortTitle(e.title)) ? '~' : '') + sortTitle(e.title).toLowerCase(), words: String(e.words).padStart(9, '0') },
           });

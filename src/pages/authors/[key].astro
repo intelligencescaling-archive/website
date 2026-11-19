@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import EntryList from '../../components/EntryList.astro';
+import DocList from '../../components/DocList.astro';
 import ContactList from '../../components/ContactList.astro';
 import { CONTACT_PLATFORMS, redditAccount, docsLabel } from '../../lib/archive.mjs';
 import { loadArchive } from '../../lib/archive.mjs';
@@ -32,17 +32,12 @@ const desc = made
   : `${shared} archived ${shared === 1 ? 'doc' : 'docs'} shared by ${a.reddit ? `u/${a.reddit}` : a.name}.`;
 ---
 <Base title={a.name} section="authors" description={desc}>
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/authors/">Authors</a></nav>
   <h1>{a.name}</h1>
-  {a.aliases.length > 0 && <p class="alt-titles">Also known as: {a.aliases.join(' · ')}</p>}
-  <p class="lede">{made > 0 ? plural(made) : `Shared ${plural(shared)}`}.</p>
-  {contacts.length > 0 && <ContactList contacts={contacts} name={a.name} notes={accountLines} />}
-  {made > 0 && <EntryList entries={a.entries} person={a.key} />}
-  {made > 0 && shared > 0 && (
-    <>
-      <h2>Shared by {a.name}</h2>
-      <p class="small muted">Docs they posted that don't name them as the maker.</p>
-    </>
-  )}
-  {shared > 0 && <EntryList entries={a.shared} person={a.key} />}
+  <p class="m1">{[made > 0 && plural(made), shared > 0 && (made > 0 ? `${shared} shared` : `Shared ${plural(shared)}`)].filter(Boolean).join(' · ')}</p>
+  {a.aliases.length > 0 && <p class="m1">Also: {a.aliases.join(', ')}</p>}
+  {contacts.length > 0 && <ContactList contacts={contacts} notes={accountLines} />}
+  <div class="main">
+    {made > 0 && <DocList label="Docs" entries={a.entries} person={a.key} />}
+    {shared > 0 && <DocList label="Shared" entries={a.shared} person={a.key} />}
+  </div>
 </Base>

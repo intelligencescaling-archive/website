@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
-import EntryList from '../../components/EntryList.astro';
+import DocList from '../../components/DocList.astro';
+import NameList from '../../components/NameList.astro';
 import { loadArchive, docsLabel } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
@@ -12,10 +13,7 @@ export function getStaticPaths() {
     .map((t) => ({ params: { id: t.id }, props: { t } }));
 }
 const { t } = Astro.props as { t: any };
-const tagGroup = new Map(loadArchive().tags.map((x: any) => [x.id, x.group]));
 const n = t.entries.length;
-const count = (tag: string) => t.entries.filter((e: any) => e.tags.includes(tag)).length;
-const subs = (t.subs || []).map(([name, tag]: [string, string]) => ({ name, tag, n: count(tag) })).filter((s: any) => s.n > 0);
 // "Series not known yet": the characters, so a reader who knows one can tell us its series.
 const chars = new Map<string, { id: string; name: string; n: number }>();
 if (t.id === 'series-unknown') {
@@ -34,38 +32,16 @@ const helpUrl =
     : issueUrl('Help sort entries', 'Entry (title or link):\nWhat it is about (series, characters, or a topic like SCD theory):\n');
 ---
 <Base title={t.name} section="tags" description={`${docsLabel(n)} in ${t.name}. ${t.desc}`}>
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/tags/">Tags</a></nav>
-  <h1>{t.name}</h1>
-  <p class="lede">{docsLabel(n)}. {t.desc} <a href={`/search/?topic=${t.id}`}>Filter</a></p>
-
-  {t.help && (
-    <div class="note">
-      <p>
-        {t.id === 'series-unknown'
-          ? 'Know which series one of these characters is from? '
-          : 'Know what any of these are about? '}
-        <a href={helpUrl} rel="noopener">Help sort them</a> (opens a GitHub issue).
-      </p>
-    </div>
-  )}
-
-  {subs.length > 1 && (
-    <ul class="chips topic-subs" aria-label="Narrow down">
-      {subs.map((s: any) => (
-        <li><a class={`tg k-${tagGroup.get(s.tag) || 'type'}`} href={`/search/?topic=${t.id}&tag=${s.tag}`}>{s.name} <span class="count">{s.n}</span></a></li>
-      ))}
-    </ul>
-  )}
-
-  {charList.length > 0 && (
-    <>
-      <h2>Characters</h2>
-      <ul class="chips">
-        {charList.map((c) => <li><a class="chip" href={`/characters/${c.id}/`}>{c.name} <span class="count">{c.n}</span></a></li>)}
-      </ul>
-    </>
-  )}
-
-  <h2>Entries</h2>
-  <EntryList entries={t.entries} limit={t.entries.length > 100 ? 50 : undefined} moreHref={`/search/?topic=${t.id}`} />
+  <div class="main">
+    <h1>{t.name}</h1>
+    <p class="m1"><a class="il" href="/tags/">Help sort</a> · {docsLabel(n)}</p>
+    {t.desc && <p class="desc">{t.desc}</p>}
+    {t.help && (
+      <div class="acts"><a class="tbtn" href={helpUrl} rel="noopener">{t.id === 'series-unknown' ? 'Tell us a series' : 'Help sort them'}<span class="sx">GitHub</span></a></div>
+    )}
+    {charList.length > 0 && (
+      <NameList label="Characters" items={charList.map((c) => ({ href: `/characters/${c.id}/`, name: c.name, count: c.n }))} cap={8} noun="characters" />
+    )}
+    <DocList label="Docs" entries={t.entries} limit={n > 100 ? 50 : undefined} moreHref={`/search/?topic=${t.id}`} />
+  </div>
 </Base>

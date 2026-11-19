@@ -1,0 +1,10 @@
+---
+// A fold that stays shut on every screen (rules 2.16): 44px row with label, optional count and a down chevron.
+import Icon from './Icon.astro';
+interface Props { label: string; count?: number | string | null; class?: string }
+const { label, count, class: cls } = Astro.props;
+---
+<details class={['fd', cls].filter(Boolean).join(' ')}>
+  <summary><span class="lbl">{label}</span>{count != null && <span class="n">{typeof count === 'number' ? count.toLocaleString('en-US') : count}</span>}<Icon name="down" class="chev" /></summary>
+  <div class="body"><slot /></div>
+</details>

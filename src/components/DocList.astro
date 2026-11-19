@@ -1,0 +1,69 @@
+---
+// A list of docs as two-line rows (rules.md 2.6/2.13): title (2 lines max on phones), one muted meta line
+// "kind · subject · maker" and the size right-aligned ("137k"; the unit is in the list head). The first `cap` rows show,
+// then one "All N docs" row: it opens the rest in place (src/scripts/site.js), or links to `moreHref` when only the
+// first `limit` rows are in the HTML. Archive text is rendered through Astro expressions only (escaped).
+import Icon from './Icon.astro';
+import DocRows from './DocRows.astro';
+import { kindOf } from '../lib/ui.mjs';
+
+interface Props {
+  entries: any[];
+  /** Section label ("Docs"). Without it only the <ul> is rendered (the search page builds its own head). */
+  label?: string;
+  id?: string;
+  /** Adds the data-* attributes the Search page filters on. */
+  filterable?: boolean;
+  /** 'long' (default): most words first. 'none': keep the order given (related docs, recently added). */
+  sort?: 'long' | 'none';
+  /** On a person's page: their key (left out of each row's byline). */
+  person?: string;
+  /** The page's character or series id: left out of each row's subject. */
+  known?: string;
+  /** The page's own tag: not shown as a row's kind. */
+  skipTag?: string;
+  /** Rows shown before "All N". 0 = all. */
+  cap?: number;
+  /** Long lists: only the first `limit` rows go in the HTML; "All N" then links to `moreHref`. */
+  limit?: number;
+  moreHref?: string;
+  /** Extra class on the section (page order on phones). */
+  class?: string;
+  /** Sort control (Most words / A–Z). Default: on for 6+ rows when all rows are in the HTML. */
+  sortable?: boolean;
+  /** Word for the "All N …" row. */
+  noun?: string;
+}
+const { label, id, filterable = false, sort = 'long', person, known, skipTag, cap = 10, limit, moreHref, class: cls, noun = 'docs' } = Astro.props;
+const rank = new Map(Astro.props.entries.map((e: any, i: number) => [e, i]));
+const entries = sort === 'long' ? [...Astro.props.entries].sort((a: any, b: any) => b.words - a.words || rank.get(a)! - rank.get(b)!) : Astro.props.entries;
+const partial = !!(limit && entries.length > limit);
+const rows = partial ? entries.slice(0, limit) : entries;
+const sortable = Astro.props.sortable ?? (!partial && entries.length >= 6 && sort === 'long');
+// The kind is left out when every row has the same one (it is the page's subject then).
+const kinds = new Set(entries.map((e: any) => kindOf(e, skipTag)));
+const showKind = kinds.size > 1;
+const show = !cap || rows.length <= cap + 1 ? rows.length : cap;
+const expand = !partial && rows.length > show;
+const rowProps = { rows, rank, show, filterable, total: entries.length, person, known, skipTag, showKind, id, cap };
+---
+{label ? (
+  <section class={['sec', sortable && 'lhs', cls].filter(Boolean).join(' ')}>
+    {sortable ? (
+      <div class="lh">
+        <h2 class="sl">{label}</h2>
+        <button class="sort js-only" type="button" aria-haspopup="menu" aria-expanded="false" data-sort-btn><span>Most words</span><Icon name="down" /></button>
+        <div class="pop" role="menu" hidden data-sort-pop>
+          <button type="button" role="menuitemradio" aria-checked="true" data-sort="w">Most words</button>
+          <button type="button" role="menuitemradio" aria-checked="false" data-sort="az">A–Z</button>
+        </div>
+      </div>
+    ) : (
+      <div class="sh"><h2 class="sl">{label}</h2><span class="sl">Words</span></div>
+    )}
+    <DocRows {...rowProps} />
+    {partial && moreHref && <a class="more" href={moreHref}><span class="lbl">All {entries.length.toLocaleString('en-US')} {noun}</span><Icon name="go" class="chev" /></a>}
+    {expand && <button class="more js-only" type="button" data-expand data-noun={noun}><span class="lbl">All {rows.length} {noun}</span><Icon name="down" class="chev" /></button>}
+    <div class="end" hidden={expand || (partial && !!moreHref)}></div>
+  </section>
+) : <DocRows {...rowProps} />}

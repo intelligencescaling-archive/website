@@ -1,0 +1,22 @@
+---
+// Side content (rules A11): a shut fold on phones (label + count + chevron, 44px) and a plain section in the side
+// column from 1024px (public/fold.js opens it there). A block with a single item is a plain section everywhere.
+import Icon from './Icon.astro';
+interface Props { label: string; count?: number | null; right?: string; single?: boolean; class?: string }
+const { label, count, right, single = false, class: cls } = Astro.props;
+---
+{single ? (
+  <section class={['sec', 'blk-sec', cls].filter(Boolean).join(' ')}>
+    <div class="sh"><h2 class="sl">{label}</h2>{right && <span class="sl">{right}</span>}</div>
+    <slot />
+    <div class="end"></div>
+  </section>
+) : (
+  <details class={['fd', 'blk', cls].filter(Boolean).join(' ')}>
+    <summary><span class="lbl">{label}</span>{right && <span class="sl sl-r">{right}</span>}{count != null && <span class="n">{count.toLocaleString('en-US')}</span>}<Icon name="down" class="chev" /></summary>
+    <div class="body">
+      {right === 'Words' && <div class="sh fold-only"><span></span><span class="sl">Words</span></div>}
+      <slot />
+    </div>
+  </details>
+)}

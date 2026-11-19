@@ -1,35 +1,33 @@
 ---
-// A person's contact handles as small platform chips: a link for platforms with profile pages, a Copy button for
-// names people type into an app (Discord, Telegram). Handles are untrusted text: rendered with Astro expressions only.
+// A person's contact handles as fact rows: platform on the left, the handle (a link for platforms with profile
+// pages), and a Copy text button for names people type into an app (Discord, Telegram). Handles are untrusted text:
+// rendered with Astro expressions only.
 import AccountFlag from './AccountFlag.astro';
 interface Contact { platform: string; platformName: string; handle: string; label: string; url: string | null; copy: boolean; acct?: { flag: string; note: string } }
-interface Props { contacts: Contact[]; name: string; notes?: string[] }
-const { contacts, name, notes = [] } = Astro.props;
+interface Props { contacts: Contact[]; notes?: string[] }
+const { contacts, notes = [] } = Astro.props;
 ---
-<section class="contact" id="contact" aria-labelledby="contact-h">
-  <h2 id="contact-h" class="contact-h">Contact</h2>
-  <ul class="contact-list">
+<section class="sec main contact" id="contact" aria-labelledby="contact-h">
+  <div class="sh"><h2 id="contact-h" class="sl">Contact</h2></div>
+  <ul>
     {contacts.map((c) => (
-      <li class={`ct p-${c.platform}`}>
-        {c.url ? (
-          <a class="ct-chip" href={c.url} rel="noopener nofollow ugc">
-            <span class="ct-pf">{c.platformName}</span><span class="ct-handle">{c.label}</span>
-          </a>
-        ) : (
-          <span class={`ct-chip${c.acct ? ' gone' : ''}`}>
-            <span class="ct-pf">{c.platformName}</span><span class="ct-handle">{c.label}</span>{c.acct && <AccountFlag acct={c.acct} />}
-          </span>
-        )}
+      <li class={`fact ct p-${c.platform}`}>
+        <span class="k">{c.platformName}</span>
+        <span class="v">
+          {c.url ? <a href={c.url} rel="noopener nofollow ugc"><span class="ct-handle">{c.label}</span></a> : <span class="ct-handle">{c.label}</span>}
+          {c.acct && <> <AccountFlag acct={c.acct} /></>}
+        </span>
         {c.copy && (
-          <button type="button" class="ct-copy" data-copy={c.handle} aria-label={`Copy ${c.platformName} name ${c.label}`}>
+          <button type="button" class="tbtn ct-copy" data-copy={c.handle} aria-label={`Copy ${c.platformName} name ${c.label}`}>
             <span class="ct-copy-txt">Copy</span>
           </button>
         )}
       </li>
     ))}
   </ul>
-  {notes.map((n) => <p class="small muted contact-note">{n}</p>)}
-  <p class="small muted contact-note">Where to find {name}, as given in their docs or posts. The archive can't pass on messages.</p>
+  <div class="end"></div>
+  {notes.map((n) => <p class="note-l">{n}</p>)}
+  <p class="note-l">The archive can't pass on messages.</p>
   <p class="visually-hidden" role="status" aria-live="polite" data-copy-status></p>
 </section>
 
@@ -58,12 +56,10 @@ const { contacts, name, notes = [] } = Astro.props;
         }
       }
       if (txt) txt.textContent = ok ? 'Copied' : 'Selected';
-      b.classList.toggle('done', ok);
       if (status) status.textContent = ok ? `Copied ${value}` : `Selected ${value}. Copy it from your browser's menu.`;
       clearTimeout(timer);
       timer = setTimeout(() => {
         if (txt) txt.textContent = 'Copy';
-        b.classList.remove('done');
       }, 2000);
     });
   }

@@ -6,7 +6,7 @@ export function GET() {
   const { characters, series, people, tags } = loadArchive();
   const out = {
     c: characters.map((c) => [c.name, c.id, c.entries.length, c.seriesName || '', c.aliases || []]),
-    s: series.map((s) => [s.name, s.id, s.entries.length, '', s.aliases || []]),
+    s: series.map((s) => [s.name, s.id, s.entries.length, s.originLabel ? s.originLabel.replace(/^./, (x) => x.toUpperCase()) : '', s.aliases || []]),
     // People: every name, alias and Reddit handle finds them. Someone who only shared docs gets a 6th field, the
     // label shown instead of "Author".
     a: people.map((a) =>

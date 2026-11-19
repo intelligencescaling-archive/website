@@ -1,22 +1,67 @@
 ---
+// Character page (rules.md 3.2, AniList character page): name, one meta line, alias line, kind tabs over one list of
+// docs (10 + "All", sort), then the characters they share docs with and the top authors (folds on phones, side column
+// on desktop).
 import Base from '../../layouts/Base.astro';
-import EntryList from '../../components/EntryList.astro';
-import RealMark from '../../components/RealMark.astro';
+import DocList from '../../components/DocList.astro';
+import NameList from '../../components/NameList.astro';
+import Blk from '../../components/Blk.astro';
 import { loadArchive, docsLabel, distinctAliases } from '../../lib/archive.mjs';
 
 export function getStaticPaths() {
   return loadArchive().characters.map((c) => ({ params: { id: c.id }, props: { c } }));
 }
 const { c } = Astro.props as { c: any };
+const n = c.entries.length;
+const aliases = distinctAliases(c.name, c.aliases);
+const byCount = (a: any, b: any) => b.count - a.count || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+const tally = (pick: (e: any) => any[], make: (x: any) => any) => {
+  const m = new Map<string, any>();
+  for (const e of c.entries) for (const x of pick(e)) {
+    const k = x.id || x.key;
+    const v = m.get(k) || { ...make(x), count: 0 };
+    v.count++;
+    m.set(k, v);
+  }
+  return [...m.values()].sort(byCount);
+};
+// Kind tabs: the doc kinds (non-meta tags) in these docs, most first. Below 6 docs: no tabs (rows show the kind).
+const kinds = tally((e) => e.tagList.filter((t: any) => t.group !== 'meta'), (t) => ({ id: t.id, name: t.name }));
+const tabs = n >= 6 && kinds.length > 1;
+const co = tally((e) => e.characters.filter((x: any) => x.id !== c.id), (x) => ({ href: `/characters/${x.id}/`, name: x.name }));
+const authors = tally((e) => e.authors, (a) => ({ href: `/authors/${a.key}/`, name: a.name }));
 ---
-<Base title={c.name} section="characters" description={`${c.entries.length} archived docs about ${c.name}${c.seriesName ? ` (${c.seriesName})` : ''}.`}>
-  <nav class="crumbs" aria-label="Breadcrumb">
-    <a href="/characters/">Characters</a>
-    {c.seriesId && <> / <a href={`/series/${c.seriesId}/`}>{c.seriesName}</a></>}
-  </nav>
-  <span class="tg-kind k-char">{c.real ? 'Character · real person' : 'Character'}</span>
-  <h1>{c.name}{c.real && <RealMark />}</h1>
-  {distinctAliases(c.name, c.aliases).length > 0 && <p class="alt-titles">Also known as: {distinctAliases(c.name, c.aliases).join(' · ')}</p>}
-  <p class="lede">{docsLabel(c.entries.length)} · <a href={`/search/?character=${c.id}`}>Filter</a></p>
-  <EntryList entries={c.entries} limit={c.entries.length > 100 ? 50 : undefined} moreHref={`/search/?character=${c.id}`} />
+<Base title={c.name} section="characters" description={`${n} archived docs about ${c.name}${c.seriesName ? ` (${c.seriesName})` : ''}.`}>
+  <div class="cols">
+    <div class="main">
+      <h1>{c.name}</h1>
+      <p class="m1">
+        {c.seriesId && <><a class="il" href={`/series/${c.seriesId}/`}>{c.seriesName}</a> · </>}{docsLabel(n)}{c.real && ' · real person'}
+      </p>
+      {aliases.length > 0 && <p class="m1">Also: {aliases.join(', ')}</p>}
+      {tabs && (
+        <div class="tabw kinds">
+          <div class="tabs" role="tablist" aria-label="Kind" data-fit data-for="docs">
+            <button class="tb" type="button" role="tab" aria-selected="true" aria-controls="docs" data-kind="all" data-label="All">All<span class="n">{n}</span></button>
+            {kinds.map((k) => (
+              <button class="tb" type="button" role="tab" aria-selected="false" aria-controls="docs" data-kind={k.id} data-label={k.name}>{k.name}<span class="n">{k.count}</span></button>
+            ))}
+          </div>
+        </div>
+      )}
+      <DocList id="docs" label="Docs" entries={c.entries} known={c.id} />
+    </div>
+    <div class="side">
+      {co.length > 0 && (
+        <Blk label={co.length === 1 ? 'Character' : 'Characters'} count={co.length} right="Docs" single={co.length === 1}>
+          <NameList bare items={co} cap={5} noun="characters" />
+        </Blk>
+      )}
+      {authors.length > 0 && (
+        <Blk label={authors.length === 1 ? 'Author' : 'Authors'} count={authors.length} right="Docs" single={authors.length === 1}>
+          <NameList bare items={authors} cap={5} noun="authors" />
+        </Blk>
+      )}
+    </div>
+  </div>
 </Base>
