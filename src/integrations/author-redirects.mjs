@@ -19,8 +19,21 @@ export default function authorRedirectsIntegration() {
           .filter(([from]) => !have.has(from))
           .map(([from, to]) => `${from} ${to} 301`);
         const head = '# Generated at build time (src/integrations/author-redirects.mjs): other names of a person -> their page.';
-        fs.writeFileSync(file, `${current.replace(/\s*$/, '\n')}${head}\n${lines.join('\n')}\n`);
-        logger.info(`Added ${lines.length} author redirects to _redirects`);
+        const rows = `${current.replace(/\s*$/, '\n')}${head}\n${lines.join('\n')}`.split('\n');
+        // Cloudflare counts every rule after the first dynamic one (a splat `*` or a `:placeholder` in the source) as
+        // dynamic, and only 100 dynamic rules work: on 2026-11-19 every rule past that point was silently ignored on the
+        // preview. So dynamic rules go last, in their order (no static rule here overlaps a dynamic one).
+        const isDynamic = (l) => !l.startsWith('#') && /\*|\/:[A-Za-z]/.test(l.trim().split(/\s+/)[0] || '');
+        const isRule = (l) => l.trim() && !l.startsWith('#');
+        const dynamic = rows.filter(isDynamic);
+        const staticRows = rows.filter((l) => !isDynamic(l));
+        const nStatic = staticRows.filter(isRule).length;
+        if (dynamic.length > 100 || nStatic > 2000) {
+          throw new Error(`_redirects: ${nStatic} static / ${dynamic.length} dynamic rules is over Cloudflare's limit (2000 / 100)`);
+        }
+        const tail = dynamic.length ? `\n# Dynamic rules (splats) last: Cloudflare treats every rule after the first one as dynamic (max 100).\n${dynamic.join('\n')}` : '';
+        fs.writeFileSync(file, `${staticRows.join('\n').replace(/\s*$/, '')}\n${tail}\n`);
+        logger.info(`Added ${lines.length} author redirects to _redirects (${nStatic} static rules, ${dynamic.length} dynamic rules last)`);
       },
     },
   };
