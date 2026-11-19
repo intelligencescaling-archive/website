@@ -1043,9 +1043,19 @@ a.ct-chip:hover .ct-pf, a.ct-chip:hover::before { color: var(--mark-ink); }
 .p-discord, .p-other { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M4 5h16v11H9l-5 4z'/%3E%3Cpath d='M9 10.5h.01M12 10.5h.01M15 10.5h.01'/%3E%3C/svg%3E"); }
 .p-telegram { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M21 4 3 11l6 2.5L19 7l-7.5 8.5L18 20z'/%3E%3C/svg%3E"); }
 .p-youtube { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Crect x='2.5' y='5.5' width='19' height='13' rx='3.5'/%3E%3Cpath d='M10 9.5v5l4.5-2.5z'/%3E%3C/svg%3E"); }
-/* Byline hint: "Discord" after a maker known only by an app handle. */
-.ct-hint {
-  display: inline-block; font: 600 0.72rem/1 var(--sans); text-transform: uppercase; letter-spacing: 0.05em; vertical-align: 0.15em;
-  padding: 0.22rem 0.4rem; border: 1px solid var(--rule-2); border-radius: var(--radius); color: var(--ink-2); text-decoration: none; background-image: none;
+/* Byline: a maker known only by an app handle. Name + "Discord" label are one link (one tap target, 44 px tall on
+   touch screens) to the Contact row on their page. The name keeps the normal link look. */
+.by-contact { display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; background-image: none; vertical-align: middle; }
+.by-contact .by-name {
+  text-decoration: underline; text-decoration-color: var(--rule-2); text-decoration-thickness: 1px; text-underline-offset: 0.18em;
+  background-image: linear-gradient(var(--mark), var(--mark)); background-repeat: no-repeat; background-position: 0 88%; background-size: 0% 0.42em;
 }
-.ct-hint:hover { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+.by-contact:hover { color: var(--hover-ink); }
+.by-contact:hover .by-name { text-decoration-color: currentColor; background-size: var(--sweep); }
+.ct-hint {
+  display: inline-block; font: 600 0.72rem/1 var(--sans); text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.22rem 0.4rem; border: 1px solid var(--rule-2); border-radius: var(--radius); color: var(--ink-2);
+}
+.by-contact:hover .ct-hint { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+@media (pointer: coarse) { .by-contact { min-height: 44px; } }
+@media (prefers-reduced-motion: no-preference) { .by-contact .by-name { transition: background-size 0.22s var(--ease), color 0.15s; } }
