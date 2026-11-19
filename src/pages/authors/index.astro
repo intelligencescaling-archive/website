@@ -13,6 +13,12 @@ const unknown = entries.filter((e) => e.authors.length === 0).length;
   </p>
   <IndexList
     noun="authors"
-    items={authors.map((a) => ({ href: `/authors/${a.key}/`, name: a.name, count: a.entries.length, sub: a.reddit ? `u/${a.reddit}` : null }))}
+    items={authors.map((a) => ({
+      href: `/authors/${a.key}/`,
+      name: a.name,
+      count: a.entries.length,
+      sub: a.reddit && a.reddit.toLowerCase() !== a.name.toLowerCase() ? `u/${a.reddit}` : null,
+      match: a.match,
+    }))}
   />
 </Base>

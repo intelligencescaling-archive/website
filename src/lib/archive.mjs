@@ -281,6 +281,33 @@ function findMetaFiles(root) {
   return out;
 }
 
+/** One credit per person: two credits can be the same person (e.g. a display name and a Reddit handle). */
+function dedupeCredits(list) {
+  const seen = new Set();
+  return list.filter((c) => !seen.has(c.key) && seen.add(c.key));
+}
+
+/** "u/Name" for a Reddit handle, else the name. */
+export function sharerName(s) {
+  return s.reddit ? `u/${s.reddit}` : s.name;
+}
+
+/** Person registry (data/authors.yaml): id -> { id, name, aliases, reddit[] }. Empty for archives made before it. */
+function readPeople(file) {
+  const people = new Map();
+  if (!fs.existsSync(file)) return people;
+  for (const p of arr(readYaml(file))) {
+    if (!p || !SLUG.test(str(p.id)) || !str(p.name).trim()) continue;
+    people.set(p.id, {
+      id: p.id,
+      name: str(p.name).trim(),
+      aliases: arr(p.aliases).map(str).filter(Boolean),
+      reddit: arr(p.reddit).map(str).filter((r) => REDDIT_NAME.test(r)),
+    });
+  }
+  return people;
+}
+
 function normalizeEntry(raw, metaFile, reg) {
   const where = path.relative(ARCHIVE_DIR, metaFile).replaceAll('\\', '/');
   if (!raw || typeof raw !== 'object') throw new Error(`${where}: not a YAML mapping`);
@@ -291,12 +318,25 @@ function normalizeEntry(raw, metaFile, reg) {
   if (!arr(raw.parts).length) throw new Error(`${where}: no parts`);
   const category = CATEGORY_NAMES[raw.category] ? raw.category : 'doc';
 
-  const authors = arr(raw.authors)
-    .filter((a) => a && str(a.name).trim())
-    .map((a) => {
-      const reddit = REDDIT_NAME.test(str(a.reddit)) ? a.reddit : null;
-      return { name: str(a.name).trim(), reddit, source: str(a.source), key: slugify(reddit || a.name) };
-    });
+  // A credit (an author, or the person who shared it). With the archive's person registry
+  // (data/authors.yaml), `key` is the person id and `name` their main name; `credited` keeps the name as written.
+  const credits = (list, field) =>
+    dedupeCredits(
+      arr(list)
+        .filter((a) => a && str(a.name).trim())
+        .map((a) => {
+          const credited = str(a.name).trim();
+          const ownReddit = REDDIT_NAME.test(str(a.reddit)) ? a.reddit : null;
+          const pid = SLUG.test(str(a.id)) ? a.id : null;
+          const p = pid ? reg.people.get(pid) : null;
+          if (pid && !p && reg.people.size) reg.warnings.push(`${where}: unknown person "${pid}" in ${field}`);
+          if (p) return { name: p.name, credited, reddit: ownReddit || p.reddit[0] || null, source: str(a.source), key: p.id };
+          return { name: credited, credited, reddit: ownReddit, source: str(a.source), key: slugify(ownReddit || credited) };
+        }),
+    );
+  const authors = credits(raw.authors, 'authors');
+  // A person is never both maker and sharer of one entry; if the data says so anyway, the author credit wins.
+  const sharedBy = credits(raw.shared_by, 'shared_by').filter((s) => !authors.some((a) => a.key === s.key));
 
   const series = arr(raw.series).map((sid) => {
     const s = reg.series.get(sid);
@@ -386,6 +426,7 @@ function normalizeEntry(raw, metaFile, reg) {
     title: str(raw.title).trim(),
     altTitles: arr(raw.alt_titles).map(str).filter((t) => t && t !== raw.title),
     authors,
+    sharedBy,
     series,
     characters,
     variant: str(raw.variant),
@@ -418,7 +459,7 @@ export function loadArchive() {
   if (!fs.existsSync(path.join(ARCHIVE_DIR, 'data', 'series.yaml'))) {
     throw new Error(`Archive not found at ${ARCHIVE_DIR}. Set ARCHIVE_DIR to a checkout of the archive repo.`);
   }
-  const reg = { series: new Map(), characters: new Map(), warnings: [] };
+  const reg = { series: new Map(), characters: new Map(), people: readPeople(path.join(ARCHIVE_DIR, 'data', 'authors.yaml')), warnings: [] };
   for (const s of arr(readYaml(path.join(ARCHIVE_DIR, 'data', 'series.yaml')))) {
     if (s && SLUG.test(str(s.id))) {
       const origin = /^([a-z]{2}|real)$/.test(str(s.origin_language)) ? s.origin_language : null;
@@ -473,11 +514,39 @@ export function loadArchive() {
       return { id, name: c.name, aliases: r?.aliases || [], seriesId: sid, seriesName: sid ? reg.series.get(sid)?.name || sid : null };
     },
   );
-  const authors = group(
-    (e) => e.authors.map((a) => [a.key, a]),
-    (key, a) => ({ key, name: a.name, reddit: a.reddit }),
-  );
-  for (const a of authors) a.reddit ||= a.entries.flatMap((e) => e.authors).find((x) => x.key === a.key && x.reddit)?.reddit || null;
+  // People: one page per person, with the entries they made (`entries`) and the ones they only shared (`shared`).
+  // `authors` (the Authors index, search filter) has only the people credited as makers.
+  const peopleMap = new Map();
+  const personOf = (c) => {
+    if (!peopleMap.has(c.key)) {
+      const r = reg.people.get(c.key);
+      peopleMap.set(c.key, { key: c.key, name: c.name, names: [...(r?.aliases || [])], handles: [...(r?.reddit || [])], entries: [], shared: [] });
+    }
+    return peopleMap.get(c.key);
+  };
+  for (const e of entries) {
+    for (const [list, field] of [[e.authors, 'entries'], [e.sharedBy, 'shared']]) {
+      for (const c of list) {
+        const p = personOf(c);
+        if (p[field].at(-1) !== e) p[field].push(e);
+        p.names.push(c.credited);
+        if (c.reddit) p.handles.push(c.reddit);
+      }
+    }
+  }
+  const lc = (s) => s.toLowerCase();
+  const people = [...peopleMap.values()].sort(byName);
+  for (const p of people) {
+    p.handles = [...new Map(p.handles.map((h) => [lc(h), h])).values()];
+    p.reddit = p.handles[0] || null;
+    // Other names the person is credited under, without the main name or a plain copy of a handle.
+    const skip = new Set([lc(p.name), ...p.handles.map(lc)]);
+    p.aliases = [...new Map(p.names.filter((n) => n && !skip.has(lc(n))).map((n) => [lc(n), n])).values()];
+    // Everything that should find this person in search.
+    p.match = [...new Set([...p.aliases, ...p.handles])];
+    delete p.names;
+  }
+  const authors = people.filter((p) => p.entries.length);
   const tags = group(
     (e) => e.tags.map((t) => [t, t]),
     (id) => ({ id, name: id }),
@@ -492,8 +561,27 @@ export function loadArchive() {
   for (const e of entries) e.topics = topicsFor(e, charSeries).map((id) => ({ id, name: topicName.get(id) }));
   const topics = TOPICS.map((t) => ({ ...t, entries: entries.filter((e) => e.topics.some((x) => x.id === t.id)) }));
 
-  cache = { entries, byId, series, characters, authors, tags, languages, origins, topics, warnings: reg.warnings };
+  cache = { entries, byId, series, characters, authors, people, tags, languages, origins, topics, warnings: reg.warnings };
   return cache;
+}
+
+/**
+ * Redirects for author page URLs that changed when credits were grouped into people: every name, alias and
+ * Reddit handle of a person, as a slug, points to the person's page. Skips slugs that are a page themselves
+ * or that two people share. Returns `[from, to]` paths.
+ */
+export function authorRedirects() {
+  const { people } = loadArchive();
+  const pages = new Set(people.map((p) => p.key));
+  const target = new Map();
+  for (const p of people) {
+    for (const n of [p.name, ...p.match]) {
+      const s = slugify(n);
+      if (pages.has(s)) continue;
+      target.set(s, target.has(s) && target.get(s) !== p.key ? null : p.key);
+    }
+  }
+  return [...target].filter(([, to]) => to).sort().map(([from, to]) => [`/authors/${from}/`, `/authors/${to}/`]);
 }
 
 /** Plain text of all parts, joined. Read on demand (46 MB in total, so it isn't kept in memory). */
@@ -716,4 +804,10 @@ export function readerPages(chapters) {
 
 export function authorLabel(entry) {
   return entry.authors.length ? entry.authors.map((a) => a.name).join(', ') : 'Unknown author';
+}
+
+/** One short line for bylines and descriptions: "by A, B", else "shared by u/X", else "by Unknown author". */
+export function bylineText(entry) {
+  if (entry.authors.length || !entry.sharedBy.length) return `by ${authorLabel(entry)}`;
+  return `shared by ${entry.sharedBy.map(sharerName).join(', ')}`;
 }

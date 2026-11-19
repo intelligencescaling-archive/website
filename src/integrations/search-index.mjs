@@ -4,7 +4,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as pagefind from 'pagefind';
-import { loadArchive, entryText, sortTitle, CATEGORY_PLURAL } from '../lib/archive.mjs';
+import { loadArchive, entryText, sortTitle, sharerName, CATEGORY_PLURAL } from '../lib/archive.mjs';
 
 // Filter values are stored as plain text. The site's own search page (src/scripts/search.js) shows
 // them with textContent. Don't switch to Pagefind's default UI without escaping them: it inserts
@@ -17,7 +17,8 @@ export default function searchIndex() {
     hooks: {
       'astro:build:done': async ({ dir, logger }) => {
         const out = path.join(fileURLToPath(dir), 'pagefind');
-        const { entries, warnings, series, characters } = loadArchive();
+        const { entries, warnings, series, characters, people } = loadArchive();
+        const personNames = new Map(people.map((p) => [p.key, p.match]));
         // Other spellings ("Ayanokouji" for "Ayanokoji") so a search finds the entry either way.
         const aliasesOf = new Map([...series, ...characters].map((x) => [x.id, x.aliases || []]));
         for (const w of warnings.slice(0, 20)) logger.warn(w);
@@ -30,6 +31,9 @@ export default function searchIndex() {
             e.title,
             ...e.altTitles,
             e.authors.length ? e.authors.map((a) => a.name + (a.reddit ? ` u/${a.reddit}` : '')).join(', ') : 'Unknown author',
+            // Every other name and handle of the people involved, so any alias finds their docs.
+            [...e.authors, ...e.sharedBy].flatMap((a) => personNames.get(a.key) || []).join(', '),
+            e.sharedBy.length ? `Shared by ${e.sharedBy.map((s) => s.name + (s.reddit ? ` u/${s.reddit}` : '')).join(', ')}` : '',
             e.series.map((s) => s.name).join(', '),
             e.characters.map((c) => c.name).join(', '),
             [...e.series, ...e.characters].flatMap((x) => aliasesOf.get(x.id) || []).join(', '),
@@ -47,6 +51,7 @@ export default function searchIndex() {
             meta: {
               title: e.title,
               by: e.authors.length ? e.authors.map((a) => a.name).join(', ') : 'Unknown author',
+              ...(e.sharedBy.length ? { sh: e.sharedBy.map(sharerName).join(', ') } : {}),
               series: (e.series.length ? e.series : e.topics.filter((t) => t.id !== 'needs-sorting' && t.id !== 'series-unknown')).map((s) => s.name).join(', '),
               words: String(e.words),
               // How many words of metadata follow the doc text, so the search page can show an

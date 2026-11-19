@@ -75,10 +75,10 @@ function matchNames(names, query) {
   if (!terms.length && q.length < 2) return [];
   const out = [];
   for (const [k, , , base] of KINDS) {
-    for (const [name, id, count, sub, aliases] of names[k] || []) {
+    for (const [name, id, count, sub, aliases, role] of names[k] || []) {
       let best = 0;
       for (const n of [name, ...aliases]) best = Math.max(best, scoreName(n, q, terms));
-      if (best) out.push({ k, name, href: `${base}${id}/`, count, sub, score: best });
+      if (best) out.push({ k, name, href: `${base}${id}/`, count, sub, role, score: best });
     }
   }
   return out.sort((a, b) => b.score - a.score || b.count - a.count);
@@ -277,6 +277,7 @@ export async function initSearch() {
             'div',
             { className: 'meta' },
             known ? el('span', { className: 'by', textContent: meta.by }) : null,
+            !known && meta.sh ? el('span', { className: 'sharer', textContent: `shared by ${meta.sh}` }) : null,
             meta.series ? el('span', { textContent: meta.series }) : null,
             meta.words && meta.words !== '0' ? el('span', { className: 'num', textContent: `${Number(meta.words).toLocaleString('en-US')} words` }) : null,
           ),
@@ -311,7 +312,7 @@ export async function initSearch() {
     }
     const [top, ...rest] = found;
     const kindOf = (k) => KINDS.find((x) => x[0] === k);
-    const subLine = (m) => [kindOf(m.k)[2], m.sub, plural(m.count, 'entry', 'entries')].filter(Boolean).join(' · ');
+    const subLine = (m) => [m.role || kindOf(m.k)[2], m.sub, plural(m.count, 'entry', 'entries')].filter(Boolean).join(' · ');
     const parts = [
       el('h2', { className: 'match-h', textContent: 'Top result' }),
       el('a', { className: 'top-result', href: top.href }, el('span', { className: 'top-name', textContent: top.name }), el('span', { className: 'top-sub', textContent: subLine(top) })),

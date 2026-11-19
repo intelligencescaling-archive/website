@@ -5,7 +5,7 @@
 // The text is untrusted: it is only ever rendered through Astro expressions (escaped), never set:html. Settings,
 // progress, chapters and resume are in src/scripts/reader.js; without JavaScript the page is just the text.
 import Base from '../layouts/Base.astro';
-import { authorLabel, formatNumber, textOnly, originalFile, readerUnit } from '../lib/archive.mjs';
+import { bylineText, formatNumber, textOnly, originalFile, readerUnit } from '../lib/archive.mjs';
 
 interface Props {
   entry: any;
@@ -60,7 +60,7 @@ const base = multi ? 3 : 2;
 const tagFor = (level: number) => (level === 0 ? 'p' : `h${Math.min(base + level - 1, 6)}`);
 const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` : `Read: ${e.title}`;
 ---
-<Base title={title} description={`Read ${e.title} by ${authorLabel(e)} on the Intelligence Scaling Archive.`} ogType="article">
+<Base title={title} description={`Read ${e.title} ${bylineText(e)} on the Intelligence Scaling Archive.`} ogType="article">
   <meta slot="head" name="robots" content="noindex, follow" />
   <div class="reader" id="reader" data-id={e.id} data-unit={unit} data-page={page + 1} data-pages={pages.length}
     data-before={here.wordsBefore} data-total={words} data-prev={page > 0 ? pageHref(page - 1) : undefined}
@@ -99,7 +99,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
       {multi && page === 0 && (
         <header class="r-book">
           <h1>{e.title}</h1>
-          <p class="r-by">by {authorLabel(e)}</p>
+          <p class="r-by">{bylineText(e)}</p>
           <p class="r-meta">{all.length} {unit.toLowerCase()}s · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
         </header>
       )}
@@ -118,7 +118,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
             ) : c.first ? (
               <>
                 <h1 id={`${id}-h`}>{e.title}</h1>
-                <p class="r-by">by {authorLabel(e)} · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+                <p class="r-by">{bylineText(e)} · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
               </>
             ) : (
               <h1 class="visually-hidden" id={`${id}-h`}>{e.title}, page {page + 1}</h1>

@@ -3,21 +3,34 @@ import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
 import { loadArchive } from '../../lib/archive.mjs';
 
+// One page per person (data/authors.yaml in the archive): what they made, and what they only shared.
 export function getStaticPaths() {
-  return loadArchive().authors.map((a) => ({ params: { key: a.key }, props: { a } }));
+  return loadArchive().people.map((a) => ({ params: { key: a.key }, props: { a } }));
 }
 const { a } = Astro.props as { a: any };
-const names = [...new Set(a.entries.flatMap((e: any) => e.authors).filter((x: any) => x.key === a.key).map((x: any) => x.name))].filter(
-  (n) => n !== a.name,
-);
+const made = a.entries.length;
+const shared = a.shared.length;
+const plural = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+const desc = made
+  ? `${made} archived works by ${a.name}.`
+  : `${shared} archived ${shared === 1 ? 'doc' : 'docs'} shared by ${a.reddit ? `u/${a.reddit}` : a.name}.`;
 ---
-<Base title={a.name} section="authors" description={`${a.entries.length} archived works by ${a.name}.`}>
+<Base title={a.name} section="authors" description={desc}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/authors/">Authors</a></nav>
   <h1>{a.name}</h1>
-  {names.length > 0 && <p class="alt-titles">Also credited as: {names.join(' · ')}</p>}
+  {a.aliases.length > 0 && <p class="alt-titles">Also known as: {a.aliases.join(' · ')}</p>}
   <p class="lede">
-    {a.entries.length} {a.entries.length === 1 ? 'entry' : 'entries'}.
-    {a.reddit && <> Reddit: <a href={`https://www.reddit.com/user/${a.reddit}/`} rel="noopener nofollow">u/{a.reddit}</a>.</>}
+    {made > 0 ? plural(made) : `Shared ${plural(shared)}`}.
+    {a.handles.length > 0 && (
+      <> Reddit: {a.handles.map((h: string, i: number) => <>{i > 0 && ', '}<a href={`https://www.reddit.com/user/${h}/`} rel="noopener nofollow">u/{h}</a></>)}.</>
+    )}
   </p>
-  <EntryList entries={a.entries} />
+  {made > 0 && <EntryList entries={a.entries} />}
+  {made > 0 && shared > 0 && (
+    <>
+      <h2>Shared by {a.name}</h2>
+      <p class="small muted">Docs they posted that don't name them as the maker.</p>
+    </>
+  )}
+  {shared > 0 && <EntryList entries={a.shared} />}
 </Base>

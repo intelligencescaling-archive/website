@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import searchIndex from './src/integrations/search-index.mjs';
+import authorRedirects from './src/integrations/author-redirects.mjs';
 
 export default defineConfig({
   site: 'https://intelscaling.com',
@@ -14,5 +15,5 @@ export default defineConfig({
     build: { assetsInlineLimit: 0 },
   },
   devToolbar: { enabled: false },
-  integrations: [searchIndex()],
+  integrations: [searchIndex(), authorRedirects()],
 });

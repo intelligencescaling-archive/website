@@ -11,3 +11,54 @@
 /items/composite-human-doc-editable-copy/* /items/comp-human-doc/ 301
 /items/walter-white-feats-doc-made-by-overlordthresh /items/walter-white-doc-feats-overlordthresh/ 301
 /items/walter-white-feats-doc-made-by-overlordthresh/* /items/walter-white-doc-feats-overlordthresh/ 301
+
+# Merged duplicate entries (2026-11-18): the old id points to the kept entry
+/items/18lohlifh-characters-and-scaling /items/18lohlifh-characters-and-scaling-updated/ 301
+/items/18lohlifh-characters-and-scaling/* /items/18lohlifh-characters-and-scaling-updated/ 301
+/items/42-feats-list /items/42-feats-list-document/ 301
+/items/42-feats-list/* /items/42-feats-list-document/ 301
+/items/ayanokojis-feats-unfinished /items/ayanokoji-full-scale-doc/ 301
+/items/ayanokojis-feats-unfinished/* /items/ayanokoji-full-scale-doc/ 301
+/items/humiliating-and-humbling-nigel /items/cat-and-mouse-doc-18loh-by-timo/ 301
+/items/humiliating-and-humbling-nigel/* /items/cat-and-mouse-doc-18loh-by-timo/ 301
+/items/ego-extreme-realm-cultivation-feat /items/ego-extreme-realm-cultivation-feat-1/ 301
+/items/ego-extreme-realm-cultivation-feat/* /items/ego-extreme-realm-cultivation-feat-1/ 301
+/items/kanade-chapter-3-mini-analysis /items/kanade-otonokoji-chapter-3-mini-analysis/ 301
+/items/kanade-chapter-3-mini-analysis/* /items/kanade-otonokoji-chapter-3-mini-analysis/ 301
+/items/light-first-half-round-with-l-strategy-plan-feats /items/light-yagami-feats-part-2-and-sum-up-all-parts/ 301
+/items/light-first-half-round-with-l-strategy-plan-feats/* /items/light-yagami-feats-part-2-and-sum-up-all-parts/ 301
+/items/ryuen /items/ryuen-feat-document/ 301
+/items/ryuen/* /items/ryuen-feat-document/ 301
+/items/walter-white-doc-feats-overlordthresh-2 /items/walter-white-doc-feats-overlordthresh/ 301
+/items/walter-white-doc-feats-overlordthresh-2/* /items/walter-white-doc-feats-overlordthresh/ 301
+/items/walter-white-feats-document-2 /items/walter-white-feats-document/ 301
+/items/walter-white-feats-document-2/* /items/walter-white-feats-document/ 301
+/items/yokoya-contraband-strategy-analysis /items/yokoya-contraband-strategy-mini-analysis/ 301
+/items/yokoya-contraband-strategy-analysis/* /items/yokoya-contraband-strategy-mini-analysis/ 301
+/items/fsiq-categories /items/all-categories-for-scd/ 301
+/items/fsiq-categories/* /items/all-categories-for-scd/ 301
+/items/all-scd-scaling-categories-and-definitions-doc /items/all-categories-for-scd/ 301
+/items/all-scd-scaling-categories-and-definitions-doc/* /items/all-categories-for-scd/ 301
+/items/death-note-god-of-the-new-world /items/death-note-god-of-the-new-world-2/ 301
+/items/death-note-god-of-the-new-world/* /items/death-note-god-of-the-new-world-2/ 301
+/items/validity-of-battler-s-logic-error-plan-discussion /items/validity-of-le-interpretation-umineko/ 301
+/items/validity-of-battler-s-logic-error-plan-discussion/* /items/validity-of-le-interpretation-umineko/ 301
+
+# Merged / removed character ids
+/characters/supreme-administrator/ /characters/administrator/ 301
+/characters/osamu-dazai/ /characters/dazai-osamu/ 301
+/characters/tokuchi-toua/ /characters/toua-tokuchi/ 301
+/characters/conan-edogawa-shinichi-kudo/ /characters/conan-edogawa/ 301
+/characters/raul/ /characters/raul-evans/ 301
+/characters/noahtic/ /characters/william-james-moriarty/ 301
+/characters/kira-yamato/ /items/kira-yamato/ 301
+# Removed series (its only doc was an OC named Kira Yamato, not Gundam SEED)
+/series/mobile-suit-gundam-seed/ /items/kira-yamato/ 301
+
+# Author credits that were wrong or only on a merged duplicate (2026-11-18). Other old author URLs are
+# generated at build time from data/authors.yaml (src/integrations/author-redirects.mjs).
+/authors/r-t-b/ /items/vs-character-mega-analysis-the-ink-demon-bendy-batim/ 301
+/authors/akane-kurashiki/ /items/red-moon-deception-rmd-feat/ 301
+/authors/tensai/ /items/42-feats-list-document/ 301
+/authors/communist-crusaders/ /items/walter-white-doc-feats-overlordthresh/ 301
+/authors/connect-fudge8942/ /items/all-categories-for-scd/ 301

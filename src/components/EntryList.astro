@@ -1,5 +1,5 @@
 ---
-import { formatNumber } from '../lib/archive.mjs';
+import { formatNumber, sharerName } from '../lib/archive.mjs';
 
 interface Props {
   entries: any[];
@@ -48,6 +48,7 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
       </div>
       <div class="entry-meta">
         {e.authors.length > 0 && <span class="by">{e.authors.map((a: any) => a.name).join(', ')}</span>}
+        {e.authors.length === 0 && e.sharedBy.length > 0 && <span class="sharer">shared by {e.sharedBy.map(sharerName).join(', ')}</span>}
         {seriesShown.length > 0 && <span>{seriesShown.map((s: any) => s.name).join(', ')}</span>}
         {charsShown.length > 0 && (
           <span>

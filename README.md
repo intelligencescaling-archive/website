@@ -45,6 +45,16 @@ preview URL on `intelscaling.pages.dev`. Domains: `intelscaling.com` and `www.in
 | Environment variables | `ASTRO_TELEMETRY_DISABLED=1`; optional `ARCHIVE_REPO`, `ARCHIVE_BRANCH`; `TURNSTILE_SITE_KEY` (Submit form, public) |
 | Secrets (Functions) | `TURNSTILE_SECRET`, `GITHUB_TOKEN` (fine-grained, Issues read+write on the private `submissions` repo only) |
 
+Which archive branch the build uses: `ARCHIVE_BRANCH` if set, else the archive branch with the same name as the
+website branch (`CF_PAGES_BRANCH`) when it exists, else `main`. So a preview of website branch `x` shows archive
+branch `x`: push both to test data changes before they merge.
+
+Authors are people: `data/authors.yaml` in the archive (one record per person, with aliases and Reddit handles)
+decides the author pages (`/authors/<person id>/`). Credits in `shared_by` show as "Shared by u/X", and a person
+who only shared docs gets a page with a "Shared" list (not in the Authors index). Old author URLs (any other
+name or handle of a person) are redirected by lines added to `_redirects` at build time
+(`src/integrations/author-redirects.mjs`); hand-written lines in `public/_redirects` come first.
+
 ### Submit form
 
 `/submit/` posts to a Pages Function, `functions/api/submit.js`. It checks the Turnstile token (and its hostname),
