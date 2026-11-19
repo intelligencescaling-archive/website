@@ -15,14 +15,14 @@ const FIRST = 50;
 const cats = Object.keys(CATEGORY_PLURAL).filter((c) => entries.some((e) => e.category === c));
 // value = what goes in the URL (same as the old /browse/ links), pf = the Pagefind filter value.
 const facets = [
-  { key: 'cat', param: 'category', group: 'Category', label: 'Category', options: cats.map((c) => { const n = CATEGORY_PLURAL[c as keyof typeof CATEGORY_PLURAL]; return { v: c, n, pf: n }; }) },
-  { key: 'origin', param: 'source', group: 'Source language', label: 'Source language', options: origins.filter((o) => o.entries.length).map((o) => ({ v: o.id, n: o.name, pf: o.name })) },
+  { key: 'cat', param: 'category', group: 'Category', label: 'Category', hide: true, options: cats.map((c) => { const n = CATEGORY_PLURAL[c as keyof typeof CATEGORY_PLURAL]; return { v: c, n, pf: n }; }) },
+  { key: 'origin', param: 'source', group: 'Source language', label: 'Original language', options: origins.filter((o) => o.entries.length).map((o) => ({ v: o.id, n: o.name, pf: o.name })) },
   { key: 'series', param: 'series', group: 'Series', label: 'Series', options: [...series.map((s) => ({ v: s.id, n: s.name, pf: s.name })), { v: '_none', n: '(No series)', pf: '(No series)' }] },
-  { key: 'topics', param: 'topic', group: 'Topic', label: 'Topic', options: topics.filter((t) => t.entries.length).map((t) => ({ v: t.id, n: t.name, pf: t.name })) },
-  { key: 'chars', param: 'character', group: 'Character', label: 'Character', options: characters.map((c) => ({ v: c.id, n: c.name, pf: c.name })) },
-  { key: 'authors', param: 'author', group: 'Author', label: 'Author', options: [{ v: '_unknown', n: 'Unknown author', pf: 'Unknown author' }, ...authors.map((a) => ({ v: a.key, n: a.name, pf: a.name }))] },
+  { key: 'topics', param: 'topic', group: 'Topic', label: 'Topic', hide: true, options: topics.filter((t) => t.entries.length).map((t) => ({ v: t.id, n: t.name, pf: t.name })) },
+  { key: 'chars', param: 'character', group: 'Character', label: 'Character', hide: true, options: characters.map((c) => ({ v: c.id, n: c.name, pf: c.name })) },
+  { key: 'authors', param: 'author', group: 'Author', label: 'Author', hide: true, options: [{ v: '_unknown', n: 'Unknown author', pf: 'Unknown author' }, ...authors.map((a) => ({ v: a.key, n: a.name, pf: a.name }))] },
   { key: 'tags', param: 'tag', group: 'Tag', label: 'Tag', options: tags.map((t) => ({ v: t.id, n: t.name, pf: t.id })) },
-  { key: 'lang', param: 'language', group: 'Language', label: 'Doc language', options: languages.map((l) => ({ v: l.id, n: l.name, pf: l.name })) },
+  { key: 'lang', param: 'language', group: 'Language', label: 'Written in', options: languages.map((l) => ({ v: l.id, n: l.name, pf: l.name })) },
 ];
 ---
 <Base title="Search" section="search" description="Search inside every archived doc and story, or list them all and filter by series, character, author, tag and length.">
@@ -41,8 +41,10 @@ const facets = [
         <h2>Filters</h2>
         <button type="button" class="linklike" id="clear-filters">Clear all</button>
       </div>
-      {facets.map((f) => (
-        <div>
+      {facets.map((f: any) => (
+        // Hidden facets have no dropdown in the sheet (typing a name finds characters and authors as Top result), but
+        // links like /search/?character=… still filter by them and show a removable chip.
+        <div hidden={f.hide}>
           <label for={`f-${f.key}`}>{f.label}</label>
           <select id={`f-${f.key}`} name={f.param} data-facet={f.key} data-group={f.group}>
             <option value="" data-label="Any">Any</option>
