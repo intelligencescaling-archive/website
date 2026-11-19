@@ -56,6 +56,7 @@ const statusShown = (e: any) => e.status !== 'complete' && !(e.status === 'dead'
         <a href={`/items/${e.id}/`}>{e.title}</a>
         {e.category !== 'doc' && !oneCategory && <> <span class="badge cat">{e.categoryName}</span></>}
         {statusShown(e) && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
+        {e.tagList.filter((t: any) => t.group === 'meta' && !commonTags.has(t.id)).map((t: any) => <> <span class="stat-l">{t.name}</span></>)}
       </div>
       <div class="entry-meta">
         {authorsShown.length > 0 && <span class="by">{authorsShown.map((a: any) => a.name).join(', ')}</span>}
@@ -69,10 +70,8 @@ const statusShown = (e: any) => e.status !== 'complete' && !(e.status === 'dead'
           </span>
         )}
         {e.words > 0 && <span class="num">{formatNumber(e.words)} words</span>}
+        {e.tagList.filter((t: any) => t.group !== 'meta' && !commonTags.has(t.id)).map((t: any) => <span class={`tgt k-${t.group}`}>{t.name}</span>)}
       </div>
-      {e.tagList.some((t: any) => !commonTags.has(t.id)) && (
-        <div class="tgs">{e.tagList.filter((t: any) => !commonTags.has(t.id)).map((t: any) => <span class={`tgb k-${t.group}`}>{t.name}</span>)}</div>
-      )}
     </li>
     );
   })}

@@ -127,14 +127,17 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-/** Tag badges of a result row, from the index's "group:Name|group:Name" (text only, group kept to a-z). */
-function tagBadges(tg) {
-  const badges = tg.split('|').map((x) => {
+/** Tags of a result row from the index's "group:Name|group:Name" (text only, group kept to a-z): `meta` tags as
+ *  small dashed labels after the title, the others as coloured words at the end of the meta line. */
+function tagParts(tg) {
+  const all = (tg || '').split('|').filter(Boolean).map((x) => {
     const i = x.indexOf(':');
-    const group = x.slice(0, i).replace(/[^a-z-]/g, '') || 'type';
-    return el('span', { className: `tgb k-${group}`, textContent: x.slice(i + 1) });
+    return { group: x.slice(0, i).replace(/[^a-z-]/g, '') || 'type', name: x.slice(i + 1) };
   });
-  return el('div', { className: 'tgs' }, ...badges);
+  return {
+    labels: all.filter((t) => t.group === 'meta').map((t) => el('span', { className: 'stat-l', textContent: t.name })),
+    words: all.filter((t) => t.group !== 'meta').map((t) => el('span', { className: `tgt k-${t.group}`, textContent: t.name })),
+  };
 }
 
 export async function initSearch() {
@@ -359,11 +362,12 @@ export async function initSearch() {
       const excerpt = el('p', { className: 'excerpt' });
       const hasExcerpt = appendDocExcerpt(excerpt, d, q);
       const known = meta.by && meta.by !== 'Unknown author';
+      const tags = tagParts(meta.tg);
       frag.append(
         el(
           'li',
           { className: 'result' },
-          el('h3', {}, el('a', { href: d.url, textContent: meta.title || d.url })),
+          el('h3', {}, el('a', { href: d.url, textContent: meta.title || d.url }), ...tags.labels.flatMap((x) => [' ', x])),
           el(
             'div',
             { className: 'meta' },
@@ -371,8 +375,8 @@ export async function initSearch() {
             !known && meta.sh ? el('span', { className: 'sharer', textContent: `shared by ${meta.sh}` }) : null,
             meta.series ? el('span', { textContent: meta.series }) : null,
             meta.words && meta.words !== '0' ? el('span', { className: 'num', textContent: `${Number(meta.words).toLocaleString('en-US')} words` }) : null,
+            ...tags.words,
           ),
-          meta.tg ? tagBadges(meta.tg) : null,
           hasExcerpt ? excerpt : null,
         ),
       );

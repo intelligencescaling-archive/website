@@ -1103,3 +1103,17 @@ a.ct-chip:hover .ct-pf, a.ct-chip:hover::before { color: var(--mark-ink); }
 .tag-jump .chips { gap: 0.4rem; }
 .tag-group-list li { scroll-margin-top: 1rem; }
 .tag-group-list li:target { background: var(--mark-soft); }
+/* List rows and search results (mockup 3, option A): the doc's kind as a small coloured word with its icon at the end
+   of the meta line (not a box, since the whole row is one link), status tags as small dashed labels after the title. */
+:where(.tgt) {
+  /* Defaults with no weight (:where), so the group classes (.k-fiction…) win whatever the order. */
+  --t: var(--k-type);
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M9.5 3.5 7.5 20.5M16.5 3.5l-2 17M4 8.5h16.5M3.5 15.5H20'/%3E%3C/svg%3E");
+}
+.tgt { color: var(--t); font-weight: 500; display: inline-flex; align-items: center; gap: 0.25rem; }
+.tgt::before { content: ''; flex: none; width: 12px; height: 12px; background: currentColor; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; }
+.entry-meta .tgt, .result .meta .tgt { color: var(--t); }
+.stat-l {
+  display: inline-block; font: 500 0.7rem/1 var(--sans); color: var(--k-meta); border: 1px dashed var(--k-meta-line);
+  border-radius: 3px; padding: 0.2rem 0.32rem; vertical-align: 0.15em; white-space: nowrap; letter-spacing: 0;
+}
