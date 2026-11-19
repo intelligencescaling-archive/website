@@ -11,7 +11,7 @@ const n = t.entries.length;
 const group = TAG_GROUPS.find((g) => g.id === t.group) || TAG_GROUPS[0];
 const oldNames = t.aliases.filter((a: string) => a.toLowerCase() !== t.name.toLowerCase());
 ---
-<Base title={`${t.name} (tag)`} description={`${docsLabel(n)} tagged ${t.name}.${t.definition ? ` ${t.definition}` : ''}`}>
+<Base section="tags" title={`${t.name} (tag)`} description={`${docsLabel(n)} tagged ${t.name}.${t.definition ? ` ${t.definition}` : ''}`}>
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/tags/">Tags</a></nav>
   <span class={`tg-kind k-${t.group}`}>{group.name}</span>
   <h1>{t.name}</h1>

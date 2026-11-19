@@ -45,24 +45,27 @@ const statLine = stats.map((s: any) => (s.l === 'read' ? `about ${s.v}` : `${s.v
 const saidByChip = (p: any) => (p.recovered && e.tags.includes('text-only')) || ((p.status === 'dead' || p.status === 'private' || p.fromSnapshot) && e.tags.includes('original-gone'));
 const statusLabel = single && single.status !== 'complete' && single.status !== 'export-blocked' && !saidByChip(single) ? single : null;
 const topic = e.topics[0] || null;
-// Chips under the byline: characters, any series after the first (the first is the breadcrumb), then the tags. The
-// Story tag is left out when the breadcrumb already says Stories.
+// Breadcrumb: the first series; without a series, the doc's main tag (its first non-meta tag), else the help list
+// it is in ("Needs sorting"). Topics were folded into tags.
+const crumbTag = !e.series.length ? e.tagList.find((t: any) => t.group !== 'meta') || null : null;
+// Chips under the byline: characters, any series after the first (the first is the breadcrumb), then the tags; the
+// tag that is already the breadcrumb is left out.
 const moreSeries = e.series.slice(1);
-const chipTags = e.tagList.filter((t: any) => !(t.id === 'story' && !e.series.length && topic?.id === 'stories-and-ocs'));
+const chipTags = e.tagList.filter((t: any) => t !== crumbTag);
 const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
 const relatedTitle = e.characters[0]
   ? `More about ${e.characters[0].name}`
   : e.series[0]
     ? `More from ${e.series[0].name}`
-    : topic && !sortTopic
-      ? `More in ${topic.name}`
+    : crumbTag
+      ? `More ${crumbTag.name} docs`
       : 'More like this';
 const relatedMore = e.characters[0]
   ? { href: `/characters/${e.characters[0].id}/`, label: `All docs about ${e.characters[0].name}` }
   : e.series[0]
     ? { href: `/series/${e.series[0].id}/`, label: `All ${e.series[0].name} docs` }
-    : topic && !sortTopic
-      ? { href: `/topics/${topic.id}/`, label: `All of ${topic.name}` }
+    : crumbTag
+      ? { href: `/tags/${crumbTag.id}/`, label: `All ${crumbTag.name} docs` }
       : null;
 const preview = textPreview(e, 1500);
 const multi = e.parts.length > 1;
@@ -129,9 +132,9 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
 ---
 <Base title={e.title} description={desc} ogType="article">
   <script type="application/ld+json" slot="head" is:inline set:html={ldJson} />
-  {(e.series[0] || topic) && (
+  {(e.series[0] || crumbTag || sortTopic) && (
     <nav class="crumbs" aria-label="Breadcrumb">
-      {e.series[0] ? <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a> : <a href={`/topics/${topic.id}/`}>{topic.name}</a>}
+      {e.series[0] ? <a href={`/series/${e.series[0].id}/`}>{e.series[0].name}</a> : crumbTag ? <a href={`/tags/${crumbTag.id}/`}>{crumbTag.name}</a> : <a href={`/topics/${sortTopic.id}/`}>{sortTopic.name}</a>}
     </nav>
   )}
 
@@ -321,12 +324,6 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
                 ))}
               </ul>
             </dd>
-          </>
-        )}
-        {e.topics.length > 0 && (
-          <>
-            <dt>{e.topics.length > 1 ? 'Topics' : 'Topic'}</dt>
-            <dd><ul>{e.topics.map((t: any) => <li><a href={`/topics/${t.id}/`}>{t.name}</a></li>)}</ul></dd>
           </>
         )}
         {e.variant && (<><dt>Version</dt><dd>{e.variant}</dd></>)}

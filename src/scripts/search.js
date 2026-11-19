@@ -79,11 +79,10 @@ function appendDocExcerpt(target, d, query) {
   return true;
 }
 
-// ---------- Top result: characters, series, topics and authors whose name matches ----------
+// ---------- Top result: characters, series, authors and tags whose name matches ----------
 const KINDS = [
   ['c', 'Characters', 'Character', '/characters/'],
   ['s', 'Series', 'Series', '/series/'],
-  ['t', 'Topics', 'Topic', '/topics/'],
   ['a', 'Authors', 'Author', '/authors/'],
   ['g', 'Tags', 'Tag', '/tags/'],
 ];

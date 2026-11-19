@@ -4,15 +4,14 @@ import { loadArchive } from '../lib/archive.mjs';
 const xmlEscape = (s) => s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 
 export function GET({ site }) {
-  const { entries, series, characters, people, tags, topics } = loadArchive();
+  const { entries, series, characters, people, tags } = loadArchive();
   const paths = [
-    '/', '/search/', '/library/', '/series/', '/topics/', '/characters/', '/authors/', '/tags/', '/about/', '/acknowledgments/', '/removal/', '/submit/',
+    '/', '/search/', '/library/', '/series/', '/characters/', '/authors/', '/tags/', '/about/', '/acknowledgments/', '/removal/', '/submit/',
     ...entries.map((e) => [`/items/${e.id}/`, e.added]),
     ...series.map((s) => `/series/${s.id}/`),
     ...characters.map((c) => `/characters/${c.id}/`),
     ...people.map((a) => `/authors/${a.key}/`),
     ...tags.map((t) => `/tags/${t.id}/`),
-    ...topics.filter((t) => t.entries.length).map((t) => `/topics/${t.id}/`),
   ];
   const body =
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +

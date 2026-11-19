@@ -2,13 +2,14 @@
 import Base from '../../layouts/Base.astro';
 import TagChip from '../../components/TagChip.astro';
 import { loadArchive, TAG_GROUPS } from '../../lib/archive.mjs';
-const { tags } = loadArchive();
+const { tags, topics } = loadArchive();
+const help = topics.filter((t: any) => t.help && t.entries.length);
 // Groups in display order; a group the website doesn't name yet is listed under its id at the end.
 const known = new Set(TAG_GROUPS.map((g) => g.id));
 const extra = [...new Set(tags.map((t) => t.group).filter((g) => !known.has(g)))].map((id) => ({ id, name: id, desc: '' }));
 const groups = [...TAG_GROUPS, ...extra].map((g) => ({ ...g, tags: tags.filter((t) => t.group === g.id) })).filter((g) => g.tags.length);
 ---
-<Base title="Tags" description="Archive entries grouped by tag: feats, analysis, matchups, debunks, stories and more.">
+<Base section="tags" title="Tags" description="Archive entries grouped by tag: feats, analysis, matchups, debunks, stories and more.">
   <div class="tag-index">
     <h1>Tags</h1>
     <p class="lede">What kind of doc it is. Each doc has one to three tags, plus notes about the saved file.</p>
@@ -33,5 +34,18 @@ const groups = [...TAG_GROUPS, ...extra].map((g) => ({ ...g, tags: tags.filter((
         </ul>
       </section>
     ))}
+    {help.length > 0 && (
+      <section aria-labelledby="g-help">
+        <h2 id="g-help">Help sort these</h2>
+        <ul class="tag-group-list">
+          {help.map((t: any) => (
+            <li>
+              <a href={`/topics/${t.id}/`}>{t.name}</a> <span class="muted small">{t.entries.length}</span>
+              <p>{t.desc}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
   </div>
 </Base>

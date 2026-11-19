@@ -6,7 +6,7 @@ interface Props {
   title?: string;
   description?: string;
   /** Which nav link is active. */
-  section?: 'home' | 'search' | 'series' | 'topics' | 'characters' | 'authors' | 'library' | 'about';
+  section?: 'home' | 'search' | 'series' | 'tags' | 'characters' | 'authors' | 'library' | 'about';
   /** Open Graph type: 'article' for item pages, 'website' for the rest. */
   ogType?: 'website' | 'article';
 }
@@ -20,9 +20,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const nav = [
   ['search', '/search/', 'Search'],
   ['series', '/series/', 'Series'],
-  ['topics', '/topics/', 'Topics'],
   ['characters', '/characters/', 'Characters'],
   ['authors', '/authors/', 'Authors'],
+  ['tags', '/tags/', 'Tags'],
 ] as const;
 // Phones (under 768 px) get a bottom tab bar instead of the top links: Home, Search, Library.
 // Library holds Characters, Series, Topics, Authors and the full list.

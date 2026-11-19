@@ -118,3 +118,15 @@
 /tags/wis /search/?q=wis 302
 /tags/writing-analysis /tags/writing/ 301
 /tags/writing-categories /tags/guide/ 301
+
+# Topics folded into tags (2026-11-19). The two "help sort" lists keep their /topics/<id>/ pages.
+/topics /tags/ 301
+/topics/ /tags/ 301
+/topics/scd-theory /tags/guide/ 301
+/topics/scd-theory/ /tags/guide/ 301
+/topics/stories-and-ocs /tags/story/ 301
+/topics/stories-and-ocs/ /tags/story/ 301
+/topics/community-games /tags/game/ 301
+/topics/community-games/ /tags/game/ 301
+/topics/libraries-and-history /tags/community/ 301
+/topics/libraries-and-history/ /tags/community/ 301

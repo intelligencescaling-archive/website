@@ -2,19 +2,17 @@
 import Base from '../layouts/Base.astro';
 import { loadArchive, formatNumber } from '../lib/archive.mjs';
 const { entries, series, characters, authors, topics, tags } = loadArchive();
-const mainTopics = topics.filter((t: any) => !t.help && t.entries.length);
-const stories = entries.filter((e: any) => e.category === 'story').length;
+const stories = tags.find((t: any) => t.id === 'story')?.entries.length || 0;
 // The full list with filters is the Search page (empty search box), so it isn't repeated here.
 const rows = [
   { href: '/characters/', name: 'Characters', count: characters.length, sub: 'Docs by character' },
   { href: '/series/', name: 'Series', count: series.length, sub: 'Docs by series' },
-  { href: '/topics/', name: 'Topics', count: mainTopics.length, sub: 'Theory, guides, games' },
   { href: '/authors/', name: 'Authors', count: authors.length, sub: 'Who wrote what' },
   { href: '/tags/', name: 'Tags', count: tags.filter((t: any) => t.entries.length).length, sub: 'Feats, analysis, matchups, debunks…' },
-  { href: '/search/?category=story', name: 'Stories', count: stories, sub: 'Original stories and fanfiction' },
+  { href: '/tags/story/', name: 'Stories', count: stories, sub: 'Original stories and fanfiction' },
 ];
 ---
-<Base title="Library" section="library" description="Browse the archive by character, series, topic or author.">
+<Base title="Library" section="library" description="Browse the archive by character, series, author or tag.">
   <h1>Library</h1>
   <ul class="lib-list">
     {rows.map((r) => (

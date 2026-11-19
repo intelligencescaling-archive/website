@@ -54,7 +54,7 @@ export default function searchIndex() {
               title: e.title,
               by: e.authors.length ? e.authors.map((a) => a.name).join(', ') : 'Unknown author',
               ...(e.sharedBy.length ? { sh: e.sharedBy.map(sharerName).join(', ') } : {}),
-              series: (e.series.length ? e.series : e.topics.filter((t) => t.id !== 'needs-sorting' && t.id !== 'series-unknown')).map((s) => s.name).join(', '),
+              series: e.series.map((s) => s.name).join(', '),
               words: String(e.words),
               // Tag badges for the result row: "group:Name|group:Name" (shown with textContent).
               ...(e.tagList.length ? { tg: e.tagList.map((t) => `${t.group}:${t.name}`).join('|') } : {}),

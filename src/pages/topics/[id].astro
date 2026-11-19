@@ -6,7 +6,9 @@ import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
 
 export function getStaticPaths() {
   return loadArchive()
-    .topics.filter((t) => t.entries.length)
+    // Topics were folded into tags (2026-11-19): only the two "help sort" lists keep a page here; the old topic pages
+    // redirect to their tag (public/_redirects).
+    .topics.filter((t) => t.help && t.entries.length)
     .map((t) => ({ params: { id: t.id }, props: { t } }));
 }
 const { t } = Astro.props as { t: any };
@@ -31,8 +33,8 @@ const helpUrl =
     ? issueUrl('Series for characters', 'Character:\nSeries it is from:\n')
     : issueUrl('Help sort entries', 'Entry (title or link):\nWhat it is about (series, characters, or a topic like SCD theory):\n');
 ---
-<Base title={t.name} section="topics" description={`${docsLabel(n)} in ${t.name}. ${t.desc}`}>
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/topics/">Topics</a></nav>
+<Base title={t.name} section="tags" description={`${docsLabel(n)} in ${t.name}. ${t.desc}`}>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/tags/">Tags</a></nav>
   <h1>{t.name}</h1>
   <p class="lede">{docsLabel(n)}. {t.desc} <a href={`/search/?topic=${t.id}`}>Filter</a></p>
 

@@ -8,8 +8,8 @@ const noSeries = entries.filter((e) => e.series.length === 0).length;
 <Base title="Series" section="series" description="Every series with archived docs and stories.">
   <h1>Series</h1>
   <p class="lede">
-    {series.length} series. {noSeries} more entries aren't about one series (SCD theory, guides, original stories,
-    community games): <a href="/topics/">browse them by topic</a>.
+    {series.length} series. {noSeries} more docs aren't about one series (SCD theory, guides, original stories,
+    community games): <a href="/tags/">browse them by tag</a>.
   </p>
   <IndexList noun="series" items={series.map((s) => ({ href: `/series/${s.id}/`, name: s.name, count: s.entries.length, match: s.aliases }))} />
 </Base>
