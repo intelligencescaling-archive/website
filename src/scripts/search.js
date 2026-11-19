@@ -149,16 +149,16 @@ export async function initSearch() {
     }
     return pagefind;
   }
+  // Resolves to the names index (or null if it can't be loaded). Fetched once.
+  let namesPromise = null;
   function loadNames() {
-    if (names !== null) return;
-    names = false;
-    fetch('/names.json')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        names = j;
-        if (names && input.value.trim()) renderMatches(input.value.trim());
-      })
-      .catch(() => {});
+    if (!namesPromise) {
+      namesPromise = fetch('/names.json')
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+        .then((j) => (names = j));
+    }
+    return namesPromise;
   }
 
   const activeSelects = () => selects.filter((s) => s.value);
@@ -189,15 +189,28 @@ export async function initSearch() {
     sheet.refresh(0);
   }
 
+  // Option counts ("Series: Naruto (12)") only matter when a dropdown opens, so they are written
+  // when the browser is idle, and only for options whose number changed (1,100+ options).
+  let countsTimer = null;
+  const idle = window.requestIdleCallback ? (f) => requestIdleCallback(f, { timeout: 600 }) : (f) => setTimeout(f, 30);
+  const cancelIdle = window.cancelIdleCallback ? (h) => cancelIdleCallback(h) : (h) => clearTimeout(h);
   function setCounts(countOf) {
-    for (const s of selects) {
-      for (const o of s.options) {
-        if (!o.value) continue;
-        const n = countOf(s, o);
-        o.textContent = `${o.dataset.label} (${n})`;
-        o.disabled = n === 0 && o.value !== s.value;
+    if (countsTimer !== null) cancelIdle(countsTimer);
+    countsTimer = idle(() => {
+      countsTimer = null;
+      for (const s of selects) {
+        for (const o of s.options) {
+          if (!o.value) continue;
+          const n = countOf(s, o);
+          if (o._n !== n) {
+            o._n = n;
+            o.textContent = `${o.dataset.label} (${n})`;
+          }
+          const off = n === 0 && o.value !== s.value;
+          if (o.disabled !== off) o.disabled = off;
+        }
       }
-    }
+    });
   }
 
   function showCount(n, one, many) {
@@ -242,20 +255,19 @@ export async function initSearch() {
   }
 
   // ----- With a search: Pagefind -----
-  let current = null;
+  let current = null; // { res, q }: the search whose results are on screen
   let shown = 0;
 
-  async function renderMore() {
-    const q = input.value.trim();
-    const batch = current.results.slice(shown, shown + PAGE);
-    shown += batch.length;
+  /** Result rows for a batch of Pagefind results, as one fragment (nothing touches the page yet). */
+  async function buildRows(batch, q) {
     const data = await Promise.all(batch.map((r) => r.data()));
+    const frag = document.createDocumentFragment();
     for (const d of data) {
       const meta = d.meta || {};
       const excerpt = el('p', { className: 'excerpt' });
       const hasExcerpt = appendDocExcerpt(excerpt, d, q);
       const known = meta.by && meta.by !== 'Unknown author';
-      results.append(
+      frag.append(
         el(
           'li',
           { className: 'result' },
@@ -271,7 +283,20 @@ export async function initSearch() {
         ),
       );
     }
-    moreBtn.hidden = shown >= current.results.length;
+    return frag;
+  }
+
+  async function renderMore() {
+    if (!current) return;
+    const { res, q } = current;
+    const batch = res.results.slice(shown, shown + PAGE);
+    shown += batch.length;
+    moreBtn.disabled = true;
+    const frag = await buildRows(batch, q);
+    if (current?.res !== res) return; // a newer search replaced these results meanwhile
+    results.append(frag);
+    moreBtn.disabled = false;
+    moreBtn.hidden = shown >= res.results.length;
   }
 
   // The best-matching character/series/topic/author as a "top result", then up to three more of
@@ -314,21 +339,28 @@ export async function initSearch() {
     matchesBox.hidden = false;
   }
 
-  async function search(q) {
+  /** Runs one search and shows it in a single DOM update. Returns false if a newer run replaced it. */
+  async function search(q, isStale) {
+    const sort = setSortChoices(true);
+    const filters = pfFilters();
+    const [pf] = await Promise.all([loadPagefind(), loadNames()]);
+    if (isStale()) return false;
+    if (!pf) return true; // no index (dev): leave the list as it is
+    const res = await pf.search(q, { filters, sort: SORTS[sort] });
+    if (isStale()) return false;
+    const n = res.results.length;
+    const frag = n ? await buildRows(res.results.slice(0, PAGE), q) : null;
+    if (isStale()) return false;
+    // Commit: everything below changes together, so the page only shifts once.
+    current = { res, q };
+    shown = frag ? Math.min(PAGE, n) : 0;
     list.hidden = true;
     empty.hidden = true;
-    const sort = setSortChoices(true);
-    loadNames();
-    if (names) renderMatches(q);
-    const pf = await loadPagefind();
-    if (!pf) return;
-    const res = await pf.debouncedSearch(q, { filters: pfFilters(), sort: SORTS[sort] }, 180);
-    if (res === null || input.value.trim() !== q) return; // a newer search replaced this one
-    current = res;
-    shown = 0;
-    results.replaceChildren();
+    renderMatches(q);
+    results.replaceChildren(...(frag ? [frag] : []));
     results.hidden = false;
-    const n = res.results.length;
+    moreBtn.disabled = false;
+    moreBtn.hidden = shown >= n;
     if (n) showCount(n, 'result', 'results');
     else {
       status.textContent = 'No results. Try other words, another spelling, or fewer filters.';
@@ -336,8 +368,7 @@ export async function initSearch() {
     }
     const counts = res.filters || {};
     setCounts((s, o) => (counts[s.dataset.group] || {})[o.dataset.pf] || 0);
-    if (n) await renderMore();
-    else moreBtn.hidden = true;
+    return true;
   }
 
   function updateUrl() {
@@ -349,25 +380,39 @@ export async function initSearch() {
     history.replaceState(null, '', out.toString() ? `?${out}` : location.pathname);
   }
 
+  // Only the newest run may draw: each run takes a number, and a run that finds a higher number
+  // already issued drops its results (Pagefind searches can't be cancelled, only ignored).
+  let runId = 0;
   async function run() {
+    const id = ++runId;
     updateUrl();
     renderActive();
     const q = input.value.trim();
-    if (q) await search(q);
-    else browse();
+    if (q) {
+      if ((await search(q, () => id !== runId)) === false) return;
+    } else {
+      current = null;
+      browse();
+    }
     document.documentElement.classList.remove('search-pending');
   }
 
+  let typing;
+  function runSoon(ms) {
+    clearTimeout(typing);
+    typing = setTimeout(run, ms);
+  }
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
+    clearTimeout(typing);
     input.blur(); // closes the phone keyboard so the results are visible
     run();
   });
-  let typing;
-  input.addEventListener('input', () => {
-    clearTimeout(typing);
-    typing = setTimeout(run, 150);
+  // Search about 200 ms after the last keystroke, so typing never waits on a search.
+  input.addEventListener('input', (ev) => {
+    if (!ev.isComposing) runSoon(200);
   });
+  input.addEventListener('compositionend', () => runSoon(200));
   filtersForm.addEventListener('change', run);
   filtersForm.addEventListener('submit', (ev) => ev.preventDefault());
   sortEl.addEventListener('change', () => {
