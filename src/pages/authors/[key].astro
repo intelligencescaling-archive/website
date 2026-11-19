@@ -25,12 +25,12 @@ const desc = made
       <> Reddit: {a.handles.map((h: string, i: number) => <>{i > 0 && ', '}<a href={`https://www.reddit.com/user/${h}/`} rel="noopener nofollow">u/{h}</a></>)}.</>
     )}
   </p>
-  {made > 0 && <EntryList entries={a.entries} />}
+  {made > 0 && <EntryList entries={a.entries} person={a.key} />}
   {made > 0 && shared > 0 && (
     <>
       <h2>Shared by {a.name}</h2>
       <p class="small muted">Docs they posted that don't name them as the maker.</p>
     </>
   )}
-  {shared > 0 && <EntryList entries={a.shared} />}
+  {shared > 0 && <EntryList entries={a.shared} person={a.key} />}
 </Base>

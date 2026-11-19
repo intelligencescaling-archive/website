@@ -8,8 +8,10 @@ interface Props {
   id?: string;
   /** 'long' (default): longest first. 'none': keep the order given (e.g. related docs by relevance). */
   sort?: 'long' | 'none';
+  /** On a person's page: their key. They are left out of each row's authors and sharers (co-authors stay). */
+  person?: string;
 }
-const { filterable = false, id, sort = 'long' } = Astro.props;
+const { filterable = false, id, sort = 'long', person } = Astro.props;
 // Position in A-Z order (the order loadArchive returns), so the Search page can switch back to A-Z.
 const titleRank = new Map(Astro.props.entries.map((e: any, i: number) => [e, i]));
 const entries = sort === 'long' ? [...Astro.props.entries].sort((a: any, b: any) => b.words - a.words || titleRank.get(a)! - titleRank.get(b)!) : Astro.props.entries;
@@ -27,6 +29,8 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
   {entries.map((e) => {
     const seriesShown = e.series.filter((s: any) => !commonSeries.has(s.id));
     const charsShown = e.characters.filter((c: any) => !commonChars.has(c.id));
+    const authorsShown = e.authors.filter((a: any) => a.key !== person);
+    const sharersShown = e.sharedBy.filter((a: any) => a.key !== person);
     return (
     <li
       class="entry"
@@ -47,8 +51,8 @@ const oneCategory = many && entries.every((e) => e.category === entries[0].categ
         {e.status !== 'complete' && <> <span class={`badge ${e.tone}`}>{e.statusLabel}</span></>}
       </div>
       <div class="entry-meta">
-        {e.authors.length > 0 && <span class="by">{e.authors.map((a: any) => a.name).join(', ')}</span>}
-        {e.authors.length === 0 && e.sharedBy.length > 0 && <span class="sharer">shared by {e.sharedBy.map(sharerName).join(', ')}</span>}
+        {authorsShown.length > 0 && <span class="by">{authorsShown.map((a: any) => a.name).join(', ')}</span>}
+        {e.authors.length === 0 && sharersShown.length > 0 && <span class="sharer">shared by {sharersShown.map(sharerName).join(', ')}</span>}
         {seriesShown.length > 0 && <span>{seriesShown.map((s: any) => s.name).join(', ')}</span>}
         {charsShown.length > 0 && (
           <span>
