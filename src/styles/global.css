@@ -1094,8 +1094,6 @@ a.ct-chip:hover .ct-pf, a.ct-chip:hover::before { color: var(--mark-ink); }
 .no-results { padding: 0.5rem 0 1rem; display: grid; gap: 0.5rem; }
 .no-results p { margin: 0; }
 .no-results-h { font: 700 1.15rem/1.3 var(--display); font-stretch: 87%; overflow-wrap: anywhere; }
-/* Two stats only (no pages, no parts): keep them together on the left instead of at both edges. */
-.stats-row:has(> div:nth-child(2):last-child) { justify-content: flex-start; gap: 0.6rem 2.5rem; }
 /* Smaller chip: rows of many chips (tags index jump row, doc header). Still 36 px tall, with 6 px between rows. */
 .tg.sm { min-height: 36px; padding: 0.15rem 0.6rem; font-size: 0.86rem; }
 /* Tags index: every tag at the top, jumping to its definition below. */
@@ -1117,3 +1115,6 @@ a.ct-chip:hover .ct-pf, a.ct-chip:hover::before { color: var(--mark-ink); }
   display: inline-block; font: 500 0.7rem/1 var(--sans); color: var(--k-meta); border: 1px dashed var(--k-meta-line);
   border-radius: 3px; padding: 0.2rem 0.32rem; vertical-align: 0.15em; white-space: nowrap; letter-spacing: 0;
 }
+/* Doc header (mockup 2, option A): one stat line, then the characters and tags as small chips. */
+.statline { margin: 0.2rem 0 0; font-size: 0.95rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.item-head .about { margin: 0.6rem 0 0; gap: 0.4rem; }

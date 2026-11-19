@@ -1,7 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
 import EntryList from '../../components/EntryList.astro';
-import TagChip from '../../components/TagChip.astro';
 import RealMark from '../../components/RealMark.astro';
 import RedditHandle from '../../components/RedditHandle.astro';
 import AccountFlag from '../../components/AccountFlag.astro';
@@ -29,7 +28,7 @@ const { entry: e, related } = Astro.props as { entry: any; related: any[] };
 const readMinutes = Math.round(e.words / 230);
 const readTime =
   readMinutes < 1 ? null : readMinutes < 60 ? `${readMinutes} min` : `${readMinutes < 600 ? Math.round(readMinutes / 6) / 10 : Math.round(readMinutes / 60)} h`;
-// Stats under the byline: up to four short columns (value on top, label below), only what exists.
+// Numbers for the stat line under the byline, only what exists.
 const single = e.parts.length === 1 ? e.parts[0] : null;
 const dates = e.parts.map((p: any) => p.date).filter(Boolean).sort();
 const savedDate = single ? single.date : dates[dates.length - 1];
@@ -40,11 +39,16 @@ const stats = [
   e.words > 0 && { v: formatNumber(e.words), l: 'words' },
   readTime && { v: readTime, l: 'read' },
 ].filter(Boolean);
-if (stats.length > 4) stats.splice(stats.findIndex((s: any) => s.l === 'pages'), 1);
+// One quiet line under the byline (mockup 2, option A): "93 pages · 52,067 words · about 3.8 h".
+const statLine = stats.map((s: any) => (s.l === 'read' ? `about ${s.v}` : `${s.v} ${s.l}`)).join(' · ');
 // The status badge under the header, unless a meta tag chip already says it ("Text only", "Original gone").
 const saidByChip = (p: any) => (p.recovered && e.tags.includes('text-only')) || ((p.status === 'dead' || p.status === 'private' || p.fromSnapshot) && e.tags.includes('original-gone'));
 const statusLabel = single && single.status !== 'complete' && single.status !== 'export-blocked' && !saidByChip(single) ? single : null;
 const topic = e.topics[0] || null;
+// Chips under the byline: characters, any series after the first (the first is the breadcrumb), then the tags. The
+// Story tag is left out when the breadcrumb already says Stories.
+const moreSeries = e.series.slice(1);
+const chipTags = e.tagList.filter((t: any) => !(t.id === 'story' && !e.series.length && topic?.id === 'stories-and-ocs'));
 const sortTopic = e.topics.find((t: any) => t.id === 'series-unknown' || t.id === 'needs-sorting') || null;
 const relatedTitle = e.characters[0]
   ? `More about ${e.characters[0].name}`
@@ -151,17 +155,15 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
     {e.authors.length > 0 && e.sharedBy.length > 0 && (
       <p class="shared-by">Shared by {e.sharedBy.map((s: any, i: number) => <>{i > 0 && ', '}<a href={`/authors/${s.key}/`}>{sharerName(s)}</a>{s.reddit && redditAccount(s.reddit) && <> <AccountFlag acct={redditAccount(s.reddit)} /></>}</>)}</p>
     )}
-    {stats.length > 0 && (
-      <dl class="stats-row">
-        {stats.map((s: any) => (
-          <div>
-            <dt>{s.l}</dt>
-            <dd>{s.iso ? <time datetime={s.iso}>{s.v}</time> : s.v}</dd>
-          </div>
-        ))}
-      </dl>
-    )}
+    {statLine && <p class="statline">{statLine}</p>}
     {statusLabel && <p class="item-status"><span class={`badge ${statusLabel.tone}`}>{statusLabel.statusLabel}</span></p>}
+    {(e.characters.length > 0 || moreSeries.length > 0 || chipTags.length > 0) && (
+      <ul class="chips about" aria-label="Characters and tags">
+        {e.characters.map((c: any) => <li><a class="tg sm k-char" href={`/characters/${c.id}/`}>{c.name}{c.real && <RealMark />}</a></li>)}
+        {moreSeries.map((x: any) => <li><a class="tg sm k-ser" href={`/series/${x.id}/`}>{x.name}</a></li>)}
+        {chipTags.map((t: any) => <li><a class={`tg sm k-${t.group}`} href={`/tags/${t.id}/`}>{t.name}</a></li>)}
+      </ul>
+    )}
   </header>
 
   <div class="item-grid">
@@ -236,17 +238,6 @@ const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
         </Part>
         );
       })}
-
-      {(e.characters.length > 0 || e.series.length > 0 || e.tagList.length > 0) && (
-        <section class="tag-box" aria-labelledby="h-tags">
-          <h2 id="h-tags">Tags</h2>
-          <ul class="chips">
-            {e.characters.map((c: any) => <li><a class="tg k-char" href={`/characters/${c.id}/`}>{c.name}{c.real && <RealMark />}</a></li>)}
-            {e.series.map((s: any) => <li><a class="tg k-ser" href={`/series/${s.id}/`}>{s.name}</a></li>)}
-            {e.tagList.map((t: any) => <li><TagChip tag={t} /></li>)}
-          </ul>
-        </section>
-      )}
 
       {!preview && e.status === 'complete' && e.parts.some((p: any) => p.files.length > 0) && (
         <p class="small muted mt">This doc is mostly images, so there is no text preview and full-text search can't look inside it. Open the PDF to read it.</p>
