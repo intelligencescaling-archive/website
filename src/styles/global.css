@@ -410,8 +410,10 @@ mark { color: var(--text-1); background: linear-gradient(transparent 50%, var(--
   .o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; }
   .o4 { margin-top: 32px; }
   .o4 ~ .o4 { margin-top: 0; }
+  .cols.reorder > .side > .o2.sec:first-child { margin-top: 32px; }
 }
 @media (min-width: 768px) and (max-width: 1023.98px) {
+  .cols.reorder > .side > .o2.sec:first-child { margin-top: 48px; }
   .o4 { margin-top: 48px; }
   .o4 ~ .o4 { margin-top: 0; }
 }

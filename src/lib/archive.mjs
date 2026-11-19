@@ -276,7 +276,8 @@ export function docsLabel(n) {
 
 /** Aliases to show: without the name itself and without copies that differ only in case or spacing. */
 export function distinctAliases(name, aliases) {
-  const key = (x) => String(x).toLowerCase().replace(/\s+/g, ' ').trim();
+  // Same words in another order ("Ayanokoji Kiyotaka" vs "Kiyotaka Ayanokoji") is not a new name.
+  const key = (x) => String(x).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
   const seen = new Set([key(name)]);
   return aliases.map((a) => String(a).replace(/:\s*$/, '').trim()).filter((a) => a && !seen.has(key(a)) && seen.add(key(a)));
 }
