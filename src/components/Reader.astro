@@ -2,10 +2,15 @@
 // Reader view ("Book"): the full text of an entry, chapters in scroll mode. Long docs are split into pages of
 // about 600 KB (readerPages in src/lib/archive.mjs): /items/<id>/read/, /items/<id>/read/2/, …
 // For docs that also have a PDF/DOCX/…, a short note at the top says this is only the text and links to the original.
-// The text is untrusted: it is only ever rendered through Astro expressions (escaped), never set:html. Settings,
-// progress, chapters and resume are in src/scripts/reader.js; without JavaScript the page is just the text.
+// Parts with reader blocks (blocks.json: the DOCX with images, colours and tables) are shown from those instead
+// (src/lib/blocks.mjs), on the same pages and with the same #s-N targets; the note then isn't needed.
+// The text is untrusted: plain text is only ever rendered through Astro expressions (escaped); rich parts go through
+// set:html with HTML that blocks.mjs builds and escapes itself. Settings, progress, chapters, resume and the image
+// viewer are in src/scripts/reader.js; without JavaScript the page is just the text and images.
 import Base from '../layouts/Base.astro';
 import { bylineText, formatNumber, textOnly, originalFile, readerUnit } from '../lib/archive.mjs';
+import { richLayout, pageContext, renderPart, originalOf } from '../lib/blocks.mjs';
+import '../styles/reader-rich.css';
 
 interface Props {
   entry: any;
@@ -26,35 +31,53 @@ const time = (w: number) => {
   const m = Math.max(1, Math.round(w / 230));
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
 };
-const readTime = time(words);
 const itemHref = `/items/${e.id}/`;
 const pageHref = (p: number) => (p === 0 ? `/items/${e.id}/read/` : `/items/${e.id}/read/${p + 1}/`);
 // Page where each chapter starts (for the chapter list).
 const startPage = new Map<number, number>();
 pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.first && !startPage.has(c.i) && startPage.set(c.i, k)));
-// "Go to" sheet: per part, its headings (doc-wide `sid`, word offset `w`, page) for the list and the slider ticks.
-// Only the top two heading levels of a doc are listed; with more than 150, only the top level.
+// Rich parts (null when none): their blocks laid out over the same pages.
+const layout = richLayout(all, pages);
+const isRich = (i: number) => Boolean(layout && layout.data[i]);
+const allRich = all.every((_: any, i: number) => isRich(i));
+const richHere = chapters.some((c: any) => isRich(c.i));
+const rctx = layout ? pageContext({ layout, page, pageHref }) : null;
+const richHtml = new Map<number, string>();
+if (rctx) for (const c of chapters) if (isRich(c.i)) richHtml.set(c.i, renderPart(rctx, c.i, { multi, missHref: originalOf(e, all[c.i].n) || itemHref }));
+const imageCount = rctx ? rctx.imgN : 0;
+// Header count: a rich part whose DOCX text boxes hold far more words than its text file says so (`bw`).
+// Positions and pages still count the text file's words.
+const shownWords = all.reduce((n: number, c: any, i: number) => n + ((isRich(i) && layout.data[i].bw) || c.words), 0);
+const readTime = time(shownWords);
+// "Go to" sheet: per part, its headings (`id`, doc-wide word offset `w`, page) for the list and the slider ticks.
+// Plain parts: the text's headings (#s-<sid>); rich parts: the DOCX headings. Only the top two heading levels of a
+// doc are listed; with more than 40, only the top level (rules: Go to stays short).
 const pageOfSid = new Map<number, number>();
 pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.blocks.forEach((b: any) => b.sid && pageOfSid.set(b.sid, k))));
-const levels = [...new Set(all.flatMap((c: any) => c.blocks.filter((b: any) => b.level > 0).map((b: any) => b.level)))].sort();
+const headsOf = all.map((c: any, i: number) =>
+  isRich(i)
+    ? layout.heads[i]
+    : c.blocks.filter((b: any) => b.sid).map((b: any) => ({ id: `s-${b.sid}`, sid: b.sid, w: b.w, level: b.level, text: b.text, page: pageOfSid.get(b.sid) ?? 0 })),
+);
+const levels = [...new Set(headsOf.flat().map((h: any) => h.level))].sort();
 let keep = levels.slice(0, 2);
-if (all.reduce((n: number, c: any) => n + c.blocks.filter((b: any) => keep.includes(b.level)).length, 0) > 150) keep = levels.slice(0, 1);
+if (headsOf.flat().filter((h: any) => keep.includes(h.level)).length > 40) keep = levels.slice(0, 1);
 const outline = all.map((c: any, i: number) => {
   const end = c.w + c.words;
-  const heads = c.blocks.filter((b: any) => b.sid && keep.includes(b.level));
+  const heads = headsOf[i].filter((h: any) => keep.includes(h.level));
   return {
     i, w: c.w, end, words: c.words,
-    heads: heads.map((b: any, k: number) => ({
-      sid: b.sid, w: b.w, text: b.text, sub: keep.length > 1 && b.level === keep[1],
-      words: (heads[k + 1]?.w ?? end) - b.w, page: pageOfSid.get(b.sid) ?? 0,
+    heads: heads.map((h: any, k: number) => ({
+      id: h.id, sid: h.sid, w: h.w, text: h.text, sub: keep.length > 1 && h.level === keep[1],
+      words: (heads[k + 1]?.w ?? end) - h.w, page: h.page,
     })),
   };
 });
 const hasNav = multi || outline[0].heads.length > 0 || words > 2000;
-const sidHref = (sid: number, p: number) => (p === page ? `#s-${sid}` : `${pageHref(p)}#s-${sid}`);
+const idHref = (id: string, p: number) => (p === page ? `#${id}` : `${pageHref(p)}#${id}`);
 const chHref = (i: number) => { const p = startPage.get(i) ?? 0; return p === page ? `#ch-${i + 1}` : `${pageHref(p)}#ch-${i + 1}`; };
 const original = textOnly(e) ? null : originalFile(e);
-const hasOriginal = !textOnly(e);
+const hasOriginal = !textOnly(e) && !allRich;
 // Headings from the text sit one level under the chapter heading.
 const base = multi ? 3 : 2;
 const tagFor = (level: number) => (level === 0 ? 'p' : `h${Math.min(base + level - 1, 6)}`);
@@ -62,10 +85,12 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
 ---
 <Base title={title} description={`Read ${e.title} ${bylineText(e)} on the Intelligence Scaling Archive.`} ogType="article">
   <meta slot="head" name="robots" content="noindex, follow" />
+  {layout && <link slot="head" rel="stylesheet" href={`/items/${e.id}/read/doc.css`} />}
   <div class="reader" id="reader" data-id={e.id} data-unit={unit} data-page={page + 1} data-pages={pages.length}
     data-before={here.wordsBefore} data-total={words} data-prev={page > 0 ? pageHref(page - 1) : undefined}
     data-next={page < pages.length - 1 ? pageHref(page + 1) : undefined} data-base={pageHref(0)}
-    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort}>
+    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort} data-rich={layout ? '1' : undefined}
+    data-read-scale={shownWords !== words ? (shownWords / words).toFixed(4) : undefined}>
     <div class="r-bar">
       <a class="r-icon" href={itemHref} aria-label="Back to the item page">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
@@ -100,7 +125,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
         <header class="r-book">
           <h1>{e.title}</h1>
           <p class="r-by">{bylineText(e)}</p>
-          <p class="r-meta">{all.length} {unit.toLowerCase()}s · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+          <p class="r-meta">{all.length} {unit.toLowerCase()}s · {formatNumber(shownWords)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
         </header>
       )}
       {chapters.map((c: any) => {
@@ -118,17 +143,23 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
             ) : c.first ? (
               <>
                 <h1 id={`${id}-h`}>{e.title}</h1>
-                <p class="r-by">{bylineText(e)} · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+                <p class="r-by">{bylineText(e)} · {formatNumber(shownWords)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
               </>
             ) : (
               <h1 class="visually-hidden" id={`${id}-h`}>{e.title}, page {page + 1}</h1>
             )}
-            <div class="r-text">
-              {c.blocks.map((b: any) => {
-                const Tag = tagFor(b.level);
-                return b.cont ? <Tag class="r-cont">{b.text}</Tag> : b.sid ? <Tag id={`s-${b.sid}`}>{b.text}</Tag> : <Tag>{b.text}</Tag>;
-              })}
-            </div>
+            {richHtml.has(c.i) ? (
+              <div class="r-text r-rich" set:html={richHtml.get(c.i)} />
+            ) : (
+              <div class="r-text">
+                {c.blocks.map((b: any) => {
+                  const Tag = tagFor(b.level);
+                  // data-w (word offset) only next to rich parts, where the script can't count words from the text.
+                  const w = richHere ? b.w : undefined;
+                  return b.cont ? <Tag class="r-cont" data-w={w}>{b.text}</Tag> : b.sid ? <Tag id={`s-${b.sid}`} data-w={w}>{b.text}</Tag> : <Tag data-w={w}>{b.text}</Tag>;
+                })}
+              </div>
+            )}
           </section>
         );
       })}
@@ -200,6 +231,24 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
     <button type="button" class="r-done" data-close>Done</button>
   </dialog>
 
+  {imageCount > 0 && (
+    <dialog class="r-lb" id="r-lb" aria-label="Image viewer">
+      <div class="r-lb-top">
+        <span class="r-lb-n" id="r-lb-n" aria-live="polite"></span>
+        <button type="button" class="r-icon" id="r-lb-x" aria-label="Close image">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div class="r-lb-pane" id="r-lb-pane"><div class="r-lb-fr" id="r-lb-fr"></div></div>
+      <button type="button" class="r-icon r-lb-p" id="r-lb-p" aria-label="Previous image">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+      </button>
+      <button type="button" class="r-icon r-lb-nx" id="r-lb-nx" aria-label="Next image">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+      </button>
+    </dialog>
+  )}
+
   {hasNav && (
     <dialog class="r-sheet r-nav" id="r-nav" aria-labelledby="r-nav-h">
       <div class="r-grab" aria-hidden="true"></div>
@@ -235,7 +284,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
             )}
             {o.heads.map((h: any) => (
               <li>
-                <a class={h.sub ? 'r-toc-s r-toc-sub' : 'r-toc-s'} href={sidHref(h.sid, h.page)} data-s={h.sid} data-w={h.w}>
+                <a class={h.sub ? 'r-toc-s r-toc-sub' : 'r-toc-s'} href={idHref(h.id, h.page)} data-s={h.sid} data-hid={h.sid ? undefined : h.id} data-w={h.w}>
                   <span class="r-toc-t">{h.text}</span>
                   <span class="r-toc-m">{time(h.words)}</span>
                 </a>

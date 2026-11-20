@@ -1,0 +1,151 @@
+/* Rich reader (parts shown from blocks.json: src/lib/blocks.mjs) and the image viewer. Same tokens as global.css
+   (calm rules); reader type roles A13: body = the reader's size/line spacing, H2 1.22em, H3 1.1em, H4 1em, table
+   cells 15/22. Images R1-R15, tables R16-R17, gaps R24. Per-image sizes (--a aspect, --w DOCX width, --n 2x natural
+   width, crop/rotation) and the doc's colours come from /items/<id>/read/doc.css. */
+
+/* 100cqw = the text column, so the off-screen image boxes below get their exact height (R15, no layout shift). */
+.r-rich, .r-rich .tbx { container-type: inline-size; }
+/* Every link target (the doc's own index links, #s-N, bookmarks inside headings) lands below the sticky bar. */
+.reader [id] { scroll-margin-top: calc(var(--r-bar) + 8px); }
+/* A13/R27: body 1.6 at the default line spacing (Tight / Loose scale with it). */
+.r-rich { line-height: calc(var(--r-lh) * 0.915); }
+.r-rich .tbx > * { scroll-margin-top: calc(var(--r-bar) + 0.75rem); }
+
+/* ---------- Text (R24-R26) ---------- */
+.r-rich p { margin: 0 0 8px; }
+.r-rich .gp:not(h2, h3, h4, h5, h6) { margin-top: 24px; }
+.r-rich h2, .r-rich h3, .r-rich h4, .r-rich h5, .r-rich h6 {
+  margin: 32px 0 8px; font-family: var(--sans); font-stretch: normal; font-weight: 600; line-height: 1.25; color: var(--text-1);
+}
+.r-rich h2 { font-size: 1.22em; }
+.r-rich h3 { font-size: 1.1em; }
+.r-rich h4, .r-rich h5, .r-rich h6 { font-size: 1em; }
+.r-rich :is(h2, h3, h4, h5, h6) + :is(h2, h3, h4, h5, h6) { margin-top: 8px; }
+.r-rich > :first-child, .r-rich .tbx > :first-child { margin-top: 0; }
+.r-rich .tbx > :last-child { margin-bottom: 0; }
+.r-rich strong { font-weight: 600; }
+.r-rich .u { text-decoration: underline 1px currentColor; text-underline-offset: 3px; }
+.r-rich a { color: var(--text-2); text-decoration: underline 1px var(--edge); text-underline-offset: 3px; padding-block: 4px; }
+.r-rich a:hover { color: var(--text-1); }
+.r-rich sup, .r-rich sub { line-height: 0; }
+.r-rich .al-c { text-align: center; }
+.r-rich .al-r { text-align: right; }
+.r-rich hr { margin: 24px 0; border: 0; border-top: 1px solid var(--line); }
+.r-rich hr.sep { margin: 16px 0; }
+.r-rich .r-an { display: block; height: 0; }
+.r-rich .l { margin: 0 0 8px; padding: 0; list-style: none; }
+.r-rich .l li { display: flex; gap: 8px; margin: 0 0 4px; }
+.r-rich .l .mk { flex: none; min-width: 16px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.r-rich .l li > span:last-child { min-width: 0; flex: 1; }
+/* List levels on the spacing scale: 16 / 32 / 48 (deeper levels stay at 48). */
+.r-rich .l .lv1 { padding-left: 16px; }
+.r-rich .l .lv2 { padding-left: 32px; }
+.r-rich .l :is(.lv3, .lv4, .lv5, .lv6, .lv7, .lv8) { padding-left: 48px; }
+.r-rich .notes { list-style: none; margin: 32px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); font-size: 15px; line-height: 22px; }
+.r-rich .notes li { display: flex; gap: 8px; }
+.r-rich .notes .mk { color: var(--text-3); }
+.r-rich .emo { display: inline-block; vertical-align: -4px; max-height: 1.6em; width: auto; }
+/* A single-column "box" table of the doc, and text boxes: one thin frame. */
+.r-rich .tbx, .r-rich .bx { margin: 24px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; }
+.r-rich .bx > :last-child { margin-bottom: 0; }
+
+/* ---------- Images (R1-R9) ---------- */
+.r-rich figure { margin: 24px 0; }
+.r-rich .im:has(+ .im) { margin-bottom: 8px; }
+.r-rich .im + .im { margin-top: 8px; }
+@media (min-width: 768px) {
+  .r-rich figure { margin: 32px 0; }
+  .r-rich .im.gp { margin-top: 32px; }
+  .r-rich .im:has(+ .im) { margin-bottom: 8px; }
+  .r-rich .im + .im, .r-rich .im + .im.gp { margin-top: 8px; }
+}
+.zb {
+  position: relative; display: block; overflow: hidden; padding: 0; margin: 0; border: 0; border-radius: 0;
+  aspect-ratio: var(--a); background: var(--surface); color: inherit; font: inherit; cursor: zoom-in;
+}
+.zb img { display: block; width: 100%; height: 100%; }
+/* R1 phone: wide images fill the column, small ones keep their DOCX width; never more than 2x natural pixels. */
+.zb.f { width: min(100%, var(--n)); }
+.zb.s { width: min(100%, var(--w), var(--n)); }
+/* R6 desktop: DOCX width, and tall images scaled to 85vh (no crop), centred. */
+@media (min-width: 768px) {
+  .zb.f { width: min(100%, var(--w), var(--n), calc(85vh * var(--a))); margin-inline: auto; }
+}
+.zb:focus-visible { outline-offset: 2px; border-radius: 0; }
+/* The author's crop and rotation, on the uncropped WebP (same rules in the image viewer). */
+:is(.zb, .r-lb-fr).crop img { position: absolute; max-width: none; width: var(--iw); height: var(--ih); left: var(--il); top: var(--it); }
+:is(.zb, .r-lb-fr) .rr {
+  position: absolute; left: 50%; top: 50%; overflow: hidden; width: var(--rw0); height: var(--rh0);
+  transform: translate(-50%, -50%) rotate(var(--rt));
+}
+:is(.zb, .r-lb-fr) .rr img { width: 100%; height: 100%; }
+:is(.zb, .r-lb-fr).flip img { transform: var(--fx); }
+/* No processed image: the same box with a quiet link to the original (PDF). */
+.zb.miss {
+  display: flex; align-items: center; justify-content: center; padding: 8px; cursor: default; text-align: center;
+  font: 400 13px/18px var(--sans); color: var(--text-3); border: 1px solid var(--line);
+}
+.zb.miss a { color: var(--text-2); }
+/* R7: images from one DOCX paragraph sit in one row, equal height, 4px apart. */
+.im.row { display: flex; gap: 4px; max-width: var(--rw); }
+.ri { flex: var(--a) 1 0; min-width: 0; }
+.ri .zb { width: 100%; }
+/* R15: off-screen images skip layout/paint/decode; the box height is exact (same maths as the visible box). */
+.r-rich .cv { content-visibility: auto; }
+.r-rich .cv.one.f { contain-intrinsic-block-size: auto calc(min(100cqw, var(--n)) / var(--a)); }
+.r-rich .cv.one.s { contain-intrinsic-block-size: auto calc(min(100cqw, var(--w), var(--n)) / var(--a)); }
+.r-rich .cv.row { contain-intrinsic-block-size: auto calc((min(100cqw, var(--rw)) - var(--g)) / var(--rs)); }
+@media (min-width: 768px) {
+  .r-rich .cv.one.f { contain-intrinsic-block-size: auto calc(min(100cqw, var(--w), var(--n), 85vh * var(--a)) / var(--a)); }
+}
+
+/* ---------- Tables (R16-R17): sideways scroll inside the table only ---------- */
+.r-rich .tw { margin: 24px 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.r-rich .tw table { border-collapse: collapse; width: auto; min-width: 100%; font-size: 15px; line-height: 22px; }
+.r-rich .tw :is(td, th) {
+  border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; text-align: left; min-width: 0; max-width: 288px;
+  font-weight: 400; hyphens: manual;
+}
+.r-rich .tw th { font-weight: 600; }
+.r-rich .tw :is(td, th) p { margin: 0 0 8px; }
+.r-rich .tw :is(td, th) > :last-child { margin-bottom: 0; }
+.r-rich .tw :is(td, th) > :first-child { margin-top: 0; }
+.r-rich .tw :is(h2, h3, h4, h5, h6) { margin: 8px 0; }
+.r-rich .tw .zb.f, .r-rich .tw .zb.s { width: min(100%, var(--w), var(--n)); min-width: min(var(--w), 96px); }
+.r-rich .tw figure { margin: 8px 0; }
+.r-rich .tw:focus-visible { outline-offset: 2px; }
+@media (max-width: 479.98px) { .r-rich .tw :is(td, th) { padding: 8px; } }
+
+/* ---------- Image viewer (R10-R13) ---------- */
+html.lb-open { overflow: hidden; }
+.r-lb {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0;
+  border: 0; background: rgb(14 14 16 / 0.96); color: #ededf0; overflow: hidden;
+}
+.r-lb::backdrop { background: transparent; }
+.r-lb-top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+  height: 60px; padding: 8px max(8px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+}
+.r-lb-n { font: 400 13px/18px var(--sans); color: #8f8f98; font-variant-numeric: tabular-nums; }
+.r-lb .r-icon, .r-lb .r-icon:hover { color: #ededf0; }
+.r-lb .r-icon:hover { background: #1e1e23; }
+.r-lb .r-icon:focus-visible { outline-color: #ffe14d; }
+.r-lb-pane {
+  position: absolute; top: 60px; left: 16px; right: 16px; bottom: 16px; display: flex; align-items: center;
+  justify-content: center; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.r-lb-fr {
+  position: relative; flex: none; overflow: hidden; aspect-ratio: var(--a); transform-origin: 50% 50%; will-change: transform;
+  width: min(100%, var(--n), calc((100vh - 76px) * var(--a))); cursor: zoom-in;
+}
+@supports (height: 100dvh) { .r-lb-fr { width: min(100%, var(--n), calc((100dvh - 76px) * var(--a))); } }
+.r-lb-fr img { display: block; width: 100%; height: 100%; -webkit-user-drag: none; }
+.r-lb-pane.zoomed .r-lb-fr { cursor: grab; }
+.r-lb-p, .r-lb-nx { position: absolute; top: 50%; z-index: 2; margin-top: -22px; display: none; }
+.r-lb-p { left: 8px; }
+.r-lb-nx { right: 8px; }
+@media (hover: hover) and (pointer: fine) {
+  .r-lb .r-lb-p, .r-lb .r-lb-nx { display: inline-flex; background: rgb(14 14 16 / 0.6); }
+  .r-lb-pane { left: 64px; right: 64px; }
+}

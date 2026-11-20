@@ -24,6 +24,7 @@ parts:
     files:
     - {format: pdf, name: '"><x>.pdf', bytes: 10, sha256: 0000000000000000000000000000000000000000000000000000000000000000, url: 'javascript:alert(1)'}
     text: {file: text.txt, method: manual}
+    blocks: {file: blocks.json, v: 1}
 found_in:
 - library: old
   section: <marquee>section</marquee>

@@ -29,6 +29,7 @@ npm run preview    # serves dist/ at http://localhost:4321
 |---|---|---|
 | `ARCHIVE_DIR` | `../archive` | Path to a checkout of the archive repo. |
 | `FILES_URL_TEMPLATE` | `https://files.intelscaling.com/{sha256}.{format}` | Where PDF/DOCX downloads live (the R2 bucket). Placeholders: `{sha256}`, `{format}`, `{id}`, `{name}`. Set to an empty string to show "coming soon" buttons instead. A `url` on a file in `meta.yaml` always wins. |
+| `IMAGES_URL` | `https://files.intelscaling.com/img/` | Where the rich reader's WebP images are (ends with `/`). Keep `img-src` in the CSP in line. |
 | `ASTRO_TELEMETRY_DISABLED` | | Set to `1` to turn off Astro's anonymous usage data. |
 
 ## How it's deployed
@@ -98,17 +99,38 @@ that gives the readable file name, which matches the default `FILES_URL_TEMPLATE
 | `/browse/` | Every entry, filterable by category, series, topic, character, author, tag, language (state in the URL) |
 | `/search/` | Full-text search (Pagefind) over the plain text of every doc + its metadata, with filters and doc-text excerpts |
 | `/items/<id>/` | One entry: titles, authors, series, characters, tags, parts with capture status, downloads, library info |
-| `/items/<id>/read/` | Reader view of the entry's plain text, for every entry with words (image-only docs have none). Docs with a PDF/DOCX get a short "text version" note linking to the original. Long docs are split into pages of about 600 KB (`/read/2/`, `/read/3/`, …; `readerPages` in `src/lib/archive.mjs`), so no page is much over 600 KB of HTML. `noindex`, not in the sitemap |
+| `/items/<id>/read/` | Reader view, for every entry with words (image-only docs have none). Parts with reader blocks (see "Rich reader" below) show the DOCX with its images, colours and tables; other parts show the plain text, and docs with a PDF/DOCX then get a short "text version" note linking to the original. Long docs are split into pages by the plain text (`/read/2/`, `/read/3/`, …; `readerPages` in `src/lib/archive.mjs`), about 600 KB of text each, the same for both kinds. `noindex`, not in the sitemap |
+| `/items/<id>/read/doc.css` | The colours and image boxes of a rich reader (no inline styles under the CSP) |
 | `/series/`, `/characters/`, `/authors/`, `/tags/` | Index pages and one page per series/character/author/tag. Tags come from the archive's `data/tags.yaml` (name, group, definition, old names as `aliases`); the website adds derived "about the file" tags (in progress, text only, original gone, multi-part; `DERIVED_TAGS` in `src/lib/archive.mjs`). Tags show as glyph chips coloured by group (`.tg` / `.tgb` in `global.css`) |
 | `/topics/<id>/` | Only the two "help sort" lists ("Series not known yet", "Needs sorting"). Topics were folded into tags on 2026-11-19; the old topic pages redirect to their tag (`public/_redirects`). `TOPICS` in `src/lib/archive.mjs` still groups entries for these lists, the related-docs score and the hidden Topic search filter |
 | `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |
 | `/submit/` | Submit a doc or Reddit post, suggest a fix (`?fix=<id>`), or ask for removal (`?remove=<id>`) |
+
+### Rich reader (images, colours, tables)
+
+The archive keeps a `blocks.json` next to the text of each DOCX part (`capture.blocks: {file, v: 1}` in `meta.yaml`):
+the doc as reader blocks (paragraphs with bold/italic/links/colours, headings, lists, tables, images), made by the
+archive's converter. `src/lib/blocks.mjs` renders them; `src/components/Reader.astro` uses them for a part when its
+word count equals the plain text's (else the plain text, unchanged). Every top-level block carries `w`, its first
+word's offset counted like `readerChapters`, so the rich reader keeps the plain reader's pages, URLs and `#s-N`
+heading targets; Pagefind still indexes the plain text.
+
+- Images come from `IMAGES_URL` (default `https://files.intelscaling.com/img/`): WebP made from the DOCX images,
+  720 px wide (`-720.webp`) and, for wider sources, 1,360 px (`-1360.webp`), metadata stripped. Fixed boxes from the
+  real pixel size (no layout shift; off-screen ones use `content-visibility` with their exact height), first 2 eager,
+  the rest lazy, `srcset` 720w/1360w. The author's crop and rotation are CSS on the uncropped file.
+- Tapping an image opens the viewer (`initLightbox` in `src/scripts/reader.js`): Back/Esc/✕ close it, swipe or
+  arrows for next/previous, pinch or double-tap to zoom; it loads the 1,360 px file only when opened.
+- Colours: the converter precomputes each author colour per theme (dark, light, sepia) so it stays readable and the
+  colour legend still matches; `doc.css` turns them into classes. Links keep the site's look.
 
 ## Security
 
 Archive metadata comes from public submissions, so it's treated as untrusted:
 
 - Pages only render metadata through Astro expressions, which escape HTML. Never use `set:html` with archive data.
+  The one exception is the rich reader: `src/lib/blocks.mjs` builds that HTML itself, escapes every string, and
+  only allows `https`/`http`/`mailto`/`#bookmark` links, 6-digit hex colours and plain image file names.
 - Every link from metadata goes through `safeUrl()` (only `http`/`https`).
 - The search page (`src/scripts/search.js`) uses Pagefind's JS API, not its default UI, and puts everything from the
   index on the page with `textContent`; only Pagefind's `<mark>` tags are copied, node by node. Don't switch to the
@@ -117,7 +139,7 @@ Archive metadata comes from public submissions, so it's treated as untrusted:
 - Fonts (Archivo, Public Sans; SIL Open Font License, see `public/fonts/`) are self-hosted. The only outside script is Cloudflare Web Analytics (cookie-free visit counts), allowed by name in the CSP.
 - The link preview image is `public/og.png` (1200 × 630). Its numbers are fixed; redraw it when the counts change a lot.
 - `npm run test:escaping` builds the site from `test/fixture-archive/` (one entry full of hostile metadata) and fails
-  if any of it shows up as live HTML.
+  if any of it shows up as live HTML (its entry has a hostile `blocks.json` too).
 - Dependencies are few (`astro`, `pagefind`, `yaml`), pinned to exact versions, and installed with scripts off (`.npmrc`).
 
 ## License

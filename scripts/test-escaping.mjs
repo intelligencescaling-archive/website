@@ -34,6 +34,12 @@ const walk = (dir) => {
 };
 walk(outDir);
 const item = fs.readFileSync(path.join(outDir, 'items', 'evil-entry', 'index.html'), 'utf8');
+// The rich reader (blocks.json with hostile runs, links, colours, image names): it must render, escaped.
+const read = fs.readFileSync(path.join(outDir, 'items', 'evil-entry', 'read', 'index.html'), 'utf8');
+if (!read.includes('class="r-text r-rich"')) problems.push('items/evil-entry/read: expected the rich reader (blocks.json)');
+if (!read.includes('&lt;img src=x onerror')) problems.push('items/evil-entry/read: expected the escaped heading text');
+const docCss = fs.readFileSync(path.join(outDir, 'items', 'evil-entry', 'read', 'doc.css'), 'utf8');
+if (/zzinject|<|url\(|@import/i.test(docCss)) problems.push('items/evil-entry/read/doc.css: hostile value in the stylesheet');
 if (!item.includes('&lt;script&gt;alert')) problems.push('items/evil-entry: expected the escaped title text');
 fs.rmSync(outDir, { recursive: true, force: true });
 
