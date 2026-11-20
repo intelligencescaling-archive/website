@@ -56,6 +56,8 @@ export function initReader() {
   // Headings with an id (#s-N in the text, also #h-N in rich parts): "where" in the bottom bar, [ and ] stops.
   const heads = [...reader.querySelectorAll('.r-text > :is(h2, h3, h4, h5, h6)[id], .r-text > .tbx > :is(h2, h3, h4, h5, h6)[id]')];
   const rich = reader.dataset.rich === '1';
+  // Docs whose text boxes hold more words than the text file: "min left" scales to the words shown (header).
+  const readScale = Number(reader.dataset.readScale) > 0 ? Number(reader.dataset.readScale) : 1;
   const starts = (reader.dataset.starts || '0').split(',').map(Number); // first word of each page
   const lastPage = page >= pageCount;
   foot.hidden = false;
@@ -377,7 +379,7 @@ export function initReader() {
       if (m.head && t === parts[parts.length - 2]) span.className = 'r-sec';
       where.append(span);
     });
-    const mins = minutes(m.leftWords);
+    const mins = minutes(m.leftWords * readScale);
     const endText = !lastPage && m.ch === chapters.length - 1 ? 'End of page' : multi ? `End of ${unit.toLowerCase()}` : 'The end';
     left.textContent =
       m.frac >= 1 || mins === 0 ? endText : `${mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`} left${multi ? ` in ${unit.toLowerCase()}` : pageCount > 1 ? ' on this page' : ''}`;

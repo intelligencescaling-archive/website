@@ -89,7 +89,8 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
   <div class="reader" id="reader" data-id={e.id} data-unit={unit} data-page={page + 1} data-pages={pages.length}
     data-before={here.wordsBefore} data-total={words} data-prev={page > 0 ? pageHref(page - 1) : undefined}
     data-next={page < pages.length - 1 ? pageHref(page + 1) : undefined} data-base={pageHref(0)}
-    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort} data-rich={layout ? '1' : undefined}>
+    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort} data-rich={layout ? '1' : undefined}
+    data-read-scale={shownWords !== words ? (shownWords / words).toFixed(4) : undefined}>
     <div class="r-bar">
       <a class="r-icon" href={itemHref} aria-label="Back to the item page">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
