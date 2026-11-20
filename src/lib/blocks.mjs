@@ -38,6 +38,8 @@ export function readBlocks(file, words) {
     const d = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (!d || d.v !== 1 || !Array.isArray(d.b)) return null;
     if (words !== undefined && d.words !== words) return null;
+    // bw: the blocks' own word count when they hold far more than the text file (text boxes); header only.
+    d.bw = Number.isInteger(d.bw) && d.bw > d.words ? d.bw : null;
     if (!d.pal || typeof d.pal !== 'object') d.pal = {};
     if (!d.img || typeof d.img !== 'object') d.img = {};
     return d;
@@ -305,7 +307,8 @@ function table(b, ctx) {
     })
     .join('');
   if (!rows.replace(/<\/?tr>/g, '')) return '';
-  return `<div class="tw" role="region" aria-label="Table ${n}" tabindex="0"><table>${rows}</table></div>`;
+  // Only a table wider than the column becomes a focusable "Table N" scroll region (src/scripts/reader.js).
+  return `<div class="tw" data-n="${n}"><table>${rows}</table></div>`;
 }
 
 // ---------------------------------------------------------------- runs
@@ -498,16 +501,18 @@ export function docCss(layout, styles) {
       const fg = (x) =>
         typeof x?.fg === 'string' && HEX.test(x.fg) ? `#${x.fg.toLowerCase()}` : /^text-[123]$/.test(x?.fg || '') ? `var(--${x.fg})` : 'currentColor';
       const hasBg = THEMES.some((t) => HEX.test(v[t]?.bg || ''));
+      // R22d: text colour + highlight = the text in its own colour with the highlight as a thick band under it.
+      const hasBand = THEMES.some((t) => HEX.test(v[t]?.band || ''));
       for (const t of THEMES) {
         const x = v[t] || {};
         th[t].push(`--${name}:${fg(x)}`);
         if (hasBg) th[t].push(`--${name}b:${HEX.test(x.bg || '') ? `#${x.bg.toLowerCase()}` : 'transparent'}`, `--${name}p:${x.chip ? '4px' : '0px'}`);
+        if (hasBand) th[t].push(`--${name}d:${HEX.test(x.band || '') ? `#${x.band.toLowerCase()}` : 'transparent'}`);
       }
-      rules.push(
-        hasBg
-          ? `.${name}{color:var(--${name});background:var(--${name}b);padding:0 var(--${name}p);border-radius:var(--${name}p);-webkit-box-decoration-break:clone;box-decoration-break:clone}`
-          : `.${name}{color:var(--${name})}`,
-      );
+      let rule = `color:var(--${name})`;
+      if (hasBg) rule += `;background:var(--${name}b);padding:0 var(--${name}p);border-radius:var(--${name}p);-webkit-box-decoration-break:clone;box-decoration-break:clone`;
+      if (hasBand) rule += `;text-decoration:underline var(--${name}d) 0.3em;text-underline-offset:0.1em;text-decoration-skip-ink:none`;
+      rules.push(`.${name}{${rule}}`);
     }
   });
   const out = [];

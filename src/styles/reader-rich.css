@@ -5,6 +5,10 @@
 
 /* 100cqw = the text column, so the off-screen image boxes below get their exact height (R15, no layout shift). */
 .r-rich, .r-rich .tbx { container-type: inline-size; }
+/* Every link target (the doc's own index links, #s-N, bookmarks inside headings) lands below the sticky bar. */
+.reader [id] { scroll-margin-top: calc(var(--r-bar) + 8px); }
+/* A13/R27: body 1.6 at the default line spacing (Tight / Loose scale with it). */
+.r-rich { line-height: calc(var(--r-lh) * 0.915); }
 .r-rich .tbx > * { scroll-margin-top: calc(var(--r-bar) + 0.75rem); }
 
 /* ---------- Text (R24-R26) ---------- */
@@ -33,15 +37,10 @@
 .r-rich .l li { display: flex; gap: 8px; margin: 0 0 4px; }
 .r-rich .l .mk { flex: none; min-width: 16px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .r-rich .l li > span:last-child { min-width: 0; flex: 1; }
-.r-rich .l .lv1 { padding-left: 24px; }
-.r-rich .l .lv2 { padding-left: 48px; }
-.r-rich .l .lv3 { padding-left: 72px; }
-.r-rich .l .lv4 { padding-left: 96px; }
-.r-rich .l :is(.lv5, .lv6, .lv7, .lv8) { padding-left: 120px; }
-@media (max-width: 479.98px) {
-  .r-rich .l .lv2 { padding-left: 36px; }
-  .r-rich .l :is(.lv3, .lv4, .lv5, .lv6, .lv7, .lv8) { padding-left: 48px; }
-}
+/* List levels on the spacing scale: 16 / 32 / 48 (deeper levels stay at 48). */
+.r-rich .l .lv1 { padding-left: 16px; }
+.r-rich .l .lv2 { padding-left: 32px; }
+.r-rich .l :is(.lv3, .lv4, .lv5, .lv6, .lv7, .lv8) { padding-left: 48px; }
 .r-rich .notes { list-style: none; margin: 32px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); font-size: 15px; line-height: 22px; }
 .r-rich .notes li { display: flex; gap: 8px; }
 .r-rich .notes .mk { color: var(--text-3); }

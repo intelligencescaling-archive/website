@@ -516,7 +516,36 @@ export function initReader() {
 
   syncControls();
   update();
+  initTables();
   initLightbox(root);
+}
+
+// Tables of rich parts: only one wider than the column scrolls sideways, so only that one becomes a named,
+// focusable scroll region ("Table N"); the others stay plain tables (no extra tab stops).
+function initTables() {
+  const tables = [...document.querySelectorAll('.r-rich .tw')];
+  if (!tables.length) return;
+  const mark = () => {
+    for (const t of tables) {
+      if (t.scrollWidth > t.clientWidth + 1) {
+        t.setAttribute('role', 'region');
+        t.setAttribute('aria-label', `Table ${t.dataset.n}`);
+        t.tabIndex = 0;
+      } else if (t.hasAttribute('role')) {
+        t.removeAttribute('role');
+        t.removeAttribute('aria-label');
+        t.removeAttribute('tabindex');
+      }
+    }
+  };
+  mark();
+  let timer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(timer);
+    timer = setTimeout(mark, 200);
+  });
+  // Text size and width change the column: check again (the settings sheet sets attributes on <html>).
+  new MutationObserver(mark).observe(document.documentElement, { attributes: true, attributeFilter: ['data-rsize', 'data-rw'] });
 }
 
 // ---------- Image viewer (R10-R13) ----------
@@ -534,6 +563,8 @@ function initLightbox(root) {
   const counter = document.getElementById('r-lb-n');
   const closeBtn = document.getElementById('r-lb-x');
   const title = document.querySelector('.r-title')?.textContent.trim() || '';
+  // R8: "Image N of M, title" (the DOCX has no alt text for nearly all images).
+  btns.forEach((b, i) => b.setAttribute('aria-label', `Image ${i + 1} of ${btns.length}, ${title}. Open`));
   let idx = 0;
   let open = false;
   let opener = null;

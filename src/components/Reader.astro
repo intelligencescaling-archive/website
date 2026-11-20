@@ -31,7 +31,6 @@ const time = (w: number) => {
   const m = Math.max(1, Math.round(w / 230));
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
 };
-const readTime = time(words);
 const itemHref = `/items/${e.id}/`;
 const pageHref = (p: number) => (p === 0 ? `/items/${e.id}/read/` : `/items/${e.id}/read/${p + 1}/`);
 // Page where each chapter starts (for the chapter list).
@@ -46,9 +45,13 @@ const rctx = layout ? pageContext({ layout, page, pageHref }) : null;
 const richHtml = new Map<number, string>();
 if (rctx) for (const c of chapters) if (isRich(c.i)) richHtml.set(c.i, renderPart(rctx, c.i, { multi, missHref: originalOf(e, all[c.i].n) || itemHref }));
 const imageCount = rctx ? rctx.imgN : 0;
+// Header count: a rich part whose DOCX text boxes hold far more words than its text file says so (`bw`).
+// Positions and pages still count the text file's words.
+const shownWords = all.reduce((n: number, c: any, i: number) => n + ((isRich(i) && layout.data[i].bw) || c.words), 0);
+const readTime = time(shownWords);
 // "Go to" sheet: per part, its headings (`id`, doc-wide word offset `w`, page) for the list and the slider ticks.
 // Plain parts: the text's headings (#s-<sid>); rich parts: the DOCX headings. Only the top two heading levels of a
-// doc are listed; with more than 150, only the top level.
+// doc are listed; with more than 40, only the top level (rules: Go to stays short).
 const pageOfSid = new Map<number, number>();
 pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.blocks.forEach((b: any) => b.sid && pageOfSid.set(b.sid, k))));
 const headsOf = all.map((c: any, i: number) =>
@@ -58,7 +61,7 @@ const headsOf = all.map((c: any, i: number) =>
 );
 const levels = [...new Set(headsOf.flat().map((h: any) => h.level))].sort();
 let keep = levels.slice(0, 2);
-if (headsOf.flat().filter((h: any) => keep.includes(h.level)).length > 150) keep = levels.slice(0, 1);
+if (headsOf.flat().filter((h: any) => keep.includes(h.level)).length > 40) keep = levels.slice(0, 1);
 const outline = all.map((c: any, i: number) => {
   const end = c.w + c.words;
   const heads = headsOf[i].filter((h: any) => keep.includes(h.level));
@@ -121,7 +124,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
         <header class="r-book">
           <h1>{e.title}</h1>
           <p class="r-by">{bylineText(e)}</p>
-          <p class="r-meta">{all.length} {unit.toLowerCase()}s · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+          <p class="r-meta">{all.length} {unit.toLowerCase()}s · {formatNumber(shownWords)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
         </header>
       )}
       {chapters.map((c: any) => {
@@ -139,7 +142,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
             ) : c.first ? (
               <>
                 <h1 id={`${id}-h`}>{e.title}</h1>
-                <p class="r-by">{bylineText(e)} · {formatNumber(words)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
+                <p class="r-by">{bylineText(e)} · {formatNumber(shownWords)} words · about {readTime}{paged && ` · ${pages.length} pages`}</p>
               </>
             ) : (
               <h1 class="visually-hidden" id={`${id}-h`}>{e.title}, page {page + 1}</h1>

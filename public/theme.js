@@ -80,7 +80,7 @@
 // Reader view (/items/<id>/read/): apply the saved text settings before the page paints, so the
 // text doesn't jump or flash when src/scripts/reader.js loads. Keys and values are checked there too.
 (function () {
-  if (!/^\/items\/[^/]+\/read\/$/.test(location.pathname)) return;
+  if (!/^\/items\/[^/]+\/read\/(?:\d+\/)?$/.test(location.pathname)) return;
   var root = document.documentElement;
   var s = null;
   try {
