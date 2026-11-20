@@ -16,6 +16,13 @@ export const ARCHIVE_DIR = path.resolve(websiteRoot, process.env.ARCHIVE_DIR || 
  */
 export const FILES_URL_TEMPLATE = (process.env.FILES_URL_TEMPLATE ?? 'https://files.intelscaling.com/{sha256}.{format}').trim();
 
+/**
+ * Where the reader's images live: WebP files made from the DOCX images (720 px and 1,360 px wide, metadata
+ * stripped), named in each part's blocks.json. Must end with "/". Keep img-src in the CSP (public/_headers and
+ * src/layouts/Base.astro) in line with it.
+ */
+export const IMAGES_URL = (process.env.IMAGES_URL ?? 'https://files.intelscaling.com/img/').trim();
+
 /** Public repos, used for "suggest a correction" and "source" links. */
 export const ARCHIVE_REPO_URL = 'https://github.com/intelligencescaling-archive/archive';
 export const WEBSITE_REPO_URL = 'https://github.com/intelligencescaling-archive/website';

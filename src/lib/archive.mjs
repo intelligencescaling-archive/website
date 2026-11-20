@@ -536,6 +536,10 @@ function normalizeEntry(raw, metaFile, reg) {
       files,
       textPath: hasText ? path.join(dir, textFile) : null,
       textFile,
+      // Rich reader blocks (DOCX text + images + colours, format v1, launch/images/converter/block-format.md),
+      // next to the text file. Null when absent; the reader then shows the plain text.
+      blocksPath: hasText && capture.blocks?.v === 1 && /^blocks(?:-\d+)?\.json$/.test(str(capture.blocks?.file)) &&
+        fs.existsSync(path.join(dir, capture.blocks.file)) ? path.join(dir, capture.blocks.file) : null,
       missing: Object.entries(capture.missing && typeof capture.missing === 'object' ? capture.missing : {}).map(
         ([k, v]) => [FORMAT_NAMES[k] || str(k), missingReason(v)],
       ),
@@ -859,7 +863,7 @@ export function readerChapters(entry) {
       if (blocks.length > 1 && p.title && same(blocks[0].text, p.title)) blocks.shift();
       chapterLines(blocks);
       const words = blocks.reduce((n, b) => n + (b.text.match(/\S+/g) || []).length, 0);
-      return { n: p.n, title: p.title, blocks, words };
+      return { n: p.n, title: p.title, blocks, words, blocksPath: p.blocksPath || null };
     });
   // Word offset of every block in the whole doc (`w`), and a doc-wide number for every heading (`sid`):
   // the reader's "Go to" sheet links to `#s-<sid>` and jumps to a position by word offset across pages.

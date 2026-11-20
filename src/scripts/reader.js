@@ -3,6 +3,8 @@
 // "continue where you left off" and [ / ] for the previous / next part or section. Long docs are split into pages
 // (/read/, /read/2/, …): progress counts the whole doc, and [ / ] and "continue" cross pages. The page works without
 // this file (it is just the text). Settings and the reading position are stored only in this browser.
+// Parts shown from the DOCX (rich parts, src/lib/blocks.mjs) also get the image viewer (initLightbox, below); their
+// blocks carry their word offset in data-w.
 //
 // Settings live in localStorage "reader" as { size, lh, w, sepia }; public/theme.js applies them
 // before the page paints. Light/Dark use the site's own theme (window.siteTheme), Sepia is reader-only.
@@ -47,10 +49,13 @@ export function initReader() {
   const page = Number(reader.dataset.page) || 1;
   const pageCount = Number(reader.dataset.pages) || 1;
   const pageHref = (p) => (p <= 1 ? reader.dataset.base : `${reader.dataset.base}${p}/`);
-  const blocks = [...reader.querySelectorAll('.r-text > *')];
+  // Reader blocks in page order (a framed "box" of a rich part counts its own blocks).
+  const blocks = [...reader.querySelectorAll('.r-text > :not(.tbx), .r-text > .tbx > *')];
   const multi = Boolean(reader.querySelector('.r-chap')); // an entry with several parts (chapters, volumes)
   const short = reader.dataset.short || unit;
-  const heads = [...reader.querySelectorAll('.r-text > [id^="s-"]')]; // headings listed in the Go to sheet
+  // Headings with an id (#s-N in the text, also #h-N in rich parts): "where" in the bottom bar, [ and ] stops.
+  const heads = [...reader.querySelectorAll('.r-text > :is(h2, h3, h4, h5, h6)[id], .r-text > .tbx > :is(h2, h3, h4, h5, h6)[id]')];
+  const rich = reader.dataset.rich === '1';
   const starts = (reader.dataset.starts || '0').split(',').map(Number); // first word of each page
   const lastPage = page >= pageCount;
   foot.hidden = false;
@@ -149,8 +154,9 @@ export function initReader() {
     if (blockW) return blockW;
     let w = before;
     blockW = blocks.map((el) => {
-      const at = w;
-      w += (el.textContent.match(/\S+/g) || []).length;
+      // Rich parts (and plain parts next to them) carry their offset; plain text is counted like the build does.
+      const at = el.dataset.w !== undefined ? Number(el.dataset.w) : w;
+      w = at + (el.dataset.w !== undefined && el.closest('.r-rich') ? 0 : (el.textContent.match(/\S+/g) || []).length);
       return at;
     });
     return blockW;
@@ -280,7 +286,7 @@ export function initReader() {
         return;
       }
       // A part or section on another page: the link goes there.
-      const el = document.getElementById(a.dataset.s ? `s-${a.dataset.s}` : `ch-${a.dataset.ch}`);
+      const el = document.getElementById(a.dataset.hid || (a.dataset.s ? `s-${a.dataset.s}` : `ch-${a.dataset.ch}`));
       if (!el) return;
       ev.preventDefault();
       nav.close();
@@ -361,10 +367,13 @@ export function initReader() {
     fill.style.transform = `scaleX(${m.pct / 100})`;
     // "Vol 1 · Chapter 5: The Bet · 42%"; the section name is cut with … by CSS when long.
     where.replaceChildren();
-    const parts = [multi && `${short} ${nums[m.ch]}`, m.head?.textContent.trim(), `${m.pct}%`].filter(Boolean);
+    // A heading's own trailing colon or dash ("EARLY LIFE:") is dropped before the " · " separator.
+    const headText = m.head?.textContent.replace(/\s+/g, ' ').trim().replace(/[\s:;,.\-–—]+$/, '');
+    const parts = [multi && `${short} ${nums[m.ch]}`, headText, `${m.pct}%`].filter(Boolean);
     parts.forEach((t, k) => {
       const span = document.createElement('span');
-      span.textContent = k < parts.length - 1 ? `${t} · ` : t;
+      // No-break spaces: a flex item drops a plain trailing space ("Rules ·5%").
+      span.textContent = k < parts.length - 1 ? `${t} · ` : t;
       if (m.head && t === parts[parts.length - 2]) span.className = 'r-sec';
       where.append(span);
     });
@@ -442,7 +451,8 @@ export function initReader() {
     if (!f) return;
     if (state.pct < 1 && f.i === 0 && page === 1) return save(POS, null);
     const h = f.el.getBoundingClientRect().height || 1;
-    save(POS, { p: page, i: f.i, f: Math.round((f.offset / h) * 1000) / 1000, ch: nums[state.ch] - 1, pct: state.pct, t: Date.now() });
+    // m: 1 = saved on the rich reader, whose blocks differ from the plain text's (a saved index only fits its own kind).
+    save(POS, { p: page, i: f.i, f: Math.round((f.offset / h) * 1000) / 1000, ch: nums[state.ch] - 1, pct: state.pct, t: Date.now(), ...(rich ? { m: 1 } : {}) });
   }
   function schedulePosSave() {
     if (!saveTimer) saveTimer = setTimeout(savePos, 800);
@@ -459,6 +469,7 @@ export function initReader() {
   const startPct = Math.floor((before / total) * 100);
   const saved =
     savedRaw && Number.isInteger(savedRaw.i) && savedRaw.i >= 0 && savedRaw.pct >= 1 && savedPage >= 1 && savedPage <= pageCount &&
+    (savedRaw.m === 1) === rich &&
     (savedPage === page ? savedRaw.i > 0 && savedRaw.i < blocks.length : !(savedPage === page - 1 && savedRaw.pct >= startPct - 1))
       ? { ...savedRaw, p: savedPage }
       : null;
@@ -505,4 +516,237 @@ export function initReader() {
 
   syncControls();
   update();
+  initLightbox(root);
+}
+
+// ---------- Image viewer (R10-R13) ----------
+// Tap an image: it opens full screen at once with the already loaded file, then the 1,360 px file (when there is
+// one) replaces it. Back, Esc, the close button, a tap beside the image or a swipe down close it; swipe or the arrow
+// keys/buttons go to the next or previous image; pinch or double-tap zooms (up to 4x), drag pans. The viewer copies
+// the image's own box (class with its aspect and crop from doc.css), so crops and rotation look the same.
+function initLightbox(root) {
+  const lb = document.getElementById('r-lb');
+  if (!lb || typeof lb.showModal !== 'function') return;
+  const btns = [...document.querySelectorAll('.r-rich button.zb')];
+  if (!btns.length) return;
+  const pane = document.getElementById('r-lb-pane');
+  const fr = document.getElementById('r-lb-fr');
+  const counter = document.getElementById('r-lb-n');
+  const closeBtn = document.getElementById('r-lb-x');
+  const title = document.querySelector('.r-title')?.textContent.trim() || '';
+  let idx = 0;
+  let open = false;
+  let opener = null;
+  let sc = 1;
+  let tx = 0;
+  let ty = 0;
+  const MAX = 4;
+
+  function draw() {
+    fr.style.transform = sc === 1 && tx === 0 && ty === 0 ? '' : `translate(${tx}px, ${ty}px) scale(${sc})`;
+    pane.classList.toggle('zoomed', sc > 1);
+  }
+  function clamp() {
+    const w = fr.offsetWidth * sc;
+    const h = fr.offsetHeight * sc;
+    const mx = Math.max(0, (w - pane.clientWidth) / 2);
+    const my = Math.max(0, (h - pane.clientHeight) / 2);
+    tx = Math.min(mx, Math.max(-mx, tx));
+    ty = Math.min(my, Math.max(-my, ty));
+  }
+  function resetZoom() {
+    sc = 1;
+    tx = 0;
+    ty = 0;
+    draw();
+  }
+  function show(i) {
+    idx = (i + btns.length) % btns.length;
+    const b = btns[idx];
+    const small = b.querySelector('img');
+    resetZoom();
+    // The box class (q…: aspect, size, crop) sits on the figure or the row cell around the button.
+    const box = [...(b.parentElement?.classList || [])].find((c) => /^q[0-9a-f]{8}$/.test(c)) || '';
+    fr.className = ['r-lb-fr', box, ...['crop', 'rot', 'flip'].filter((c) => b.classList.contains(c))].filter(Boolean).join(' ');
+    // A fresh <img> (a clone would keep the page's srcset density), inside the same rotation wrapper if any.
+    const img = document.createElement('img');
+    let copy = img;
+    if (b.firstElementChild?.classList.contains('rr')) {
+      copy = document.createElement('span');
+      copy.className = 'rr';
+      copy.append(img);
+    }
+    img.decoding = 'async';
+    img.src = small.currentSrc || small.src; // already loaded: shows at once
+    img.alt = small.alt || `Image ${idx + 1} of ${btns.length}, ${title}`;
+    fr.replaceChildren(copy);
+    const full = b.dataset.full;
+    if (full && img.src !== full) {
+      const pre = new Image();
+      pre.decoding = 'async';
+      pre.onload = () => {
+        if (btns[idx] === b && open) img.src = full;
+      };
+      pre.src = full;
+    }
+    counter.textContent = `${idx + 1} / ${btns.length}`;
+  }
+  function openAt(i, from) {
+    opener = from;
+    open = true;
+    show(i);
+    lb.showModal();
+    root.classList.add('lb-open');
+    history.pushState({ lb: 1 }, '', `#img-${idx + 1}`);
+    closeBtn.focus();
+  }
+  function finish() {
+    if (!open) return;
+    open = false;
+    lb.close();
+    root.classList.remove('lb-open');
+    resetZoom();
+    fr.replaceChildren();
+    const back = btns[idx] || opener;
+    back?.focus({ preventScroll: true });
+    if (btns[idx] && btns[idx] !== opener) btns[idx].scrollIntoView({ block: 'center' });
+  }
+  function close() {
+    if (!open) return;
+    if (history.state && history.state.lb) history.back(); // Back is the main way to close on phones (R11)
+    else finish();
+  }
+  function go(d) {
+    show(idx + d);
+    history.replaceState({ lb: 1 }, '', `#img-${idx + 1}`);
+  }
+  // A reload or shared link with #img-N: just the page.
+  if (/^#img-\d+$/.test(location.hash)) history.replaceState(null, '', location.pathname);
+  addEventListener('popstate', () => {
+    if (open) finish();
+  });
+  lb.addEventListener('cancel', (ev) => {
+    ev.preventDefault();
+    close();
+  }); // Esc
+  closeBtn.addEventListener('click', close);
+  document.getElementById('r-lb-p').addEventListener('click', () => go(-1));
+  document.getElementById('r-lb-nx').addEventListener('click', () => go(1));
+  lb.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowRight') {
+      go(1);
+      ev.preventDefault();
+    } else if (ev.key === 'ArrowLeft') {
+      go(-1);
+      ev.preventDefault();
+    }
+  });
+  document.addEventListener('click', (ev) => {
+    const b = ev.target instanceof Element ? ev.target.closest('.r-rich button.zb') : null;
+    if (!b) return;
+    openAt(btns.indexOf(b), b);
+  });
+
+  // Gestures: swipe left/right = next/prev, swipe down = close (not zoomed), pinch + double-tap = zoom, drag = pan.
+  const pts = new Map();
+  let start = null;
+  let pinch = null;
+  let moved = false;
+  let lastTap = { t: 0, x: 0, y: 0 };
+  let tapTimer = 0;
+  const centre = () => {
+    const r = pane.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  };
+  pane.addEventListener('pointerdown', (ev) => {
+    try {
+      pane.setPointerCapture(ev.pointerId);
+    } catch {
+      /* pointer already gone */
+    }
+    pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    moved = false;
+    if (pts.size === 1) start = { x: ev.clientX, y: ev.clientY, tx, ty };
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const c = centre();
+      const mid = { x: (a.x + b.x) / 2 - c.x, y: (a.y + b.y) / 2 - c.y };
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, sc, u: { x: (mid.x - tx) / sc, y: (mid.y - ty) / sc } };
+    }
+  });
+  pane.addEventListener('pointermove', (ev) => {
+    if (!pts.has(ev.pointerId)) return;
+    pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (pts.size === 2 && pinch) {
+      const [a, b] = [...pts.values()];
+      const c = centre();
+      const mid = { x: (a.x + b.x) / 2 - c.x, y: (a.y + b.y) / 2 - c.y };
+      sc = Math.min(MAX, Math.max(1, (pinch.sc * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.d));
+      tx = mid.x - sc * pinch.u.x;
+      ty = mid.y - sc * pinch.u.y;
+      clamp();
+      draw();
+      moved = true;
+      return;
+    }
+    if (pts.size !== 1 || !start) return;
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+    if (sc > 1) {
+      tx = start.tx + dx;
+      ty = start.ty + dy;
+      clamp();
+      draw();
+    } else fr.style.transform = Math.abs(dx) > Math.abs(dy) ? `translateX(${dx}px)` : dy > 0 ? `translateY(${dy}px)` : '';
+  });
+  function up(ev) {
+    if (!pts.has(ev.pointerId)) return;
+    pts.delete(ev.pointerId);
+    if (pts.size === 1) {
+      // One finger left after a pinch: go on as a pan from here.
+      const [p] = [...pts.values()];
+      start = { x: p.x, y: p.y, tx, ty };
+      pinch = null;
+      return;
+    }
+    if (pts.size > 0) return;
+    pinch = null;
+    if (!start) return;
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    start = null;
+    if (sc === 1 && moved) {
+      fr.style.transform = '';
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) return go(dx < 0 ? 1 : -1);
+      if (dy > 80 && dy > Math.abs(dx) * 1.5) return close();
+      return;
+    }
+    if (moved || ev.type === 'pointercancel') return;
+    // A tap: a double tap toggles 2x at that point; a single tap beside the image closes.
+    const now = performance.now();
+    if (now - lastTap.t < 300 && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 24) {
+      lastTap.t = 0;
+      clearTimeout(tapTimer);
+      if (sc > 1) resetZoom();
+      else {
+        const c = centre();
+        sc = 2;
+        tx = -(ev.clientX - c.x);
+        ty = -(ev.clientY - c.y);
+        clamp();
+        draw();
+      }
+      return;
+    }
+    lastTap = { t: now, x: ev.clientX, y: ev.clientY };
+    const onImg = ev.target instanceof Element && fr.contains(ev.target);
+    clearTimeout(tapTimer);
+    if (!onImg && sc === 1) tapTimer = setTimeout(close, 300);
+  }
+  pane.addEventListener('pointerup', up);
+  pane.addEventListener('pointercancel', up);
+  lb.addEventListener('click', (ev) => {
+    if (ev.target === lb && !moved) close();
+  });
 }
