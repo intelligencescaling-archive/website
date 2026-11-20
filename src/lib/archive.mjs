@@ -536,7 +536,7 @@ function normalizeEntry(raw, metaFile, reg) {
       files,
       textPath: hasText ? path.join(dir, textFile) : null,
       textFile,
-      // Rich reader blocks (DOCX text + images + colours, format v1, launch/images/converter/block-format.md),
+      // Rich reader blocks (DOCX text + images + colours, block format v1; src/lib/blocks.mjs renders them),
       // next to the text file. Null when absent; the reader then shows the plain text.
       blocksPath: hasText && capture.blocks?.v === 1 && /^blocks(?:-\d+)?\.json$/.test(str(capture.blocks?.file)) &&
         fs.existsSync(path.join(dir, capture.blocks.file)) ? path.join(dir, capture.blocks.file) : null,
