@@ -310,6 +310,26 @@ mark { color: var(--text-1); background: linear-gradient(transparent 50%, var(--
 .imgs a { display: block; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .imgs img { display: block; width: 100%; height: auto; }
 
+/* ---------- Save for later (public/theme.js, public/saved.js; state on <html> before the first paint) ---------- */
+.sv .on, .sv-nav { display: none; }
+html[data-saved] .sv .on { display: inline; }
+html[data-saved] .sv .off { display: none; }
+html[data-saved] .sv svg { fill: currentColor; }
+html[data-has-saved] .sv-nav { display: block; }
+.nostore .sv, .nostore .svd, .nostore .sv-nav { display: none !important; }
+/* Library > Saved: doc rows with a remove button. Titles stay on one line, so each row is exactly 62px and the list
+   keeps the room theme.js reserved (--svn rows) before the script fills it. */
+.svd .sh { padding-right: 48px; }
+.svl { min-height: calc(var(--svn, 0) * 62px); }
+.svl li { position: relative; display: flex; align-items: center; gap: 8px; }
+.svl li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--line); }
+.svl .r2 { flex: 1; min-width: 0; margin-right: 0; }
+.svl .r2::before { content: none; }
+.svl .t { display: block; white-space: nowrap; text-overflow: ellipsis; }
+.svl .sv-x { margin-right: -12px; }
+.sv-emp { color: var(--text-3); }
+html[data-has-saved] .sv-emp, html:not([data-has-saved]) .sv-w { display: none; }
+
 /* ---------- Text pages (about, removal, submit, 404) ---------- */
 .prose { max-width: 680px; }
 .prose > h1 + * { margin-top: 16px; }

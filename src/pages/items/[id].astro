@@ -5,6 +5,7 @@ import Icon from '../../components/Icon.astro';
 import Blk from '../../components/Blk.astro';
 import Fold from '../../components/Fold.astro';
 import AccountFlag from '../../components/AccountFlag.astro';
+import SaveButton from '../../components/SaveButton.astro';
 import { shortNum, kindOf, contactHint, previewBlocks } from '../../lib/ui.mjs';
 import { loadArchive, redditAccount, hasReader, textOnly, textPreview, formatBytes, formatNumber, formatDate, readableDates, bylineText, sharerName, readerUnit, LIBRARIES } from '../../lib/archive.mjs';
 import { ARCHIVE_REPO_URL } from '../../lib/config.mjs';
@@ -182,6 +183,7 @@ const relatedKnown = e.characters[0]?.id || e.series[0]?.id;
             {single.textHref && <a class="tbtn" href={single.textHref} rel="noopener">TXT</a>}
             {single.url && <a class="tbtn" href={single.url} rel="noopener nofollow ugc">{shortSource(single)}</a>}
             {originalPost && <a class="tbtn" href={originalPost} rel="noopener nofollow ugc">{e.hasRedditSource || e.links.some((l: any) => l.type === 'reddit-post') ? 'Reddit post' : 'Original'}</a>}
+            <SaveButton entry={e} />
           </div>
           {single.status === 'export-blocked' ? (
             <p class="note-l">The owner turned off downloads for this {single.sourceLabel}, so no copy could be saved yet.{single.url && ' Open the original while it is still online.'}</p>
@@ -198,12 +200,11 @@ const relatedKnown = e.characters[0]?.id || e.series[0]?.id;
 
       {multi && (
         <>
-          {(readHref || originalPost) && (
-            <div class="acts">
-              {readHref && <a class="btn" href={readHref}>Read from the start</a>}
-              {originalPost && <a class="tbtn" href={originalPost} rel="noopener nofollow ugc">Original</a>}
-            </div>
-          )}
+          <div class="acts">
+            {readHref && <a class="btn" href={readHref}>Read from the start</a>}
+            {originalPost && <a class="tbtn" href={originalPost} rel="noopener nofollow ugc">Original</a>}
+            <SaveButton entry={e} />
+          </div>
           <section class="parts">
             <div class="sh"><h2 class="sl">{partUnit === 'volume' ? 'Volumes' : 'Parts'}</h2><span class="sl">Words</span></div>
             {e.parts.map((p: any) => (
