@@ -1,0 +1,22 @@
+---
+// Save for later (public/theme.js keeps the list in this browser; the Library shows it). Script-only: hidden without
+// JavaScript or storage. The state ("Saved", filled mark) comes from html[data-saved], set before the first paint.
+// The data-* fields are the row the Library shows (same text as the doc rows: kind · subject · maker, words).
+import Icon from './Icon.astro';
+import { kindOf, subjectOf, bylineOf } from '../lib/ui.mjs';
+
+interface Props {
+  entry: any;
+  /** 'text': icon + Save / Saved (doc page). 'icon': icon only (reader bar). */
+  look?: 'text' | 'icon';
+}
+const { entry: e, look = 'text' } = Astro.props;
+const by = bylineOf(e);
+const byline = by.name ? `${by.name}${by.hint ? ` (${by.hint})` : ''}${by.more > 0 ? ` +${by.more}` : ''}` : by.text || '';
+const data = { 'data-save': e.id, 'data-ti': e.title, 'data-k': kindOf(e) || undefined, 'data-s': subjectOf(e) || undefined, 'data-b': byline || undefined, 'data-w': e.words ? String(e.words) : undefined };
+---
+{look === 'icon' ? (
+  <button type="button" class="r-icon sv js-only" aria-pressed="false" aria-label="Save" title="Save" {...data}><Icon name="mark" size={22} /></button>
+) : (
+  <button type="button" class="tbtn sv js-only" aria-pressed="false" {...data}><Icon name="mark" /><span class="off">Save</span><span class="on">Saved</span></button>
+)}

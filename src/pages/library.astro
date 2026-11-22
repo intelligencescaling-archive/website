@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import NameList from '../components/NameList.astro';
+import Icon from '../components/Icon.astro';
 import { loadArchive } from '../lib/archive.mjs';
 const { series, characters, authors, tags } = loadArchive();
 const stories = tags.find((t: any) => t.id === 'story')?.entries.length || 0;
@@ -16,6 +17,21 @@ const rows = [
 <Base title="Library" section="library" description="Browse the archive by character, series, author or tag.">
   <div class="main">
     <h1>Library</h1>
+    {/* Saved docs (this browser only): rows built by public/saved.js from localStorage, right here before the
+        first paint; public/theme.js already reserved their height (--svn). Hidden without JavaScript or storage. */}
+    <section class="sec svd js-only" id="saved" aria-labelledby="h-saved">
+      <div class="sh"><h2 class="sl" id="h-saved">Saved</h2><span class="sl sv-w">Words</span></div>
+      <ul class="ls svl" data-saved-list></ul>
+      <p class="r1 sv-emp" tabindex="-1">Nothing saved yet</p>
+      <div class="end"></div>
+      <template data-saved-row>
+        <li>
+          <a class="r2" href="/"><span class="t"></span><span class="ml"><span class="m"></span><span class="n"></span></span></a>
+          <button type="button" class="ib sv-x" aria-label="Remove"><Icon name="x" /></button>
+        </li>
+      </template>
+    </section>
+    <script is:inline src="/saved.js"></script>
     <NameList label="Browse" right="" items={rows} cap={0} noun="lists" />
   </div>
 </Base>

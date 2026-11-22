@@ -8,6 +8,7 @@
 // set:html with HTML that blocks.mjs builds and escapes itself. Settings, progress, chapters, resume and the image
 // viewer are in src/scripts/reader.js; without JavaScript the page is just the text and images.
 import Base from '../layouts/Base.astro';
+import SaveButton from './SaveButton.astro';
 import { bylineText, formatNumber, textOnly, originalFile, readerUnit } from '../lib/archive.mjs';
 import { richLayout, pageContext, renderPart, originalOf } from '../lib/blocks.mjs';
 import '../styles/reader-rich.css';
@@ -96,6 +97,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
       </a>
       <span class="r-title">{e.title}</span>
+      <SaveButton entry={e} look="icon" />
       <button type="button" class="r-icon r-aa" id="r-aa" aria-label="Text settings" aria-haspopup="dialog" hidden>Aa</button>
       {hasNav && (
         <button type="button" class="r-icon" id="r-toc" aria-label={multi ? `Go to: ${unit.toLowerCase()}s and position` : 'Go to: sections and position'} aria-haspopup="dialog" aria-keyshortcuts="g" hidden>

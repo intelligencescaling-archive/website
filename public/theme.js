@@ -92,3 +92,93 @@
   if (s.w === 'narrow' || s.w === 'wide') root.setAttribute('data-rw', s.w);
   if (s.sepia === true) root.setAttribute('data-reader', 'sepia');
 })();
+
+// Save for later. A list in this browser only (localStorage "saved", newest first): doc id, time saved and the row
+// text the Library shows ({ id, t, ti, k, s, b, w }). No account, nothing is sent anywhere. Runs before the first
+// paint, so the Save buttons already show the right state and the Library keeps room for its rows (no jump).
+// Storage blocked (private mode, site data off): html.nostore hides the buttons and the Saved list.
+(function () {
+  var KEY = 'saved';
+  var MAX = 500;
+  var root = document.documentElement;
+  var ok = true;
+  try {
+    localStorage.getItem(KEY);
+  } catch (e) {
+    ok = false;
+  }
+  if (!ok) {
+    root.classList.add('nostore');
+    return;
+  }
+  function read() {
+    try {
+      var v = JSON.parse(localStorage.getItem(KEY) || '[]');
+      if (!Array.isArray(v)) return [];
+      var out = [];
+      for (var i = 0; i < v.length; i++) if (v[i] && typeof v[i].id === 'string' && v[i].id) out.push(v[i]);
+      return out;
+    } catch (e) {
+      return [];
+    }
+  }
+  function write(list) {
+    try {
+      if (list.length) localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX)));
+      else localStorage.removeItem(KEY);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  var m = /^\/items\/([^/]+)\/(?:read\/(?:\d+\/)?)?$/.exec(location.pathname);
+  var here = m ? m[1] : null;
+  function find(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return i;
+    return -1;
+  }
+  // State on <html>: data-saved (this doc is saved), data-has-saved (the list isn't empty), --svn (its length).
+  function mark(list) {
+    list = list || read();
+    if (here && find(list, here) >= 0) root.setAttribute('data-saved', '');
+    else root.removeAttribute('data-saved');
+    if (list.length) root.setAttribute('data-has-saved', '');
+    else root.removeAttribute('data-has-saved');
+    root.style.setProperty('--svn', String(list.length));
+    var bs = document.querySelectorAll('[data-save]');
+    for (var j = 0; j < bs.length; j++) bs[j].setAttribute('aria-pressed', String(find(list, bs[j].getAttribute('data-save')) >= 0));
+  }
+  function row(b, t) {
+    var d = b.dataset;
+    return { id: d.save, t: t, ti: d.ti || d.save, k: d.k || '', s: d.s || '', b: d.b || '', w: Number(d.w) || 0 };
+  }
+  mark();
+  window.siteSaved = { key: KEY, read: read, write: write, mark: mark };
+  document.addEventListener('DOMContentLoaded', function () {
+    var list = read();
+    mark(list);
+    // A saved doc's row text follows the doc page (titles and bylines get corrected).
+    var b = document.querySelector('[data-save][data-ti]');
+    var i = b ? find(list, b.getAttribute('data-save')) : -1;
+    if (i >= 0) {
+      var fresh = row(b, list[i].t);
+      if (JSON.stringify(fresh) !== JSON.stringify(list[i])) {
+        list[i] = fresh;
+        write(list);
+      }
+    }
+    document.addEventListener('click', function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest('[data-save]') : null;
+      if (!t) return;
+      var cur = read();
+      var k = find(cur, t.getAttribute('data-save'));
+      if (k >= 0) cur.splice(k, 1);
+      else cur.unshift(row(t, Date.now()));
+      if (write(cur)) mark(cur);
+    });
+  });
+  // Saved or removed in another tab.
+  window.addEventListener('storage', function (ev) {
+    if (ev.key === KEY || ev.key === null) mark();
+  });
+})();

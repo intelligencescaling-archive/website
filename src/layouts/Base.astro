@@ -89,6 +89,8 @@ const onSearch = section === 'search';
           {nav.map(([key, href, label]) => (
             <li><a class="r1 nv" href={href} aria-current={section === key ? 'page' : undefined}><span class="nm"><span class="lb">{label}</span></span><Icon name="go" class="chev" /></a></li>
           ))}
+          {/* Only while something is saved in this browser (html[data-has-saved], public/theme.js). */}
+          <li class="sv-nav"><a class="r1 nv" href="/library/#saved"><span class="nm"><span class="lb">Saved</span></span><Icon name="go" class="chev" /></a></li>
         </ul>
         <div class="end"></div>
       </nav>

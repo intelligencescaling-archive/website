@@ -105,6 +105,19 @@ that gives the readable file name, which matches the default `FILES_URL_TEMPLATE
 | `/topics/<id>/` | Only the two "help sort" lists ("Series not known yet", "Needs sorting"). Topics were folded into tags on 2026-11-19; the old topic pages redirect to their tag (`public/_redirects`). `TOPICS` in `src/lib/archive.mjs` still groups entries for these lists, the related-docs score and the hidden Topic search filter |
 | `/about/`, `/acknowledgments/`, `/removal/` | About, credits, removal requests |
 | `/submit/` | Submit a doc or Reddit post, suggest a fix (`?fix=<id>`), or ask for removal (`?remove=<id>`) |
+| `/library/` | Saved docs (see below), then the browse lists |
+
+### Save for later
+
+A Save button on each doc page and in the reader's top bar; the list is the "Saved" section of `/library/` (and a
+"Saved" row in the phone menu while something is saved). It lives only in the reader's browser: localStorage `saved`,
+newest first, `{ id, t, ti, k, s, b, w }` (doc id, time, and the row text the Library shows). No account, no server,
+nothing counted. `public/theme.js` keeps the list and sets the state on `<html>` before the first paint (`data-saved`,
+`data-has-saved`, `--svn` = number of rows, so the Library keeps their room; `nostore` when storage is blocked, which
+hides every Save control). `public/saved.js` builds the Library rows with `textContent`; when something is saved it
+fetches `random-ids.json` (current ids) and `moved-ids.json` (old -> new ids from the `/items/` lines in
+`public/_redirects`) once, follows merged docs and drops removed ones quietly. `npm run test:saved` checks the storage
+rules (blocked or broken storage, order, toggling).
 
 ### Rich reader (images, colours, tables)
 
