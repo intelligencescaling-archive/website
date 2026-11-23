@@ -39,8 +39,8 @@ test('superscript ^word and ^(words), escaped \\^ stays', () => {
 });
 test('spoilers inline and as a whole line (not a quote)', () => {
   const out = html('a >!secret!< b\n\n>!whole line!<');
-  has(out, '<span class="sp" tabindex="0">secret</span>');
-  has(out, '<span class="sp" tabindex="0">whole line</span>');
+  has(out, '<span class="rmd-spoiler" tabindex="0">secret</span>');
+  has(out, '<span class="rmd-spoiler" tabindex="0">whole line</span>');
   hasNot(out, '<blockquote');
 });
 test('headings map to the reader levels; inline heading marks render', () => {

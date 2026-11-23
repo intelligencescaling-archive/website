@@ -76,7 +76,7 @@ function spoiler(state, silent) {
   if (src.charCodeAt(start) !== 0x3e || src.charCodeAt(start + 1) !== 0x21) return false;
   const end = src.indexOf('!<', start + 2);
   if (end < 0 || end + 2 > state.posMax || end === start + 2) return false;
-  if (!silent) nested(state, start + 2, end, 'spoiler_open', 'spoiler_close', 'span', [['class', 'sp'], ['tabindex', '0']]);
+  if (!silent) nested(state, start + 2, end, 'spoiler_open', 'spoiler_close', 'span', [['class', 'rmd-spoiler'], ['tabindex', '0']]);
   state.pos = end + 2;
   return true;
 }
