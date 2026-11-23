@@ -11,11 +11,13 @@
     "test:escaping": "node scripts/test-escaping.mjs",
     "test:counter": "node scripts/test-search-counter.mjs",
     "test:saved": "node scripts/test-saved.mjs",
+    "test:reddit-md": "node scripts/test-reddit-md.mjs",
     "search-report": "node scripts/search-report.mjs",
     "build:cloudflare": "node scripts/fetch-archive.mjs && astro build"
   },
   "dependencies": {
     "astro": "7.4.7",
+    "markdown-it": "14.3.3",
     "pagefind": "1.5.2",
     "yaml": "2.9.1"
   },

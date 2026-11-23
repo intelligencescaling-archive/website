@@ -1,0 +1,7 @@
+# Test fixture tag registry.
+- id: feats
+  name: Feats
+  group: type
+- id: analysis
+  name: Analysis
+  group: type

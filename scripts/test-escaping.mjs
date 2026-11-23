@@ -41,6 +41,17 @@ if (!read.includes('&lt;img src=x onerror')) problems.push('items/evil-entry/rea
 const docCss = fs.readFileSync(path.join(outDir, 'items', 'evil-entry', 'read', 'doc.css'), 'utf8');
 if (/zzinject|<|url\(|@import/i.test(docCss)) problems.push('items/evil-entry/read/doc.css: hostile value in the stylesheet');
 if (!item.includes('&lt;script&gt;alert')) problems.push('items/evil-entry: expected the escaped title text');
+// A Reddit post with hostile markdown (src/lib/reddit-md.mjs): rendered as markdown, its HTML and links escaped.
+const rp = fs.readFileSync(path.join(outDir, 'items', 'evil-reddit-post', 'read', 'index.html'), 'utf8');
+const rpItem = fs.readFileSync(path.join(outDir, 'items', 'evil-reddit-post', 'index.html'), 'utf8');
+if (!rp.includes('class="r-text r-rich r-md"')) problems.push('items/evil-reddit-post/read: expected the markdown reader');
+if (!rp.includes('<strong>CONTEXT:</strong>')) problems.push('items/evil-reddit-post/read: expected bold markdown');
+if (!rp.includes('&lt;script&gt;alert(&quot;md-script&quot;)')) problems.push('items/evil-reddit-post/read: expected the escaped <script>');
+if (/md-(link|image)/.test(rp.replace(/="[^"]*"/g, '=""').replace(/>[^<]*</g, '><'))) problems.push('items/evil-reddit-post/read: javascript: link or image kept');
+if (/href="(?:javascript|data):/i.test(rp + rpItem)) problems.push('items/evil-reddit-post: javascript:/data: link');
+if (/redd\.it/.test(rp.replace(/<[^>]+>/g, ''))) problems.push('items/evil-reddit-post/read: an image link shows as text');
+if (!rpItem.includes('class="pvt md')) problems.push('items/evil-reddit-post: expected the markdown preview');
+if (!rp.includes('id="r-lb"')) problems.push('items/evil-reddit-post/read: expected the image viewer');
 fs.rmSync(outDir, { recursive: true, force: true });
 
 if (problems.length) {

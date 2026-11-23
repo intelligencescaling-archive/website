@@ -302,6 +302,36 @@ mark { color: var(--text-1); background: linear-gradient(transparent 50%, var(--
 .pvt p { font: 400 16px/26px var(--sans); color: var(--text-2); margin-bottom: 12px; white-space: pre-line; }
 .pvt h3 { font: 600 16px/24px var(--sans); color: var(--text-1); margin-bottom: 8px; }
 .pvt * + h3 { margin-top: 24px; }
+/* Reddit posts: the preview is their markdown (src/lib/reddit-md.mjs), in the preview's own type. */
+.pvt.md p, .pvt.md li { white-space: normal; }
+.pvt.md :is(ul, ol) { margin: 0 0 12px; padding-left: 24px; font: 400 16px/26px var(--sans); color: var(--text-2); }
+.pvt.md ul { list-style: disc; }
+.pvt.md ol { list-style: decimal; padding-left: 32px; }
+.pvt.md li ul { list-style: circle; }
+.pvt.md li::marker { color: var(--text-3); }
+.pvt.md li > :is(ul, ol) { margin: 4px 0 0; }
+.pvt.md li > p { margin-bottom: 4px; }
+.pvt.md blockquote { margin: 0 0 12px; padding-left: 16px; border-left: 4px solid var(--line); }
+.pvt.md :is(code, pre) { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background: var(--surface); border-radius: 4px; }
+.pvt.md code { padding: 0 4px; }
+.pvt.md pre { margin: 0 0 12px; padding: 12px 16px; white-space: pre-wrap; color: var(--text-2); }
+.pvt.md pre code { padding: 0; background: none; }
+.pvt.md hr { margin: 16px 0; border: 0; border-top: 1px solid var(--line); }
+.pvt.md strong { font-weight: 600; }
+.pvt.md sup { line-height: 0; }
+.pvt.md a { color: var(--text-2); text-decoration: underline 1px var(--edge); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.pvt.md .tw { margin: 0 0 12px; overflow-x: auto; }
+.pvt.md table { border-collapse: collapse; font: 400 15px/22px var(--sans); color: var(--text-2); }
+.pvt.md :is(td, th) { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.pvt.md th { font-weight: 600; color: var(--text-1); }
+.pvt.md .al-c { text-align: center; }
+.pvt.md .al-r { text-align: right; }
+/* Spoilers (>!text!<): hidden until tapped or focused, no script. */
+.sp { border-radius: 4px; background: var(--text-3); color: transparent; cursor: pointer; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.sp * { color: transparent; text-decoration-color: transparent; }
+.sp:is(:focus, :focus-within, :active) { background: var(--raised); color: inherit; outline: none; }
+.sp:is(:focus, :focus-within, :active) * { color: inherit; text-decoration-color: var(--edge); }
+.sp:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .pv .more { margin-top: 8px; }
 .parts { margin-top: 24px; }
 .part-body { padding-bottom: 8px; }

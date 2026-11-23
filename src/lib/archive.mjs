@@ -8,6 +8,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { parse as parseYaml } from 'yaml';
 import { ARCHIVE_DIR, ARCHIVE_RAW_URL, FILES_URL_TEMPLATE } from './config.mjs';
+import { mdPlain } from './reddit-md.mjs';
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -506,6 +507,10 @@ function normalizeEntry(raw, metaFile, reg) {
         bytes: Number(f.bytes) || 0,
         sha256: SHA256.test(str(f.sha256)) ? f.sha256 : '',
         href: fileHref(id, f),
+        // Reddit post images: the post's media id (where the text places the image) and the pixel size, when the
+        // capture records them (src/lib/reddit-md.mjs).
+        mediaId: /^[A-Za-z0-9]{6,20}$/.test(str(f.media_id)) ? f.media_id : null,
+        px: Array.isArray(f.px) && f.px.length === 2 && f.px.every((x) => Number.isInteger(x) && x > 0 && x <= 50000) ? f.px : null,
       }));
     const hasText = Boolean(textFile && fs.existsSync(path.join(dir, textFile)));
     // Only the plain text survives (a deleted doc recovered from a Wayback snapshot, or a doc whose owner blocked
@@ -750,9 +755,10 @@ export function authorRedirects() {
 
 /** Plain text of all parts, joined. Read on demand (46 MB in total, so it isn't kept in memory). */
 export function entryText(entry) {
+  // Reddit posts: the words the reader shows, without the markdown marks and image links.
   return entry.parts
     .filter((p) => p.textPath)
-    .map((p) => fs.readFileSync(p.textPath, 'utf8'))
+    .map((p) => (isMarkdown(p) ? mdPlain(fs.readFileSync(p.textPath, 'utf8')) : fs.readFileSync(p.textPath, 'utf8')))
     .join('\n\n');
 }
 
@@ -773,6 +779,13 @@ export function textPreview(entry, maxChars = 1200) {
   }
 }
 
+/** The start of the text (about 20k characters) when the first part with text is a Reddit post, else null. */
+export function markdownStart(entry) {
+  const p = entry.parts.find((x) => x.textPath);
+  if (!p || !isMarkdown(p)) return null;
+  return fs.readFileSync(p.textPath, 'utf8').slice(0, 20000).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+}
+
 // Formats that mean the doc has its own layout (images, colours, tables). The reader shows only the plain text of
 // these, with a note that points to the original file.
 const LAID_OUT = ['pdf', 'docx', 'pptx', 'epub', 'html'];
@@ -780,6 +793,11 @@ const LAID_OUT = ['pdf', 'docx', 'pptx', 'epub', 'html'];
 /** True when the entry has saved text with words in it: it gets the reader view. Image-only docs (0 words) don't. */
 export function hasReader(entry) {
   return entry.words > 0 && entry.parts.some((p) => p.textPath);
+}
+
+/** True when the part's text is a Reddit post's selftext (Reddit markdown, rendered by src/lib/reddit-md.mjs). */
+export function isMarkdown(part) {
+  return part.sourceType === 'reddit-post';
 }
 
 /** True when the entry has no PDF/DOCX/EPUB/… in any part: the reader view is the main way to read it. */
@@ -841,15 +859,21 @@ export function readerChapters(entry) {
     .filter((p) => p.textPath)
     .map((p) => {
       const text = fs.readFileSync(p.textPath, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+      const md = isMarkdown(p);
       const blocks = [];
       let para = [];
+      let raw = [];
       const flush = () => {
         const t = para.join('\n').trim();
         if (t) {
           const ps = pieces(t);
           ps.forEach((x, i) => blocks.push({ level: 0, text: x, cont: i < ps.length - 1 }));
+          // Reddit markdown: the paragraph's own lines (indents matter there) on its first piece; the other
+          // pieces are rendered with it (src '').
+          if (md) ps.forEach((_, i) => (blocks[blocks.length - ps.length + i].src = i ? '' : raw.join('\n')));
         }
         para = [];
+        raw = [];
       };
       for (const line of text.split('\n')) {
         const h = /^(#{1,6})\s*(.*\S)\s*$/.exec(line);
@@ -857,13 +881,18 @@ export function readerChapters(entry) {
           flush();
           blocks.push({ level: Math.min(h[1].length, 3), text: h[2], cont: false });
         } else if (!line.trim()) flush();
-        else para.push(line.replace(/\s+$/, ''));
+        else {
+          para.push(line.replace(/\s+$/, ''));
+          raw.push(line);
+        }
       }
       flush();
+      // A Reddit post's text starts with the post title (plain text, not markdown).
+      if (md && blocks.length) blocks[0].title = true;
       if (blocks.length > 1 && p.title && same(blocks[0].text, p.title)) blocks.shift();
       chapterLines(blocks);
       const words = blocks.reduce((n, b) => n + (b.text.match(/\S+/g) || []).length, 0);
-      return { n: p.n, title: p.title, blocks, words, blocksPath: p.blocksPath || null };
+      return { n: p.n, title: p.title, blocks, words, blocksPath: p.blocksPath || null, md, images: md ? p.images : [] };
     });
   // Word offset of every block in the whole doc (`w`), and a doc-wide number for every heading (`sid`):
   // the reader's "Go to" sheet links to `#s-<sid>` and jumps to a position by word offset across pages.
@@ -903,7 +932,9 @@ function chapterLines(blocks) {
   const nested = found.some((f) => f.big) && found.some((f) => !f.big);
   for (const f of found.reverse()) {
     const head = { level: nested && !f.big ? 2 : 1, text: f.t, cont: false };
-    if (f.after) blocks.splice(f.k, 1, head, { ...blocks[f.k], text: f.after });
+    const b = blocks[f.k];
+    // A Reddit post's paragraph keeps its own lines without the chapter line.
+    if (f.after) blocks.splice(f.k, 1, head, { ...b, text: f.after, title: false, ...(b.src ? { src: b.src.slice(b.src.indexOf('\n') + 1) } : {}) });
     else blocks[f.k] = head;
   }
 }

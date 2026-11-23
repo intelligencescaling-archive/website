@@ -1,0 +1,35 @@
+# Test fixture: a Reddit text post with hostile markdown (src/lib/reddit-md.mjs) and saved images.
+schema_version: 1
+id: evil-reddit-post
+category: doc
+title: Evil Reddit Post
+authors:
+- name: tester
+  reddit: tester
+  source: reddit-post
+series: [evil-series]
+tags: [analysis]
+language: en
+completion: unknown
+parts:
+- source:
+    type: reddit-post
+    url: https://www.reddit.com/r/IntelligenceScaling/comments/1abcdef/evil/
+  capture:
+    status: complete
+    words: 131
+    files:
+    - format: png
+      name: image-1.png
+      media_id: placed111aa
+      px: [640, 480]
+      bytes: 10
+      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    - format: jpg
+      name: image-2.jpg
+      bytes: 10
+      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    text: {file: text.txt, method: reddit-text}
+found_in: []
+added: '2026-11-22'
+review: {status: auto, check: []}

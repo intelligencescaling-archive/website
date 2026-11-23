@@ -144,6 +144,9 @@ Archive metadata comes from public submissions, so it's treated as untrusted:
 - Pages only render metadata through Astro expressions, which escape HTML. Never use `set:html` with archive data.
   The one exception is the rich reader: `src/lib/blocks.mjs` builds that HTML itself, escapes every string, and
   only allows `https`/`http`/`mailto`/`#bookmark` links, 6-digit hex colours and plain image file names.
+  Reddit posts (parts whose source is `reddit-post`) are Reddit markdown, rendered by `src/lib/reddit-md.mjs`
+  (markdown-it with raw HTML off, links only `https`/`http`/`mailto`, images only the post's own saved files,
+  placed by the `media_id` a capture file may carry). `npm run test:reddit-md` tests it, including hostile input.
 - Every link from metadata goes through `safeUrl()` (only `http`/`https`).
 - The search page (`src/scripts/search.js`) uses Pagefind's JS API, not its default UI, and puts everything from the
   index on the page with `textContent`; only Pagefind's `<mark>` tags are copied, node by node. Don't switch to the
@@ -152,8 +155,8 @@ Archive metadata comes from public submissions, so it's treated as untrusted:
 - Fonts (Archivo, Public Sans; SIL Open Font License, see `public/fonts/`) are self-hosted. The only outside script is Cloudflare Web Analytics (cookie-free visit counts), allowed by name in the CSP.
 - The link preview image is `public/og.png` (1200 × 630). Its numbers are fixed; redraw it when the counts change a lot.
 - `npm run test:escaping` builds the site from `test/fixture-archive/` (one entry full of hostile metadata) and fails
-  if any of it shows up as live HTML (its entry has a hostile `blocks.json` too).
-- Dependencies are few (`astro`, `pagefind`, `yaml`), pinned to exact versions, and installed with scripts off (`.npmrc`).
+  if any of it shows up as live HTML (its entry has a hostile `blocks.json` too, and a Reddit post with hostile markdown).
+- Dependencies are few (`astro`, `markdown-it`, `pagefind`, `yaml`), pinned to exact versions, and installed with scripts off (`.npmrc`).
 
 ## License
 

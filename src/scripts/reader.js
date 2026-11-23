@@ -600,7 +600,7 @@ function initLightbox(root) {
     resetZoom();
     // The box class (q…: aspect, size, crop) sits on the figure or the row cell around the button.
     const box = [...(b.parentElement?.classList || [])].find((c) => /^q[0-9a-f]{8}$/.test(c)) || '';
-    fr.className = ['r-lb-fr', box, ...['crop', 'rot', 'flip'].filter((c) => b.classList.contains(c))].filter(Boolean).join(' ');
+    fr.className = ['r-lb-fr', box, ...['crop', 'rot', 'flip', 'nat'].filter((c) => b.classList.contains(c))].filter(Boolean).join(' ');
     // A fresh <img> (a clone would keep the page's srcset density), inside the same rotation wrapper if any.
     const img = document.createElement('img');
     let copy = img;

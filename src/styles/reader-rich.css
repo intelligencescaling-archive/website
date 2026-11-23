@@ -149,3 +149,38 @@ html.lb-open { overflow: hidden; }
   .r-lb .r-lb-p, .r-lb .r-lb-nx { display: inline-flex; background: rgb(14 14 16 / 0.6); }
   .r-lb-pane { left: 64px; right: 64px; }
 }
+
+/* ---------- Reddit posts (src/lib/reddit-md.mjs): the markdown's own lists, quotes, code and spoilers ---------- */
+.r-md p, .r-md li, .r-md td, .r-md th { white-space: normal; }
+.r-md :is(ul, ol) { margin: 0 0 8px; padding-left: 24px; }
+.r-md ul { list-style: disc; }
+.r-md ol { list-style: decimal; padding-left: 32px; }
+.r-md li ul { list-style: circle; }
+.r-md li { margin: 0 0 4px; }
+.r-md li::marker { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.r-md li > :is(ul, ol) { margin: 4px 0 0; }
+.r-md li > p:last-child { margin-bottom: 0; }
+.r-md blockquote { margin: 0 0 8px; padding: 0 0 0 16px; border-left: 4px solid var(--line); color: var(--text-2); }
+.r-md blockquote > :last-child { margin-bottom: 0; }
+.r-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.875em; padding: 0 4px; border-radius: 4px; background: var(--surface); }
+.r-md pre {
+  margin: 0 0 8px; padding: 12px 16px; border-radius: 6px; background: var(--surface); font-size: 15px; line-height: 22px;
+  white-space: pre-wrap; overflow-wrap: anywhere; hyphens: manual;
+}
+.r-md pre code { padding: 0; background: none; font-size: inherit; }
+.r-md a { overflow-wrap: anywhere; }
+.r-md .tw :is(td, th) { white-space: normal; }
+/* The post's images, sized from the file (width/height attributes reserve the box when the capture has them). */
+.r-rich .md-im { margin: 24px 0; }
+.r-rich .md-im .zb + .zb { margin-top: 8px; }
+.r-rich p .zb.nat { margin: 8px 0; }
+.zb.nat { aspect-ratio: auto; width: fit-content; max-width: 100%; }
+.zb.nat img { width: auto; height: auto; max-width: 100%; }
+@media (min-width: 768px) {
+  .r-rich .md-im { margin: 32px 0; }
+  .zb.nat { margin-inline: auto; }
+  .zb.nat img { max-height: 85vh; }
+}
+.r-lb-fr.nat { aspect-ratio: auto; width: auto; max-width: 100%; max-height: 100%; }
+.r-lb-fr.nat img { width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 76px); }
+@supports (height: 100dvh) { .r-lb-fr.nat img { max-height: calc(100dvh - 76px); } }

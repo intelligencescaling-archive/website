@@ -5,12 +5,14 @@
 // Parts with reader blocks (blocks.json: the DOCX with images, colours and tables) are shown from those instead
 // (src/lib/blocks.mjs), on the same pages and with the same #s-N targets; the note then isn't needed.
 // The text is untrusted: plain text is only ever rendered through Astro expressions (escaped); rich parts go through
-// set:html with HTML that blocks.mjs builds and escapes itself. Settings, progress, chapters, resume and the image
-// viewer are in src/scripts/reader.js; without JavaScript the page is just the text and images.
+// set:html with HTML that blocks.mjs (or reddit-md.mjs, for Reddit posts) builds and escapes itself. Settings,
+// progress, chapters, resume and the image viewer are in src/scripts/reader.js; without JavaScript the page is just
+// the text and images.
 import Base from '../layouts/Base.astro';
 import SaveButton from './SaveButton.astro';
 import { bylineText, formatNumber, textOnly, originalFile, readerUnit } from '../lib/archive.mjs';
 import { richLayout, pageContext, renderPart, originalOf } from '../lib/blocks.mjs';
+import { renderMdPart, mdPlain } from '../lib/reddit-md.mjs';
 import '../styles/reader-rich.css';
 
 interface Props {
@@ -40,12 +42,18 @@ pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.first && !
 // Rich parts (null when none): their blocks laid out over the same pages.
 const layout = richLayout(all, pages);
 const isRich = (i: number) => Boolean(layout && layout.data[i]);
-const allRich = all.every((_: any, i: number) => isRich(i));
-const richHere = chapters.some((c: any) => isRich(c.i));
+// Reddit posts (markdown, src/lib/reddit-md.mjs): shown like rich parts (data-w on every block, same pages and #s-N).
+const isMd = (i: number) => Boolean(all[i].md) && !isRich(i);
+const anyMd = all.some((_: any, i: number) => isMd(i));
+const allRich = all.every((_: any, i: number) => isRich(i) || isMd(i));
+const richHere = chapters.some((c: any) => isRich(c.i) || isMd(c.i));
 const rctx = layout ? pageContext({ layout, page, pageHref }) : null;
 const richHtml = new Map<number, string>();
 if (rctx) for (const c of chapters) if (isRich(c.i)) richHtml.set(c.i, renderPart(rctx, c.i, { multi, missHref: originalOf(e, all[c.i].n) || itemHref }));
-const imageCount = rctx ? rctx.imgN : 0;
+const mdPage = { imgs: 0, eager: 1, tables: rctx ? rctx.tables : 0 };
+const mdHtml = new Map<number, string>();
+for (const c of chapters) if (isMd(c.i)) mdHtml.set(c.i, renderMdPart(all[c.i], c, mdPage, { multi, images: all[c.i].images }));
+const imageCount = (rctx ? rctx.imgN : 0) + mdPage.imgs;
 // Header count: a rich part whose DOCX text boxes hold far more words than its text file says so (`bw`).
 // Positions and pages still count the text file's words.
 const shownWords = all.reduce((n: number, c: any, i: number) => n + ((isRich(i) && layout.data[i].bw) || c.words), 0);
@@ -58,7 +66,7 @@ pages.forEach((p: any, k: number) => p.chapters.forEach((c: any) => c.blocks.for
 const headsOf = all.map((c: any, i: number) =>
   isRich(i)
     ? layout.heads[i]
-    : c.blocks.filter((b: any) => b.sid).map((b: any) => ({ id: `s-${b.sid}`, sid: b.sid, w: b.w, level: b.level, text: b.text, page: pageOfSid.get(b.sid) ?? 0 })),
+    : c.blocks.filter((b: any) => b.sid).map((b: any) => ({ id: `s-${b.sid}`, sid: b.sid, w: b.w, level: b.level, text: isMd(i) && !b.title ? mdPlain(b.text, true) || b.text : b.text, page: pageOfSid.get(b.sid) ?? 0 })),
 );
 const levels = [...new Set(headsOf.flat().map((h: any) => h.level))].sort();
 let keep = levels.slice(0, 2);
@@ -90,7 +98,7 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
   <div class="reader" id="reader" data-id={e.id} data-unit={unit} data-page={page + 1} data-pages={pages.length}
     data-before={here.wordsBefore} data-total={words} data-prev={page > 0 ? pageHref(page - 1) : undefined}
     data-next={page < pages.length - 1 ? pageHref(page + 1) : undefined} data-base={pageHref(0)}
-    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort} data-rich={layout ? '1' : undefined}
+    data-starts={pages.map((p: any) => p.wordsBefore).join(',')} data-short={unitShort} data-rich={layout || anyMd ? '1' : undefined}
     data-read-scale={shownWords !== words ? (shownWords / words).toFixed(4) : undefined}>
     <div class="r-bar">
       <a class="r-icon" href={itemHref} aria-label="Back to the item page">
@@ -152,6 +160,8 @@ const title = paged ? `Read: ${e.title} (page ${page + 1} of ${pages.length})` :
             )}
             {richHtml.has(c.i) ? (
               <div class="r-text r-rich" set:html={richHtml.get(c.i)} />
+            ) : mdHtml.has(c.i) ? (
+              <div class="r-text r-rich r-md" set:html={mdHtml.get(c.i)} />
             ) : (
               <div class="r-text">
                 {c.blocks.map((b: any) => {

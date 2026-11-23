@@ -1,0 +1,49 @@
+Evil <b>Reddit</b> **title** stays plain
+
+**CONTEXT:** bold and *italic* and ***both*** and ~~gone~~ and ^up and ^(two up) and >!hidden **spoiler**!< here.
+Escapes: snake\_case \[not a link\] \# \> \~ \^ \\ and entities &amp; &lt;b&gt;x&lt;/b&gt;
+
+&#x200B;
+
+&nbsp;
+
+# First heading with **bold**
+
+<script>alert("md-script")</script> and <img src=x onerror=alert("md-img")> inline.
+[click me](javascript:alert("md-link")) and [data](data:text/html;base64,PHNjcmlwdD4=) and [ok](https://example.com/ok)
+![evil](javascript:alert("md-image")) and ![img](notsaved123 "A caption") and ![ext](https://evil.example/x.png)
+Bare https://example.com/page and u/some_user in r/IntelligenceScaling.
+
+> a quote
+>> nested quote
+
+>!a whole spoiler line!<
+
+1. one
+2. two
+   - nested a
+   - nested b
+
+3. three after a blank line
+
+    indented code <b>x</b>
+
+```
+fenced *not bold*
+```
+
+| Name | Score |
+|:--|--:|
+| A | 1 |
+
+---
+
+https://preview.redd.it/placed111aa.png?width=640&format=png&auto=webp&s=abc
+
+https://i.redd.it/missing999zz.jpg
+
+## Chapter 2: second heading
+
+Last line with two trailing spaces  
+and a backslash\
+break.
