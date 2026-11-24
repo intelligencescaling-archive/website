@@ -604,6 +604,26 @@ function normalizeEntry(raw, metaFile, reg) {
 
 let cache = null;
 
+/**
+ * Work removed at its author's request (data/removals.yaml in the archive, written by the maintainer's script):
+ * the named authors, a total per year, and hashes of old item ids ("" = the author asked for no mention) and links.
+ */
+const HASH = /^[0-9a-f]{24}$/;
+function readRemovals(file) {
+  const raw = fs.existsSync(file) ? readYaml(file) || {} : {};
+  const authors = arr(raw.authors)
+    .filter((a) => a && SLUG.test(str(a.id)) && str(a.name).trim())
+    .map((a) => ({ key: a.id, name: str(a.name).trim() }));
+  const named = new Set(authors.map((a) => a.key));
+  const items = {};
+  for (const [h, key] of Object.entries(raw.items || {})) if (HASH.test(h)) items[h] = named.has(str(key)) ? str(key) : '';
+  const totals = Object.entries(raw.totals || {})
+    .map(([year, n]) => [Number(year), Number(n)])
+    .filter(([y, n]) => Number.isInteger(y) && n > 0)
+    .sort((a, b) => b[0] - a[0]);
+  return { authors, items, links: arr(raw.links).map(str).filter((h) => HASH.test(h)), totals };
+}
+
 /** Loads everything once per build. */
 export function loadArchive() {
   if (cache) return cache;
@@ -700,6 +720,10 @@ export function loadArchive() {
     delete p.names;
   }
   const authors = people.filter((p) => p.entries.length);
+  // Authors who asked for removal: listed with a note while they have no entries left, or marked when some are kept.
+  const removals = readRemovals(path.join(ARCHIVE_DIR, 'data', 'removals.yaml'));
+  for (const p of people) p.someRemoved = removals.authors.some((a) => a.key === p.key);
+  const removedAuthors = removals.authors.filter((a) => !people.some((p) => p.key === a.key)).sort(byName);
   // Each entry's tags as chips: stored tags (from the registry) plus the derived meta tags, in group order.
   // A stored tag the registry doesn't know (an archive made before the registry) shows its id as the name.
   const unknownTag = (id) => ({ id, name: id, group: 'type', definition: '', aliases: [], order: 999, derived: false });
@@ -730,7 +754,7 @@ export function loadArchive() {
   for (const e of entries) e.topics = topicsFor(e, charSeries).map((id) => ({ id, name: topicName.get(id) }));
   const topics = TOPICS.map((t) => ({ ...t, entries: entries.filter((e) => e.topics.some((x) => x.id === t.id)) }));
 
-  cache = { entries, byId, series, characters, authors, people, tags, languages, origins, topics, warnings: reg.warnings };
+  cache = { entries, byId, series, characters, authors, people, removals, removedAuthors, tags, languages, origins, topics, warnings: reg.warnings };
   return cache;
 }
 

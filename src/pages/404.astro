@@ -2,11 +2,21 @@
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import NameList from '../components/NameList.astro';
+import RemovalNote from '../components/RemovalNote.astro';
 ---
 <Base title="Not found">
-  <div class="prose">
+  <div class="prose" id="nf">
     <h1>Page not found</h1>
     <p class="lede">That page isn't here. If it was an archived item, it may have been removed at its author's request.</p>
+  </div>
+  <div class="main" id="nf-removed" hidden>
+    <h1>Entry removed</h1>
+    <RemovalNote title="Its author asked us not to host it." />
+    <div class="sec" id="nf-author" hidden>
+      <div class="sh"><h2 class="sl">Author</h2></div>
+      <ul class="ls"><li><a class="r1" id="nf-author-a" href="/authors/"><span class="nm"></span><Icon name="go" class="chev" /></a></li></ul>
+      <div class="end"></div>
+    </div>
   </div>
   <form class="nf-search" action="/search/" method="get" role="search">
     <div class="sbox noclr">
@@ -30,3 +40,24 @@ import NameList from '../components/NameList.astro';
     />
   </div>
 </Base>
+
+<script>
+  // An old link to a removed entry: say so (hashes only, see src/pages/removed.json.js). Text goes in with textContent.
+  import { itemInPath, removedData, removedHash } from '../scripts/removed.js';
+  const id = itemInPath(location.pathname);
+  if (id) {
+    const [d, h] = await Promise.all([removedData(), removedHash('item', id)]);
+    if (d && h && Object.hasOwn(d.items, h)) {
+      const key = d.items[h];
+      if (key && Object.hasOwn(d.authors, key)) {
+        const a = document.getElementById('nf-author-a') as HTMLAnchorElement;
+        a.href = `/authors/${key}/`;
+        a.querySelector('.nm')!.textContent = d.authors[key];
+        document.getElementById('nf-author')!.hidden = false;
+      }
+      document.getElementById('nf')!.hidden = true;
+      document.getElementById('nf-removed')!.hidden = false;
+      document.title = document.title.replace('Not found', 'Entry removed');
+    }
+  }
+</script>

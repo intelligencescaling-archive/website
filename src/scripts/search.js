@@ -465,7 +465,7 @@ export async function initSearch() {
     return el(
       'li',
       {},
-      el('a', { className: 'rs', href: f.href }, glyph(kind[5]), el('span', { className: 'tx' }, t, el('span', { className: 'm', textContent: f.sub || ' ' })), el('span', { className: 'n', textContent: f.count.toLocaleString('en-US') })),
+      el('a', { className: 'rs', href: f.href }, glyph(kind[5]), el('span', { className: 'tx' }, t, el('span', { className: 'm', textContent: f.sub || ' ' })), el('span', { className: 'n', textContent: f.count ? f.count.toLocaleString('en-US') : '' })),
     );
   }
 

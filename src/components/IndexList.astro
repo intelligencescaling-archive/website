@@ -6,6 +6,8 @@ interface Item {
   href: string;
   name: string;
   count: number;
+  /** Shown instead of the count ("Work removed"). */
+  mark?: string;
   sub?: string | null;
   /** Extra words the filter box should match (aliases, usernames). */
   match?: string[];
@@ -36,7 +38,7 @@ const { items, noun, label } = Astro.props;
       <li data-name={[it.name, it.sub || '', ...(it.match || [])].join(' | ').toLowerCase()} data-w={it.count} data-r={i}>
         <a class="r1" href={it.href}>
           <span class="nm">{it.name}{it.sub && <span class="sx"> · {it.sub}</span>}</span>
-          <span class="n">{it.count.toLocaleString('en-US')}</span>
+          <span class="n">{it.mark || it.count.toLocaleString('en-US')}</span>
         </a>
       </li>
     ))}

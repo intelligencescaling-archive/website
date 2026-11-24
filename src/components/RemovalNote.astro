@@ -1,0 +1,12 @@
+---
+// The box shown where work was removed at its author's request: one line, an optional second one, and the way to the
+// policy. No date, no titles, no reason.
+import Icon from './Icon.astro';
+interface Props { title: string; text?: string }
+const { title, text } = Astro.props;
+---
+<div class="rmn">
+  <p class="rmn-t">{title}</p>
+  {text && <p class="rmn-b">{text}</p>}
+  <a class="r1 rmn-go" href="/removal/"><span class="nm">How removal works</span><Icon name="go" class="chev" /></a>
+</div>

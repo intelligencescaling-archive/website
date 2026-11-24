@@ -1,6 +1,8 @@
 // Submit page: shows the fields for the chosen kind, checks the link, warns when it's already archived,
 // and posts JSON to /api/submit. The server checks everything again.
 
+import { removedData, removedHash } from './removed.js';
+
 const GOOGLE = /^https:\/\/(docs|drive)\.google\.com\//i;
 const REDDIT = /^https:\/\/((www|old|new|m|np)\.)?reddit\.com\/|^https:\/\/redd\.it\//i;
 const ITEM = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -36,6 +38,7 @@ export function initSubmit() {
   function showKind() {
     const k = kind();
     for (const s of sets) s.hidden = !s.dataset.kind.split(' ').includes(k);
+    form.querySelectorAll('.submit-result.at').forEach((x) => x.remove());
     result.hidden = true;
     confirmDuplicate = false;
   }
@@ -70,8 +73,42 @@ export function initSubmit() {
     return (g && ids.g[g]) || (r && ids.r[r]) || null;
   }
 
+  /** Work whose author asked us not to host it: a note under the field it is about, focus on that field. */
+  const clearBlocked = () => form.querySelectorAll('.submit-result.at').forEach((x) => x.remove());
+  function blockedAt(field, text) {
+    const box = document.createElement('div');
+    box.className = 'submit-result warn at';
+    box.setAttribute('role', 'alert');
+    const a = document.createElement('a');
+    a.href = '/removal/';
+    a.textContent = 'Contact us';
+    box.append(text + ' ', a, '.');
+    $(field).closest('.field').append(box);
+    result.hidden = true;
+    $(field).focus();
+  }
+  async function askedNotTo(url, author) {
+    const d = await removedData();
+    if (!d) return false;
+    const g = googleId(url);
+    const r = redditId(url);
+    const p = /\/d\/e\/(2PACX-[A-Za-z0-9_-]+)/.exec(url);
+    const h = p ? await removedHash('p', p[1]) : g ? await removedHash('g', g) : r ? await removedHash('r', r) : null;
+    if (h && d.links.includes(h)) {
+      blockedAt('url', 'We can’t add this one, at its author’s request. Think that’s a mistake?');
+      return true;
+    }
+    const name = author.trim().replace(/^\/?u\//i, '').replace(/^@/, '').toLowerCase();
+    if (name && d.blocked.includes(name)) {
+      blockedAt('author', 'We can’t add work credited to this name, at the author’s request. Wrong person, or is this you?');
+      return true;
+    }
+    return false;
+  }
+
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    clearBlocked();
     const k = kind();
     const data = Object.fromEntries(new FormData(form));
     const body = { kind: k, note: data.note, by: data.by, token: data['cf-turnstile-response'] || '' };
@@ -81,6 +118,7 @@ export function initSubmit() {
       if (!url) return say('Paste the link to the doc or post.', 'bad'), $('url').focus();
       if (!GOOGLE.test(url) && !REDDIT.test(url))
         return say('That link isn\'t a Google Doc, a Google Drive file or a Reddit post. Those are the only links we can archive.', 'bad'), $('url').focus();
+      if (await askedNotTo(url, data.author || '')) return;
       if (!confirmDuplicate) {
         const have = await alreadyArchived(url);
         if (have) {

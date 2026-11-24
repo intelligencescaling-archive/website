@@ -378,6 +378,13 @@ html[data-has-saved] .sv-emp, html:not([data-has-saved]) .sv-w { display: none; 
 .prose .note { color: var(--text-1); }
 .nf-search { margin-top: 24px; max-width: 680px; }
 
+/* ---------- Removed at the author's request ---------- */
+.rmn { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.rmn-t { font: 600 16px/24px var(--sans); color: var(--text-1); }
+.rmn-b { margin-top: 4px; font: 400 16px/26px var(--sans); color: var(--text-2); }
+.rmn .rmn-go { margin: 12px -8px -12px; }
+.rmn a.rmn-go:hover { background: var(--raised); }
+
 /* ---------- Contact (author pages) ---------- */
 .ct .v a { color: var(--text-1); text-decoration: underline 1px var(--edge); text-underline-offset: 3px; }
 .ct .v a:hover { text-decoration-color: var(--text-1); }
@@ -419,6 +426,7 @@ html[data-has-saved] .sv-emp, html:not([data-has-saved]) .sv-w { display: none; 
 .submit-result.ok { background: var(--ok-soft); color: var(--text-1); }
 .submit-result.warn { background: var(--warn-soft); }
 .submit-result.bad { background: var(--bad-soft); }
+.field .submit-result { margin-top: 8px; }
 .submit-result a { text-decoration: underline 1px currentColor; text-underline-offset: 3px; }
 .nowrap { white-space: nowrap; }
 .acct-flag { font: 400 13px/18px var(--sans); color: var(--text-3); }

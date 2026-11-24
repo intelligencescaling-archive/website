@@ -1,33 +1,61 @@
 ---
 import Base from '../layouts/Base.astro';
 import { ARCHIVE_REPO_URL, REMOVALS_EMAIL } from '../lib/config.mjs';
+import { formatNumber, loadArchive } from '../lib/archive.mjs';
+const { removals } = loadArchive();
 const mailto = `mailto:${REMOVALS_EMAIL}?subject=${encodeURIComponent('Removal request')}`;
 ---
 <Base title="Request removal" section="about" description="Ask for your work to be removed from the archive or credited differently.">
   <div class="prose">
     <h1>Request removal</h1>
     <p class="lede">
-      If you made something that's archived here and want it taken down or credited differently, we'll do it.
+      If you made something that's archived here, you can ask us to take it down or credit it differently. Once we've
+      checked it's yours, we'll do it.
     </p>
 
     <p class="note" id="item-note" hidden>About: <a id="item-link" href="/"></a></p>
 
-    <h2>How</h2>
-    <ul>
-      <li>
-        Email <a id="mail" href={mailto}>{REMOVALS_EMAIL}</a> with the link to the item on this site (or its title), and
-        say what you'd like: removal, a different name, or adding your name.
-      </li>
-      <li>Or use the <a id="form-link" href="/submit/?remove=">removal form</a>. No account needed, and only the maintainers see it. Add your Reddit username so we can reply.</li>
-      <li>Or open an issue on the <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive's GitHub</a>, if you'd rather do it in public.</li>
-    </ul>
+    <div class="acts"><a class="btn" id="form-link" href="/submit/?remove=">Request removal</a></div>
+    <p>
+      No account needed, and only the maintainers see it. Or email <a id="mail" href={mailto}>{REMOVALS_EMAIL}</a>, or
+      open an issue on the <a href={`${ARCHIVE_REPO_URL}/issues`} rel="noopener">archive's GitHub</a> if you'd rather do
+      it in public. Send the links or the name you're credited under, what you'd like, and a way to reach you. We aim to
+      reply within 48 hours.
+    </p>
 
     <h2>What happens</h2>
     <ul>
-      <li>We may ask you to show it's yours, for example by editing the original doc or sending a Reddit message from the account that posted it. This stops other people from removing your work.</li>
-      <li>Removed items are taken off the website and out of the downloads. They stay out of future copies too.</li>
-      <li>We don't need, and won't publish, your real name or any contact details.</li>
+      <li>We may ask you to show it's yours, for example by editing the original doc or sending a Reddit message from the account that posted it. This stops other people from removing your work. If that account is gone, tell us and we'll find another way.</li>
+      <li>Your work comes off the website, its hosted files and the current files of our public archive. We won't knowingly add it again.</li>
+      <li>We keep a private offline copy, so the archive can recover from mistakes and false requests. We don't publish it.</li>
+      <li>We never publish your reason, your contact details or how you reached us.</li>
     </ul>
+
+    <h2>Your name</h2>
+    <p>You choose. Either is fine.</p>
+    <ul>
+      <li><strong>Keep a short note.</strong> Your name stays in the author list, marked “Work removed”, so people don't ask why you're missing. We do this unless you say otherwise.</li>
+      <li><strong>No mention.</strong> Your name comes off the author list too.</li>
+    </ul>
+    <p>Other people's docs may still mention you. Tell us if one shows contact details you'd like taken out.</p>
+
+    <h2>What we can't undo</h2>
+    <p>
+      We can't recall copies other people made. Older versions remain in our public Git history. If that matters to you,
+      tell us.
+    </p>
+    <p>
+      Reddit posts also exist in other archives. <a href="https://github.com/ArthurHeitmann/arctic_shift#contact--removal-requests" rel="noopener">Arctic Shift</a> has its own removal form.
+    </p>
+
+    {removals.totals.length > 0 && (
+      <>
+        <h2>Removals so far</h2>
+        {removals.totals.map(([year, n]) => (
+          <p>In {year}, {formatNumber(n)} {n === 1 ? 'entry was' : 'entries were'} removed at {n === 1 ? "the author's" : "their authors'"} request.</p>
+        ))}
+      </>
+    )}
 
     <h2>Why things are archived without asking first</h2>
     <p>

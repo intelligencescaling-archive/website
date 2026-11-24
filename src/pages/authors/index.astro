@@ -2,7 +2,10 @@
 import Base from '../../layouts/Base.astro';
 import IndexList from '../../components/IndexList.astro';
 import { loadArchive } from '../../lib/archive.mjs';
-const { authors, entries } = loadArchive();
+const { authors, removedAuthors, entries } = loadArchive();
+const rows = [...authors, ...removedAuthors.map((a) => ({ ...a, removed: true, entries: [], reddit: null, match: [] }))].sort((a, b) =>
+  a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
+) as any[];
 const unknown = entries.filter((e) => e.authors.length === 0).length;
 ---
 <Base title="Authors" section="authors" description="Everyone whose work is preserved in the archive.">
@@ -12,10 +15,11 @@ const unknown = entries.filter((e) => e.authors.length === 0).length;
     <IndexList
       label="Authors"
       noun="authors"
-      items={authors.map((a) => ({
+      items={rows.map((a) => ({
         href: `/authors/${a.key}/`,
         name: a.name,
         count: a.entries.length,
+        mark: a.removed ? 'Work removed' : undefined,
         sub: a.reddit && a.reddit.toLowerCase() !== a.name.toLowerCase() ? `u/${a.reddit}` : null,
         match: a.match,
       }))}

@@ -2,14 +2,23 @@
 import Base from '../../layouts/Base.astro';
 import DocList from '../../components/DocList.astro';
 import ContactList from '../../components/ContactList.astro';
+import RemovalNote from '../../components/RemovalNote.astro';
 import { CONTACT_PLATFORMS, redditAccount, docsLabel } from '../../lib/archive.mjs';
 import { loadArchive } from '../../lib/archive.mjs';
 
-// One page per person (data/authors.yaml in the archive): what they made, and what they only shared.
+// One page per person (data/authors.yaml in the archive): what they made, and what they only shared. Someone whose
+// work was all removed at their request gets a page with a note (data/removals.yaml).
 export function getStaticPaths() {
-  return loadArchive().people.map((a) => ({ params: { key: a.key }, props: { a } }));
+  const { people, removedAuthors } = loadArchive();
+  return [
+    ...people.map((a) => ({ params: { key: a.key }, props: { a, removed: false } })),
+    ...removedAuthors.map((a) => ({
+      params: { key: a.key },
+      props: { a: { ...a, entries: [], shared: [], contacts: [], handles: [], aliases: [], reddit: null }, removed: true },
+    })),
+  ];
 }
-const { a } = Astro.props as { a: any };
+const { a, removed } = Astro.props as { a: any; removed: boolean };
 const made = a.entries.length;
 const shared = a.shared.length;
 // Contact row: the person's contacts, plus their Reddit handles from the credits (once each).
@@ -27,13 +36,19 @@ const contacts = [
 ].map(withAccount);
 const accountLines = contacts.filter((c: any) => c.acct).map((c: any) => `Reddit account u/${c.handle} ${c.acct.tail}`);
 const plural = docsLabel;
-const desc = made
+const desc = removed
+  ? "Removed at the author's request."
+  : made
   ? `${made} archived works by ${a.name}.`
   : `${shared} archived ${shared === 1 ? 'doc' : 'docs'} shared by ${a.reddit ? `u/${a.reddit}` : a.name}.`;
 ---
 <Base title={a.name} section="authors" description={desc}>
+  {removed && <meta slot="head" name="robots" content="noindex" />}
   <h1>{a.name}</h1>
-  <p class="m1">{[made > 0 && plural(made), shared > 0 && (made > 0 ? `${shared} shared` : `Shared ${plural(shared)}`)].filter(Boolean).join(' · ')}</p>
+  {removed && (
+    <div class="main"><RemovalNote title="Removed at the author’s request" text="Their work is no longer hosted here." /></div>
+  )}
+  {!removed && <p class="m1">{[made > 0 && plural(made), shared > 0 && (made > 0 ? `${shared} shared` : `Shared ${plural(shared)}`), a.someRemoved && 'some removed at the author’s request'].filter(Boolean).join(' · ')}</p>}
   {a.aliases.length > 0 && <p class="m1">Also: {a.aliases.join(', ')}</p>}
   {contacts.length > 0 && <ContactList contacts={contacts} notes={accountLines} />}
   <div class="main">
